@@ -58,6 +58,24 @@ hardware efficiency.
   lock in the winning-path highlight until the next reset, update the session
   scoreboard bitmap, and transition overlays as needed.
 
+## Video Subsystem
+
+- The `video_init` routine in `platform/video.c` configures a double-buffered
+  320x240 bitmap pipeline. Bitmap page 0 is enabled as the primary front buffer
+  while page 1 is allocated as an optional back buffer that remains hidden
+  until the renderer is ready to swap.
+- Initialization resets the VICKY palette tables via `graphicsReset`, clears
+  all bitmap pages, and hides every sprite using `spriteReset` to guarantee a
+  deterministic starting state.
+- A curated CLUT is programmed through `video_apply_palette`, providing
+  baseline colors for the board light/dark squares, UI panel, highlights, and
+  typography. These entries live in CLUT 0 slots 0-7 for easy reuse across
+  bitmaps and sprites.
+- Asset ingestion is staged through `video_load_assets`, which currently acts
+  as a stub while artwork generation is pending; the function signature is in
+  place so future asset packs can be supplied without refactoring the system
+  bootstrap.
+
 ## Game State Model
 
 ### Core Structures
@@ -245,6 +263,10 @@ minimize runtime branching.
 - Toolchain executables (compiler, objdump, objcopy, nm) default to the
   versions shipped with the checked-out llvm-mos toolchain, but can be
   overridden via `toolchain.mk` when needed.
+- Core `f256lib` rendering helpers (`f_graphics.c`, `f_bitmap.c`,
+  `f_sprite.c`, `f_math.c`) are compiled as part of the project build so the
+  generated binary remains self-contained even if the upstream SDK layout
+  shifts.
 
 ## Memory Layout
 

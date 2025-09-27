@@ -1,7 +1,15 @@
 #include "platform/system.h"
 
+#include "platform/video.h"
+
 static void platform_init_video(void) {
-    // TODO: Configure Foenix video registers using f256lib once integrated.
+    const video_config_t config = {
+        .enable_double_buffer = 1,
+        .front_bitmap_page = 0,
+        .back_bitmap_page = 1,
+    };
+
+    video_init(&config);
 }
 
 static void platform_init_input(void) {
