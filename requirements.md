@@ -101,7 +101,7 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN a move completes, THE SYSTEM SHALL append an algebraic notation entry to
   the move history and scroll older entries as needed.
 - WHEN a player wins, THE SYSTEM SHALL increment their session score and highlight the winning path cells until the game is reset.
-WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the session score as a bitmap graphic positioned under the last menu item as:  W: (white wins) B: (black wins)
+- WHEN a game is initialized or a player wins, THE SYSTEM SHALL display the session score as a bitmap graphic positioned under the last menu item as `W: (white wins) B: (black wins)`.
 - WHEN the session resets, THE SYSTEM SHALL clear the move history unless a tournament mode is introduced in future updates.
 
 ### Artificial Intelligence
@@ -145,7 +145,7 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
 - THE SYSTEM SHALL support audio muting via the M key, with a visual indicator
   when audio is disabled.
 - WHEN hovering over pieces or menu items, THE SYSTEM SHALL play subtle audio
-  feedback to enhance the tactile feel of the interface.s: "copilot"
+  feedback to enhance the tactile feel of the interface.
 
 ## Non-Functional Requirements
 
