@@ -78,6 +78,14 @@ struct SessionStats {
   uint8_t black_wins;
 };
 
+struct UserPreferences {
+  uint8_t difficulty_level;     // 0=Learning, 1=Easy, 2=Standard, 3=Expert
+  uint8_t color_scheme;         // 0=Default, 1=Colorblind1, 2=Colorblind2
+  bool ai_explanations_enabled;
+  bool audio_enabled;
+  uint8_t volume_level;         // 0-10
+};
+
 struct MenuState {
   bool reset_enabled;
   bool info_enabled;
@@ -86,6 +94,7 @@ struct MenuState {
   bool history_enabled;
   bool exit_enabled;
   bool score_enabled;
+  bool undo_enabled;
 };
 
 struct Move {
@@ -109,7 +118,8 @@ minimize runtime branching.
   Resolving → Idle.
 - **Menu Enable FSM:** Startup → AwaitFirstMove → PostMove (disables starting board, enables history) → GameOver → Reset.
 - **Overlay FSM:** Hidden → TransitionIn → Visible → TransitionOut → Hidden.
-- **AI FSM:** Idle → Evaluating → MoveQueued → Idle.
+- **AI FSM:** Idle → Thinking(with indicator) → Evaluating → MoveSelected → Executing → Idle.
+- **Error Recovery FSM:** Normal → ErrorDetected → AttemptRecovery → (Normal | Degraded | Critical).
 
 ## Rendering Strategy
 
@@ -156,32 +166,40 @@ minimize runtime branching.
 
 ## Audio System
 
-- Prepare waveform tables or tone parameters for seven discrete cues: startup,
-  game initialization/reset, piece select, piece deselect, menu confirm,
-  victory, defeat, and program exit.
-- Provide an audio service that queues cue identifiers and programs the Foenix
-  PSG via `f256lib` helpers with minimal latency; deduplicate rapid triggers to
-  avoid audio clutter.
-- Integrate with the selection FSM, menu controller, session lifecycle, and exit
-  dialog so each event plays its corresponding cue while respecting icon enabled
-  states.
-- Expose configuration flags for future accessibility tweaks such as volume or
-  alternative cue sets per difficulty profile.
+- Prepare waveform tables or tone parameters for enhanced audio experience:
+  - Core cues: startup, game init/reset, select, deselect, menu confirm,
+    victory, defeat, exit
+  - Ambient cues: hover feedback, AI thinking pulse, error alerts
+  - Volume levels: 11 discrete levels (0=mute, 1-10=audible)
+- Implement audio service with priority queuing (critical > feedback > ambient)
+  and overlap prevention to avoid audio clutter.
+- Support keyboard volume controls (+, -, M for mute) with visual feedback
+  overlay showing current volume level.
+- Integrate with user preferences system to persist audio settings across
+  session resets.
+- Provide subtle hover sound feedback to enhance interface tactility without
+  overwhelming the user experience.
 
 ## AI Design
 
 - Employ iterative deepening with depth-limited minimax and alpha-beta pruning.
-- Difficulty presets adjust search depth, heuristic weights, and killer-move
-  ordering. For instance: `Easy` depth 1, `Standard` depth 2 with pruning, and
-  `Challenging` depth 3 with transposition caching.
+- Implement four difficulty levels with distinct characteristics:
+  - **Learning**: Depth 1, 15% chance of suboptimal moves, simplified heuristics
+  - **Easy**: Depth 2, basic heuristics, no opening book
+  - **Standard**: Depth 3 with alpha-beta pruning, full heuristics
+  - **Expert**: Depth 4, opening book, transposition tables, quiescence search
 - Heuristic function aggregates:
   - Row coverage between rows 2 and 7
   - Connected component bonuses weighted by size
   - Swapped piece count penalties or rewards depending on mobility
   - Opponent threat detection via lookahead for immediate wins
   - Advanced loss avoidance by flagging forced responses from opponent moves
-- Evaluate forced sequences using quiescence search limited to swap moves to
-  mitigate horizon effects.
+- Maintain a small opening book (3-4 moves deep) with 5-8 good opening patterns
+  to provide variety and avoid early blunders.
+- Implement progressive disclosure: show "thinking" indicator after 100ms,
+  display intermediate best move after 250ms if search continues.
+- Store move explanations for display: "Blocked opponent", "Advanced goal",
+  "Created threat", "Defensive move", etc.
 
 ## Menu and Overlay Implementation
 

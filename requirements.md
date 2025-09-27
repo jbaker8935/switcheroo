@@ -2,7 +2,6 @@
 post_title: "F256 Switcharoo Requirements Specification"
 author1: "GitHub Copilot"
 post_slug: "f256-switcharoo-requirements"
-microsoft_alias: "copilot"
 featured_image: ""
 categories: ["Architecture"]
 tags: ["Foenix F256", "Game Design", "Requirements"]
@@ -89,6 +88,13 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN at least one move has been made in the game, THE SYSTEM SHALL disable the Starting Board icon and will enable the Move History icon.
 - WHEN the game is initialized, THE SYSTEM SHALL enable the Starting Board icon and disable the Move History icon.
 - WHEN an icon is disabled, THE SYSTEM SHALL display the icon with the disabled state consistent with the UI them and the icon will not display the hover state when the mouse is positioned over the disabled icon
+- THE SYSTEM SHALL provide a Settings menu accessible via long-press or
+  right-click on any menu icon, offering options for color schemes, AI move
+  explanations, keyboard shortcuts display, and animation speed.
+- THE SYSTEM SHALL display context-sensitive tooltips for all menu icons when
+  hovered for more than 1 second, showing the action name and keyboard shortcut.
+- THE SYSTEM SHALL remember user preferences (difficulty, color scheme, AI
+  explanations) within the current session and apply them to new games.
 
 ### Move History and Scoring
 
@@ -108,6 +114,17 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
   winning on the next turn.
 - WHEN the selected difficulty changes, THE SYSTEM SHALL adjust heuristic depth,
   iteration limits, or weight values to match the chosen profile.
+- THE SYSTEM SHALL provide at least four difficulty levels: "Learning" (depth 1,
+  occasional suboptimal moves), "Easy" (depth 2), "Standard" (depth 3 with
+  pruning), and "Expert" (depth 4 with opening book).
+- WHEN the AI completes a move, THE SYSTEM SHALL optionally display the move
+  reasoning in a brief overlay (e.g., "Blocked opponent path" or "Advanced
+  towards goal") if explanation mode is enabled.
+- THE SYSTEM SHALL maintain basic opening book knowledge for the first 3-4 moves
+  to provide varied, reasonable play patterns.
+- THE SYSTEM SHALL implement move randomization at lower difficulties by
+  occasionally selecting the 2nd or 3rd best evaluated move to reduce
+  predictability.
 
 ### Audio Feedback
 
@@ -123,6 +140,12 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
 - WHEN the human player loses a game, THE SYSTEM SHALL play a defeat jingle.
 - WHEN the user confirms exit from the program, THE SYSTEM SHALL play a program
   exit audio cue prior to terminating.
+- THE SYSTEM SHALL provide volume control accessible via keyboard shortcuts
+  (+ and - keys) with visual feedback showing current volume level.
+- THE SYSTEM SHALL support audio muting via the M key, with a visual indicator
+  when audio is disabled.
+- WHEN hovering over pieces or menu items, THE SYSTEM SHALL play subtle audio
+  feedback to enhance the tactile feel of the interface.s: "copilot"
 
 ## Non-Functional Requirements
 
@@ -132,6 +155,14 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
   rendering transitions on the Foenix F256K2 hardware.
 - THE SYSTEM SHALL compute AI moves within 500 milliseconds under the
   "Standard" difficulty profile.
+- THE SYSTEM SHALL implement frame-rate adaptive rendering, reducing animation
+  complexity if frame rate drops below 25 FPS for more than 3 consecutive frames.
+- THE SYSTEM SHALL use sprite culling to avoid rendering off-screen elements
+  and batch sprite updates to minimize video memory transfers.
+- THE SYSTEM SHALL precompute and cache winning path connectivity matrices
+  during initialization to accelerate victory detection during gameplay.
+- THE SYSTEM SHALL implement progressive AI evaluation, displaying intermediate
+  move candidates if search exceeds 250ms to maintain responsiveness.
 
 ### Reliability
 
@@ -139,6 +170,15 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
   bitmap initialization failures by reloading assets from `f256lib` services.
 - THE SYSTEM SHALL validate input buffers to avoid corruption when switching
   between mouse and keyboard controls.
+- WHEN the AI engine encounters an infinite loop or exceeds maximum evaluation
+  time, THE SYSTEM SHALL abort the current search and select a random legal move
+  while logging the error condition.
+- IF memory allocation fails during gameplay, THE SYSTEM SHALL attempt to free
+  non-critical resources (audio buffers, move history beyond 10 entries) and
+  continue with reduced functionality.
+- WHEN hardware registers return unexpected values, THE SYSTEM SHALL reinitialize
+  the affected subsystem once per session and fallback to software rendering
+  if reinitialization fails.
 
 ### Usability
 
@@ -146,6 +186,17 @@ WHEN a game is initialized Or a player wins, THE SYSTEM SHALL display the sessio
   pieces, legal moves, and winning paths for accessibility.
 - THE SYSTEM SHALL provide clear textual feedback for difficulty level, current
   turn, and prompts.
+- WHEN the AI is evaluating moves, THE SYSTEM SHALL display a thinking indicator
+  (animated sprite or progress bar) to inform the user of system activity.
+- THE SYSTEM SHALL provide keyboard shortcuts for all menu functions (R=Reset,
+  I=Info, D=Difficulty, S=Starting Board, H=History, X=Exit) displayed in menu
+  tooltips.
+- THE SYSTEM SHALL support colorblind-friendly palette options accessible via
+  a configuration overlay, with at least two alternative color schemes.
+- WHEN displaying move history, THE SYSTEM SHALL use clear algebraic notation
+  with from->to coordinates (e.g., "A1->B2 swap", "C3->C4 move") for clarity.
+- THE SYSTEM SHALL provide undo functionality for the human player's last move
+  during their turn, disabled once the AI begins evaluation.
 
 ### Compliance and Platform Integration
 
