@@ -22,7 +22,7 @@ in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
 | ID | Title | Description | Deliverables | Dependencies | Status |
 | --- | --- | --- | --- | --- | --- |
 | T1 | Toolchain Setup | Configure LLVM-MOS, `f256lib`, and asset build tools; verify hardware emulator pipeline. | Build scripts, local linker script, `.pgz` packaging artifacts, validated tool versions. | None | Done |
-| T2 | Video Initialization | Implement video mode, sprite layer setup, and asset loader stubs per `f256jr_ref.pdf`. | Video init module, smoke test. | T1 | In Progress |
+| T2 | Video Initialization | Implement video mode, sprite layer setup, and asset loader stubs per `f256jr_ref.pdf`. | Video init module, theme palettes, placeholder assets, VRAM upload routine, smoke test. | T1 | In Progress |
 | T3 | Input Subsystem | Integrate mouse and keyboard polling with event translation, including deselection via Escape or re-click, keyboard shortcuts, and volume controls. | Input manager module, shortcut handler, diagnostic overlay. | T1 | Not Started |
 | T4 | Board Model | Implement board data structures, adjacency lookup tables, swap state tracking, and rule enforcement. | Board module, unit tests. | T1 | Not Started |
 | T5 | Move History & Scoring | Build move logging, score tracking, session score display, and reset logic (clears history, preserves scores). | History buffer module, scoreboard renderer tests. | T4 | Not Started |

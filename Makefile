@@ -25,13 +25,34 @@ SYM          := $(OUT_DIR)/$(PROJECT_NAME).sym
 LST          := $(OUT_DIR)/$(PROJECT_NAME).lst
 
 PGZ_INFO_SCRIPT := scripts/pgz_thunk.py
+ASSET_GEN_SCRIPT := scripts/generate_assets.py
+
+ASSET_DIR := assets/generated
+ASSET_MANIFEST := $(ASSET_DIR)/MANIFEST.txt
+GENERATED_ASSETS := \
+	$(ASSET_DIR)/board_bitmap.bin \
+	$(ASSET_DIR)/sprite_white_normal.bin \
+	$(ASSET_DIR)/sprite_white_swapped.bin \
+	$(ASSET_DIR)/sprite_black_normal.bin \
+	$(ASSET_DIR)/sprite_black_swapped.bin \
+	$(ASSET_DIR)/sprite_highlight.bin \
+	$(ASSET_DIR)/icon_reset.bin \
+	$(ASSET_DIR)/icon_info.bin \
+	$(ASSET_DIR)/icon_difficulty.bin \
+	$(ASSET_DIR)/icon_starting_board.bin \
+	$(ASSET_DIR)/icon_history.bin \
+	$(ASSET_DIR)/icon_exit.bin
+
+GENERATED_SRC := src/assets/generated_assets.c
+GENERATED_HEADER := include/assets/generated_assets.h
 
 SRC_DIRS     ?= src
 INCLUDE_DIRS ?= include $(F256DEV_ROOT)/include $(F256DEV_ROOT)/f256lib
 LIB_DIRS     ?= $(F256DEV_ROOT)/llvm-mos/lib \
 				$(F256DEV_ROOT)/llvm-mos/mos-platform/common/lib
 
-LOCAL_SRC := $(shell find $(SRC_DIRS) -name '*.c')
+LOCAL_SRC := $(shell find $(SRC_DIRS) -name '*.c') $(GENERATED_SRC)
+LOCAL_SRC := $(sort $(LOCAL_SRC))
 EXTERNAL_LIB_SRC := f_graphics.c f_bitmap.c f_sprite.c f_math.c
 EXTERNAL_SRC := $(addprefix $(F256DEV_ROOT)/f256lib/,$(EXTERNAL_LIB_SRC))
 
@@ -51,7 +72,7 @@ LIBS := -lm    # Additional libraries can be appended via toolchain.mk
 
 .PHONY: all clean assets dirs print-toolchain
 
-all: dirs $(PGZ) $(SYM) $(LST) $(BIN)
+all: assets dirs $(PGZ) $(SYM) $(LST) $(BIN)
 
 print-toolchain:
 	@echo "Toolchain root: $(F256DEV_ROOT)"
@@ -71,6 +92,15 @@ $(OBJ_DIR)/%.o: %.c
 $(OBJ_DIR)/f256lib/%.o: $(F256DEV_ROOT)/f256lib/%.c
 	@mkdir -p $(dir $@)
 	$(MOS_CC) $(CFLAGS) -c $< -o $@
+
+assets: $(ASSET_MANIFEST)
+
+$(ASSET_MANIFEST): $(ASSET_GEN_SCRIPT)
+	$(PYTHON) $(ASSET_GEN_SCRIPT) --output $(ASSET_DIR)
+
+$(GENERATED_ASSETS): $(ASSET_MANIFEST)
+
+$(OBJ_DIR)/src/assets/generated_assets.o: $(GENERATED_SRC) $(GENERATED_HEADER) $(ASSET_MANIFEST)
 
 $(PGZ) $(ELF): $(OBJ) link.ld $(LINKER_SCRIPT) $(PGZ_INFO_SCRIPT)
 	@rm -f $(PGZ) $(ELF)
@@ -93,3 +123,6 @@ $(BIN): $(ELF)
 
 clean:
 	rm -rf $(OUT_DIR)
+	rm -rf $(ASSET_DIR)
+	rm -f src/assets/generated_assets.c
+	rm -f include/assets/generated_assets.h

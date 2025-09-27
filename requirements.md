@@ -147,6 +147,21 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN hovering over pieces or menu items, THE SYSTEM SHALL play subtle audio
   feedback to enhance the tactile feel of the interface.
 
+### Assets and Theming
+
+- WHEN the build pipeline executes, THE SYSTEM SHALL generate placeholder
+  sprite assets measuring 24x24 pixels for pieces and 16x16 pixels for menu
+  icons so rendering features can be validated before final art delivery.
+- WHEN the build pipeline executes, THE SYSTEM SHALL programmatically produce
+  the 320x240 board bitmap using the active UI theme color lookup table to
+  maintain consistency across themes.
+- THE SYSTEM SHALL expose at least three color lookup table themes (default,
+  high contrast, colorblind) that can be selected by the video subsystem to
+  support accessibility.
+- WHEN the video subsystem initializes, THE SYSTEM SHALL upload the generated
+  placeholder bitmap and sprite assets into VICKY VRAM so hardware tests can
+  exercise populated bitmap and sprite layers.
+
 ## Non-Functional Requirements
 
 ### Performance

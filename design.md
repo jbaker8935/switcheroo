@@ -70,11 +70,21 @@ hardware efficiency.
 - A curated CLUT is programmed through `video_apply_palette`, providing
   baseline colors for the board light/dark squares, UI panel, highlights, and
   typography. These entries live in CLUT 0 slots 0-7 for easy reuse across
-  bitmaps and sprites.
-- Asset ingestion is staged through `video_load_assets`, which currently acts
-  as a stub while artwork generation is pending; the function signature is in
-  place so future asset packs can be supplied without refactoring the system
-  bootstrap.
+  bitmaps and sprites. Predefined palettes exist for three UI themes
+  (`VIDEO_THEME_DEFAULT`, `VIDEO_THEME_HIGH_CONTRAST`,
+  `VIDEO_THEME_COLORBLIND`), and the video subsystem exposes
+  `video_apply_theme` so the menu configuration can switch palettes without
+  touching individual color entries.
+- `video_load_assets` copies the generated asset manifest, seeds a 320x240
+  board bitmap buffer in BSS, and procedurally fills it using the active CLUT
+  slot assignments so the board respects any palette theme without embedding a
+  76 KB data blob in ROM.
+- Asset ingestion uploads placeholder sprites, highlight frames, menu icons,
+  and the procedurally generated board bitmap into TinyVICKY VRAM during
+  initialization so real hardware immediately renders populated bitmap and
+  sprite layers. Sprite memory is carved out of far RAM, assets are copied via
+  the MMU swap window, and `spriteDefine` preconfigures IDs for board pieces,
+  menu icons, and highlight overlays with default off-screen placements.
 
 ## Game State Model
 
@@ -239,12 +249,19 @@ minimize runtime branching.
 ## Asset Pipeline
 
 - Artwork prepared as indexed PNG files converted to Foenix-compatible sprite
-  and bitmap data via `f256lib` asset tools. Assets include normal and swapped
-  piece variants, checkerboard tiles, disabled menu frames, and score glyphs.
+  and bitmap data via `f256lib` asset tools. During early development a
+  deterministic Python script (`scripts/generate_assets.py`) produces
+  placeholder assets into `assets/generated/`, including the 320x240 board
+  bitmap, 24x24 piece sprites, 28x28 highlight overlays, and 16x16 menu icon
+  sprites. The script encodes palette indexes aligned with the active theme so
+  visual smoke tests exercise the real CLUT layout, and it emits
+  `src/assets/generated_assets.c` plus a companion header exposing the
+  `g_video_assets` manifest consumed by the runtime loader.
 - Font glyphs derived from an 8x8 monospace set for legibility at low
   resolution.
 - Build process integrates asset packing into the LLVM-MOS project using custom
-  `Makefile` rules.
+  `Makefile` rules. The `assets` target runs the generation script before
+  compilation to guarantee binaries always have the expected placeholder data.
 
 ## Build and Packaging
 

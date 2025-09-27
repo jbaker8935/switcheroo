@@ -3,10 +3,36 @@
 
 #include <stdint.h>
 
+typedef enum {
+    VIDEO_THEME_DEFAULT = 0,
+    VIDEO_THEME_HIGH_CONTRAST = 1,
+    VIDEO_THEME_COLORBLIND = 2,
+    VIDEO_THEME_COUNT
+} video_theme_t;
+
+typedef enum {
+    VIDEO_PIECE_WHITE_NORMAL = 0,
+    VIDEO_PIECE_WHITE_SWAPPED = 1,
+    VIDEO_PIECE_BLACK_NORMAL = 2,
+    VIDEO_PIECE_BLACK_SWAPPED = 3,
+    VIDEO_PIECE_COUNT
+} video_piece_id_t;
+
+typedef enum {
+    VIDEO_ICON_RESET = 0,
+    VIDEO_ICON_INFO = 1,
+    VIDEO_ICON_DIFFICULTY = 2,
+    VIDEO_ICON_STARTING_BOARD = 3,
+    VIDEO_ICON_HISTORY = 4,
+    VIDEO_ICON_EXIT = 5,
+    VIDEO_ICON_COUNT
+} video_icon_id_t;
+
 typedef struct {
     uint8_t enable_double_buffer;
     uint8_t front_bitmap_page;
     uint8_t back_bitmap_page;
+    video_theme_t theme;
 } video_config_t;
 
 typedef struct {
@@ -27,14 +53,22 @@ typedef struct {
 } video_palette_t;
 
 typedef struct {
-    uint32_t board_bitmap_address;
-    uint32_t overlay_bitmap_address;
-    uint32_t sprite_sheet_address;
+    const uint8_t *board_bitmap;
+    uint32_t board_bitmap_size;
+    const uint8_t *highlight_frame;
+    uint32_t highlight_frame_size;
+    const uint8_t *piece_sprites[VIDEO_PIECE_COUNT];
+    uint32_t piece_sprite_size;
+    const uint8_t *menu_icons[VIDEO_ICON_COUNT];
+    uint32_t menu_icon_size;
 } video_asset_manifest_t;
 
 void video_init(const video_config_t *config);
 void video_apply_palette(const video_palette_t *palette);
+void video_apply_theme(video_theme_t theme);
+const video_palette_t *video_get_theme_palette(video_theme_t theme);
 uint8_t video_load_assets(const video_asset_manifest_t *manifest);
+const video_asset_manifest_t *video_get_assets(void);
 void video_wait_vblank(void);
 
 #endif /* PLATFORM_VIDEO_H */

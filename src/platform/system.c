@@ -7,6 +7,7 @@ static void platform_init_video(void) {
         .enable_double_buffer = 1,
         .front_bitmap_page = 0,
         .back_bitmap_page = 1,
+        .theme = VIDEO_THEME_DEFAULT,
     };
 
     video_init(&config);
