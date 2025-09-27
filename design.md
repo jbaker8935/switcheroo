@@ -228,6 +228,24 @@ minimize runtime branching.
 - Build process integrates asset packing into the LLVM-MOS project using custom
   `Makefile` rules.
 
+## Build and Packaging
+
+- Maintain the Foenix-specific linker logic in-repo under
+  `toolchain/linker/link.ld` so the project does not depend on the upstream
+  `f256dev` directory layout. A thin wrapper `link.ld` at the repository root
+  keeps compatibility with the llvm-mos driver's `-Tlink.ld` default while the
+  full script inlines the zero-page, section, and overlay handling sourced from
+  the Foenix SDK.
+- The primary build target is a `.pgz` image produced by `mos-f256-clang` with
+  the local linker script. The build also emits the companion ELF binary, map
+  file, raw binary dump, symbol table, and annotated disassembly for debugging.
+- Packaging steps are orchestrated through the project `Makefile`, which runs
+  the Python helper `scripts/pgz_thunk.py` after each link to print segment
+  metadata in the build log for quick validation.
+- Toolchain executables (compiler, objdump, objcopy, nm) default to the
+  versions shipped with the checked-out llvm-mos toolchain, but can be
+  overridden via `toolchain.mk` when needed.
+
 ## Memory Layout
 
 - Zero page reserved for hot data: current selection, hover indices, AI timers.

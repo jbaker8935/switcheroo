@@ -5,34 +5,47 @@ MOS_CONFIG   ?= $(MOS_BIN)/mos-f256.cfg
 MOS_CC      ?= $(MOS_BIN)/mos-f256-clang
 MOS_AR      ?= $(MOS_BIN)/llvm-ar
 MOS_OBJCOPY ?= $(MOS_BIN)/llvm-objcopy
+MOS_NM      ?= $(MOS_BIN)/llvm-nm
+MOS_OBJDUMP ?= $(MOS_BIN)/llvm-objdump
+
+PYTHON ?= python3
 
 PROJECT_NAME := f256_switcharoo
 OUT_DIR      := build
 OBJ_DIR      := $(OUT_DIR)/obj
-BIN          := $(OUT_DIR)/$(PROJECT_NAME).prg
+LINKER_DIR   := toolchain/linker
+LINKER_SCRIPT := $(LINKER_DIR)/link.ld
+LINK_OUT_BASE := $(OUT_DIR)/$(PROJECT_NAME)
+
+PGZ          := $(OUT_DIR)/$(PROJECT_NAME).pgz
+ELF          := $(OUT_DIR)/$(PROJECT_NAME).elf
+BIN          := $(OUT_DIR)/$(PROJECT_NAME).bin
 MAP          := $(OUT_DIR)/$(PROJECT_NAME).map
+SYM          := $(OUT_DIR)/$(PROJECT_NAME).sym
+LST          := $(OUT_DIR)/$(PROJECT_NAME).lst
+
+PGZ_INFO_SCRIPT := scripts/pgz_thunk.py
 
 SRC_DIRS     ?= src
 INCLUDE_DIRS ?= include $(F256DEV_ROOT)/include $(F256DEV_ROOT)/f256lib
-LIB_DIRS     ?= $(F256DEV_ROOT)/llvm-mos/lib
+LIB_DIRS     ?= $(F256DEV_ROOT)/llvm-mos/lib \
+				$(F256DEV_ROOT)/llvm-mos/mos-platform/common/lib
 
 SRC := $(shell find $(SRC_DIRS) -name '*.c')
 OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 
-CFLAGS := --target=mos --mcpu=65816 -Os -ffreestanding -fdata-sections -ffunction-sections \
-          --config=$(MOS_CONFIG) \
-          $(addprefix -I,$(INCLUDE_DIRS))
+CFLAGS := -Os -ffreestanding -fdata-sections -ffunction-sections -Wall \
+		  $(addprefix -I,$(INCLUDE_DIRS))
 
-LDFLAGS := --target=mos --mcpu=65816 -fuse-ld=lld --config=$(MOS_CONFIG) -Wl,-gc-sections \
-           -Wl,-Map=$(MAP) $(addprefix -L,$(LIB_DIRS))
+LDFLAGS := -Wl,-gc-sections -Wl,-Map=$(MAP) $(addprefix -L,$(LIB_DIRS))
 
-LIBS := -lf256    # Provided by f256lib archive (configure path in toolchain.mk)
+LIBS := -lm    # Additional libraries can be appended via toolchain.mk
 
 -include toolchain.mk
 
 .PHONY: all clean assets dirs print-toolchain
 
-all: dirs $(BIN)
+all: dirs $(PGZ) $(SYM) $(LST) $(BIN)
 
 print-toolchain:
 	@echo "Toolchain root: $(F256DEV_ROOT)"
@@ -40,6 +53,7 @@ print-toolchain:
 	@echo "Archiver:      $(MOS_AR)"
 	@echo "Objcopy:       $(MOS_OBJCOPY)"
 	@echo "Config:        $(MOS_CONFIG)"
+	@echo "Linker script: $(abspath $(LINKER_SCRIPT))"
 
 dirs:
 	@mkdir -p $(OUT_DIR) $(OBJ_DIR)
@@ -48,9 +62,24 @@ $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	$(MOS_CC) $(CFLAGS) -c $< -o $@
 
-$(BIN): $(OBJ)
-	$(MOS_CC) $(CFLAGS) $(OBJ) $(LDFLAGS) $(LIBS) -o $(BIN)
-	$(MOS_OBJCOPY) -O binary $(BIN) $(OUT_DIR)/$(PROJECT_NAME).bin
+$(PGZ) $(ELF): $(OBJ) link.ld $(LINKER_SCRIPT) $(PGZ_INFO_SCRIPT)
+	@rm -f $(PGZ) $(ELF)
+	$(MOS_CC) $(CFLAGS) $(OBJ) $(LDFLAGS) $(LIBS) -o $(LINK_OUT_BASE)
+	@if [ ! -f "$(ELF)" ]; then \
+		echo "Linker did not emit $(ELF); please verify the llvm-mos toolchain."; \
+		exit 1; \
+	fi
+	mv "$(LINK_OUT_BASE)" "$(PGZ)"
+	$(PYTHON) $(PGZ_INFO_SCRIPT) $(PGZ) || true
+
+$(SYM): $(ELF)
+	$(MOS_NM) $(ELF) > $(SYM)
+
+$(LST): $(ELF)
+	$(MOS_OBJDUMP) --syms -d --print-imm-hex $(ELF) > $(LST)
+
+$(BIN): $(ELF)
+	$(MOS_OBJCOPY) -O binary $(ELF) $(BIN)
 
 clean:
 	rm -rf $(OUT_DIR)
