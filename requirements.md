@@ -158,6 +158,9 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - THE SYSTEM SHALL expose at least three color lookup table themes (default,
   high contrast, colorblind) that can be selected by the video subsystem to
   support accessibility.
+- THE SYSTEM SHALL reserve palette index 0 for transparency and ensure that
+  generated bitmap assets and runtime CLUT updates avoid assigning visible
+  colors to that index.
 - WHEN the video subsystem initializes, THE SYSTEM SHALL upload the generated
   placeholder bitmap and sprite assets into VICKY VRAM so hardware tests can
   exercise populated bitmap and sprite layers.

@@ -8,5 +8,6 @@ icon_starting_board.bin
 sprite_black_normal.bin
 sprite_black_swapped.bin
 sprite_highlight.bin
+sprite_move_indicator.bin
 sprite_white_normal.bin
 sprite_white_swapped.bin

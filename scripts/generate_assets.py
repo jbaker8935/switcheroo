@@ -14,23 +14,28 @@ from pathlib import Path
 
 
 # Palette slot indexes aligned with `video.c` definitions.
-COLOR_BACKGROUND = 0
-COLOR_BOARD_LIGHT = 1
-COLOR_BOARD_DARK = 2
-COLOR_BOARD_BORDER = 3
-COLOR_UI_PANEL = 4
-COLOR_HIGHLIGHT_PRIMARY = 5
-COLOR_HIGHLIGHT_SECONDARY = 6
-COLOR_TEXT_PRIMARY = 7
+COLOR_TRANSPARENT = 0
+COLOR_BACKGROUND = 1
+COLOR_BOARD_BORDER = 2
+COLOR_UI_PANEL = 3
+COLOR_TEXT_PRIMARY = 4
+COLOR_BOARD_BASE = 5
+BOARD_COLUMNS = 4
+BOARD_ROWS = 8
+BOARD_CELL_COUNT = BOARD_COLUMNS * BOARD_ROWS
+COLOR_HIGHLIGHT_PRIMARY = COLOR_BOARD_BASE + BOARD_CELL_COUNT
+COLOR_HIGHLIGHT_SECONDARY = COLOR_HIGHLIGHT_PRIMARY + 1
+COLOR_HIGHLIGHT_DISABLED = COLOR_HIGHLIGHT_PRIMARY + 2
 
 BOARD_KEY = "board_bitmap.bin"
 
 ASSET_DEFINITIONS = OrderedDict([
     (BOARD_KEY, "board"),
-    ("sprite_white_normal.bin", ("piece", COLOR_BOARD_LIGHT, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
+    ("sprite_white_normal.bin", ("piece", COLOR_BOARD_BASE, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
     ("sprite_white_swapped.bin", ("piece", COLOR_HIGHLIGHT_PRIMARY, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
-    ("sprite_black_normal.bin", ("piece", COLOR_BOARD_DARK, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
+    ("sprite_black_normal.bin", ("piece", COLOR_BOARD_BASE + 1, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
     ("sprite_black_swapped.bin", ("piece", COLOR_HIGHLIGHT_SECONDARY, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
+    ("sprite_move_indicator.bin", "move_indicator"),
     ("sprite_highlight.bin", "highlight"),
     ("icon_reset.bin", "icon_reset"),
     ("icon_info.bin", "icon_info"),
@@ -55,6 +60,8 @@ ICON_KEYS = [
     "icon_history.bin",
     "icon_exit.bin",
 ]
+
+MOVE_INDICATOR_KEY = "sprite_move_indicator.bin"
 
 
 def ensure_directory(path: Path) -> None:
@@ -86,7 +93,7 @@ def format_c_array(name: str, data: bytes, values_per_line: int = 12) -> list[st
 
 def generate_board_bitmap() -> bytes:
     width, height = 320, 240
-    board_cols, board_rows = 4, 8
+    board_cols, board_rows = BOARD_COLUMNS, BOARD_ROWS
     cell_size = 28
 
     board_width = board_cols * cell_size
@@ -129,8 +136,8 @@ def generate_board_bitmap() -> bytes:
             if board_x <= x < board_x + board_width and board_y <= y < board_y + board_height:
                 cell_x = (x - board_x) // cell_size
                 cell_y = (y - board_y) // cell_size
-                is_light = (cell_x + cell_y) % 2 == 0
-                buffer[idx] = COLOR_BOARD_LIGHT if is_light else COLOR_BOARD_DARK
+                palette_index = COLOR_BOARD_BASE + cell_y * board_cols + cell_x
+                buffer[idx] = palette_index
                 continue
 
             buffer[idx] = COLOR_BACKGROUND
@@ -144,7 +151,7 @@ def generate_piece_sprite(fill_color: int, border_color: int, accent_color: int)
     radius = 10.5
     edge_band = 1.2
 
-    buffer = bytearray([COLOR_BACKGROUND] * size * size)
+    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
 
     for y in range(size):
         for x in range(size):
@@ -166,7 +173,7 @@ def generate_piece_sprite(fill_color: int, border_color: int, accent_color: int)
 def generate_highlight_sprite() -> bytes:
     size = 28
     thickness = 2
-    buffer = bytearray([COLOR_BACKGROUND] * size * size)
+    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
 
     for y in range(size):
         for x in range(size):
@@ -265,9 +272,12 @@ def generate_icon_starting_board() -> bytes:
     origin_y = 3
     cell = 3
 
+    base_light = COLOR_BOARD_BASE
+    base_dark = COLOR_BOARD_BASE + 1
+
     for row in range(4):
         for col in range(4):
-            color = COLOR_BOARD_LIGHT if (row + col) % 2 == 0 else COLOR_BOARD_DARK
+            color = base_light if (row + col) % 2 == 0 else base_dark
             for y in range(origin_y + row * cell, origin_y + row * cell + cell):
                 for x in range(origin_x + col * cell, origin_x + col * cell + cell):
                     buffer[y * size + x] = color
@@ -307,9 +317,26 @@ def generate_icon_exit() -> bytes:
     return bytes(buffer)
 
 
+def generate_move_indicator() -> bytes:
+    size = 16
+    radius = 5.0
+    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
+
+    for y in range(size):
+        for x in range(size):
+            dx = x - (size - 1) / 2.0
+            dy = y - (size - 1) / 2.0
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist <= radius:
+                buffer[y * size + x] = COLOR_HIGHLIGHT_PRIMARY
+
+    return bytes(buffer)
+
+
 GENERATOR_TABLE = {
     "board": generate_board_bitmap,
     "highlight": generate_highlight_sprite,
+    "move_indicator": generate_move_indicator,
     "icon_reset": generate_icon_reset,
     "icon_info": generate_icon_info,
     "icon_difficulty": generate_icon_difficulty,
@@ -393,14 +420,15 @@ def emit_c_sources(c_path: Path, header_path: Path, payloads: dict[str, bytes]) 
 
     board_symbol = "0"
     highlight_symbol = array_meta["sprite_highlight.bin"][0]
+    move_indicator_symbol = array_meta[MOVE_INDICATOR_KEY][0]
     piece_symbols = [array_meta[key][0] for key in PIECE_KEYS]
     icon_symbols = [array_meta[key][0] for key in ICON_KEYS]
 
     lines.append("const video_asset_manifest_t g_video_assets = {")
-    lines.append(f"    .board_bitmap = {board_symbol},")
-    lines.append("    .board_bitmap_size = 0,")
     lines.append(f"    .highlight_frame = {highlight_symbol},")
     lines.append(f"    .highlight_frame_size = sizeof({highlight_symbol}),")
+    lines.append(f"    .move_indicator = {move_indicator_symbol},")
+    lines.append(f"    .move_indicator_size = sizeof({move_indicator_symbol}),")
     lines.append("    .piece_sprites = {")
     for symbol in piece_symbols:
         lines.append(f"        {symbol},")

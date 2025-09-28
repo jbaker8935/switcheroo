@@ -69,18 +69,20 @@ hardware efficiency.
   deterministic starting state.
 - A curated CLUT is programmed through `video_apply_palette`, providing
   baseline colors for the board light/dark squares, UI panel, highlights, and
-  typography. These entries live in CLUT 0 slots 0-7 for easy reuse across
-  bitmaps and sprites. Predefined palettes exist for three UI themes
+  typography. Slot 0 remains transparent-only so sprites and overlays can rely
+  on hardware transparency, while background, border, UI, and text colors
+  occupy slots 1-4 and board cells consume slots 5-36. Predefined palettes
+  exist for three UI themes
   (`VIDEO_THEME_DEFAULT`, `VIDEO_THEME_HIGH_CONTRAST`,
   `VIDEO_THEME_COLORBLIND`), and the video subsystem exposes
   `video_apply_theme` so the menu configuration can switch palettes without
   touching individual color entries.
-- `video_load_assets` copies the generated asset manifest, seeds a 320x240
-  board bitmap buffer in BSS, and procedurally fills it using the active CLUT
-  slot assignments so the board respects any palette theme without embedding a
-  76 KB data blob in ROM.
+- `video_load_assets` copies the generated asset manifest and stages the board
+  bitmap that was precomputed by `scripts/generate_assets.py`. The bitmap is
+  embedded via the `EMBED` macro in a dedicated overlay region, avoiding large
+  RAM buffers while still honoring runtime palette swaps.
 - Asset ingestion uploads placeholder sprites, highlight frames, menu icons,
-  and the procedurally generated board bitmap into TinyVICKY VRAM during
+  and the embedded board bitmap into TinyVICKY VRAM during
   initialization so real hardware immediately renders populated bitmap and
   sprite layers. Sprite memory is carved out of far RAM, assets are copied via
   the MMU swap window, and `spriteDefine` preconfigures IDs for board pieces,

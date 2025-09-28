@@ -35,6 +35,25 @@ typedef struct {
     video_theme_t theme;
 } video_config_t;
 
+#define VIDEO_BOARD_COLUMNS 4u
+#define VIDEO_BOARD_ROWS 8u
+#define VIDEO_BOARD_CELL_COUNT (VIDEO_BOARD_COLUMNS * VIDEO_BOARD_ROWS)
+
+#define VIDEO_CLUT_TRANSPARENT 0u
+#define VIDEO_CLUT_BACKGROUND 1u
+#define VIDEO_CLUT_BOARD_BORDER 2u
+#define VIDEO_CLUT_UI_PANEL 3u
+#define VIDEO_CLUT_TEXT_PRIMARY 4u
+#define VIDEO_CLUT_BOARD_BASE 5u
+#define VIDEO_CLUT_BOARD_COUNT VIDEO_BOARD_CELL_COUNT
+#define VIDEO_CLUT_HIGHLIGHT_PRIMARY (VIDEO_CLUT_BOARD_BASE + VIDEO_CLUT_BOARD_COUNT)
+#define VIDEO_CLUT_HIGHLIGHT_SECONDARY (VIDEO_CLUT_HIGHLIGHT_PRIMARY + 1u)
+#define VIDEO_CLUT_HIGHLIGHT_DISABLED (VIDEO_CLUT_HIGHLIGHT_PRIMARY + 2u)
+
+static inline uint8_t video_board_palette_index(uint8_t row, uint8_t column) {
+    return (uint8_t)(VIDEO_CLUT_BOARD_BASE + (row * VIDEO_BOARD_COLUMNS) + column);
+}
+
 typedef struct {
     uint8_t r;
     uint8_t g;
@@ -53,10 +72,10 @@ typedef struct {
 } video_palette_t;
 
 typedef struct {
-    const uint8_t *board_bitmap;
-    uint32_t board_bitmap_size;
     const uint8_t *highlight_frame;
     uint32_t highlight_frame_size;
+    const uint8_t *move_indicator;
+    uint32_t move_indicator_size;
     const uint8_t *piece_sprites[VIDEO_PIECE_COUNT];
     uint32_t piece_sprite_size;
     const uint8_t *menu_icons[VIDEO_ICON_COUNT];

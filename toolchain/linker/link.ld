@@ -84,22 +84,13 @@ __block23_lma   = (23 << 24) | __SLOT_ADDR;
 /* Placeholder for binary data overlays (none defined yet). */
 
 MEMORY {
-    block8     : ORIGIN = __block8_lma,     LENGTH = __BLOCK_SIZE
-    block9     : ORIGIN = __block9_lma,     LENGTH = __BLOCK_SIZE
-    block10    : ORIGIN = __block10_lma,    LENGTH = __BLOCK_SIZE
-    block11    : ORIGIN = __block11_lma,    LENGTH = __BLOCK_SIZE
-    block12    : ORIGIN = __block12_lma,    LENGTH = __BLOCK_SIZE
-    block13    : ORIGIN = __block13_lma,    LENGTH = __BLOCK_SIZE
-    block14    : ORIGIN = __block14_lma,    LENGTH = __BLOCK_SIZE
-    block15    : ORIGIN = __block15_lma,    LENGTH = __BLOCK_SIZE
-    block16    : ORIGIN = __block16_lma,    LENGTH = __BLOCK_SIZE
-    block17    : ORIGIN = __block17_lma,    LENGTH = __BLOCK_SIZE
-    block18    : ORIGIN = __block18_lma,    LENGTH = __BLOCK_SIZE
-    block19    : ORIGIN = __block19_lma,    LENGTH = __BLOCK_SIZE
-    block20    : ORIGIN = __block20_lma,    LENGTH = __BLOCK_SIZE
-    block21    : ORIGIN = __block21_lma,    LENGTH = __BLOCK_SIZE
-    block22    : ORIGIN = __block22_lma,    LENGTH = __BLOCK_SIZE
-    block23    : ORIGIN = __block23_lma,    LENGTH = __BLOCK_SIZE
+    board_bitmap : ORIGIN = __block8_lma, LENGTH = __BLOCK_SIZE * 10
+    block18      : ORIGIN = __block18_lma, LENGTH = __BLOCK_SIZE
+    block19      : ORIGIN = __block19_lma, LENGTH = __BLOCK_SIZE
+    block20      : ORIGIN = __block20_lma, LENGTH = __BLOCK_SIZE
+    block21      : ORIGIN = __block21_lma, LENGTH = __BLOCK_SIZE
+    block22      : ORIGIN = __block22_lma, LENGTH = __BLOCK_SIZE
+    block23      : ORIGIN = __block23_lma, LENGTH = __BLOCK_SIZE
 }
 
 REGION_ALIAS("c_writeable", ram)
@@ -182,24 +173,10 @@ SECTIONS {
     } >c_writeable
 
     /* Overlay hooks: no sections defined yet, but keep layout compatible. */
-    .block8     : { *(.block8     .block8.*)      } >block8      end_block8 = .;
-    .block9     : { *(.block9     .block9.*)      } >block9      end_block9 = .;
-    .block10    : { *(.block10    .block10.*)     } >block10     end_block10 = .;
-    .block11    : { *(.block11    .block11.*)     } >block11     end_block11 = .;
-    .block12    : { *(.block12    .block12.*)     } >block12     end_block12 = .;
-    .block13    : { *(.block13    .block13.*)     } >block13     end_block13 = .;
-    .block14    : { *(.block14    .block14.*)     } >block14     end_block14 = .;
-    .block15    : { *(.block15    .block15.*)     } >block15     end_block15 = .;
-    .block16    : { *(.block16    .block16.*)     } >block16     end_block16 = .;
-    .block17    : { *(.block17    .block17.*)     } >block17     end_block17 = .;
-    .block18    : { *(.block18    .block18.*)     } >block18     end_block18 = .;
-    .block19    : { *(.block19    .block19.*)     } >block19     end_block19 = .;
-    .block20    : { *(.block20    .block20.*)     } >block20     end_block20 = .;
-    .block21    : { *(.block21    .block21.*)     } >block21     end_block21 = .;
-    .block22    : { *(.block22    .block22.*)     } >block22     end_block22 = .;
-    .block23    : { *(.block23    .block23.*)     } >block23     end_block23 = .;
-
-    /* Additional overlay metadata would be inserted here when needed. */
+    .video_board_bitmap : {
+        *(.video_board_bitmap .video_board_bitmap.*)
+    } >board_bitmap
+    end_video_board_bitmap = .;
 }
 
 OUTPUT_FORMAT {
@@ -212,7 +189,12 @@ OUTPUT_FORMAT {
     BYTE(0x00)
     TRIM(ram)
 
-    /* Overlay segments and binary blobs (none defined yet). */
+    /* Embedded assets */
+    SHORT(ORIGIN(board_bitmap))
+    BYTE(ORIGIN(board_bitmap) >> 16)
+    SHORT(SIZEOF(.video_board_bitmap))
+    BYTE(SIZEOF(.video_board_bitmap) >> 16)
+    TRIM(board_bitmap)
 
     /* Launch the program at _start. */
     SHORT(_start)

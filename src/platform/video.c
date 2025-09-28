@@ -8,44 +8,45 @@
 #include "f_graphics.h"
 #include "f_sprite.h"
 
-#define VIDEO_PRIMARY_CLUT 0
+EMBED(video_board_bitmap, "assets/generated/board_bitmap.bin", 0);
 
-#define VIDEO_SLOT_BACKGROUND         0
-#define VIDEO_SLOT_BOARD_LIGHT        1
-#define VIDEO_SLOT_BOARD_DARK         2
-#define VIDEO_SLOT_BOARD_BORDER       3
-#define VIDEO_SLOT_UI_PANEL           4
-#define VIDEO_SLOT_HIGHLIGHT_PRIMARY  5
-#define VIDEO_SLOT_HIGHLIGHT_SECONDARY 6
-#define VIDEO_SLOT_TEXT_PRIMARY       7
+#define VIDEO_PRIMARY_CLUT 0
 
 #define VIDEO_SCREEN_WIDTH 320u
 #define VIDEO_SCREEN_HEIGHT 240u
-#define VIDEO_BOARD_COLUMNS 4u
-#define VIDEO_BOARD_ROWS 8u
 #define VIDEO_BOARD_CELL_SIZE 28u
 #define VIDEO_BOARD_BORDER 1u
 #define VIDEO_BOARD_MARGIN 4u
 #define VIDEO_UI_PANEL_GAP 16u
+
+#define VIDEO_MOVE_INDICATOR_SIZE 16u
+#define VIDEO_MOVE_INDICATOR_COUNT VIDEO_BOARD_CELL_COUNT
 
 #define VIDEO_PIECE_SPRITE_SIZE 24u
 #define VIDEO_ICON_SPRITE_SIZE 16u
 #define VIDEO_HIGHLIGHT_SPRITE_SIZE 32u
 #define VIDEO_HIGHLIGHT_SOURCE_SIZE 28u
 
-#define VIDEO_VRAM_PIECE_BASE 0x040000u
+#define VIDEO_VRAM_MOVE_BASE 0x040000u
+#define VIDEO_VRAM_MOVE_STRIDE 0x000200u
+#define VIDEO_VRAM_PIECE_BASE (VIDEO_VRAM_MOVE_BASE + (VIDEO_VRAM_MOVE_STRIDE * VIDEO_MOVE_INDICATOR_COUNT))
 #define VIDEO_VRAM_PIECE_STRIDE 0x000400u
 #define VIDEO_VRAM_HIGHLIGHT_BASE (VIDEO_VRAM_PIECE_BASE + (VIDEO_PIECE_COUNT * VIDEO_VRAM_PIECE_STRIDE))
 #define VIDEO_VRAM_HIGHLIGHT_STRIDE 0x000400u
 #define VIDEO_VRAM_ICON_BASE (VIDEO_VRAM_HIGHLIGHT_BASE + VIDEO_VRAM_HIGHLIGHT_STRIDE)
 #define VIDEO_VRAM_ICON_STRIDE 0x000200u
 
-#define VIDEO_SPRITE_WHITE_BASE 0u
+#define VIDEO_SPRITE_MOVE_BASE 0u
+#define VIDEO_SPRITE_MOVE_COUNT VIDEO_MOVE_INDICATOR_COUNT
+#define VIDEO_SPRITE_WHITE_BASE (VIDEO_SPRITE_MOVE_BASE + VIDEO_SPRITE_MOVE_COUNT)
 #define VIDEO_SPRITE_WHITE_COUNT 8u
-#define VIDEO_SPRITE_BLACK_BASE 8u
+#define VIDEO_SPRITE_BLACK_BASE (VIDEO_SPRITE_WHITE_BASE + VIDEO_SPRITE_WHITE_COUNT)
 #define VIDEO_SPRITE_BLACK_COUNT 8u
-#define VIDEO_SPRITE_HIGHLIGHT 24u
-#define VIDEO_SPRITE_ICON_BASE 32u
+#define VIDEO_SPRITE_ICON_BASE (VIDEO_SPRITE_BLACK_BASE + VIDEO_SPRITE_BLACK_COUNT)
+#define VIDEO_SPRITE_ICON_COUNT VIDEO_ICON_COUNT
+#define VIDEO_SPRITE_HIGHLIGHT (VIDEO_SPRITE_ICON_BASE + VIDEO_SPRITE_ICON_COUNT)
+
+_Static_assert(VIDEO_SPRITE_HIGHLIGHT < 64, "Sprite indices exceed hardware limits");
 
 static video_config_t s_video_config = {
     .enable_double_buffer = 1,
@@ -64,6 +65,7 @@ typedef struct {
 
 typedef struct {
     uint32_t bitmap_page[3];
+    uint32_t move_indicator[VIDEO_MOVE_INDICATOR_COUNT];
     uint32_t piece[VIDEO_PIECE_COUNT];
     uint32_t icon[VIDEO_ICON_COUNT];
     uint32_t highlight;
@@ -106,18 +108,15 @@ static video_theme_t s_active_theme = VIDEO_THEME_DEFAULT;
 
 static video_palette_t s_palette_cache;
 static video_asset_manifest_t s_manifest_cache;
-static uint8_t s_board_bitmap[VIDEO_SCREEN_WIDTH * VIDEO_SCREEN_HEIGHT];
 static video_board_layout_t s_board_layout;
 static video_vram_layout_t s_vram_layout;
 static const video_asset_manifest_t *s_assets = NULL;
+static bool s_board_uploaded = false;
 
-static void video_generate_board_bitmap(void);
-static void video_refresh_board_surface(void);
 static video_board_layout_t video_compute_layout(void);
 static void video_cache_bitmap_addresses(void);
 static void video_initialize_vram_layout(void);
 static void video_upload_board_bitmap(void);
-static void video_upload_board_page(uint8_t page);
 static void video_upload_buffer_to_vram(uint32_t destination, const uint8_t *source, uint32_t length);
 static uint32_t video_read_bitmap_register(uint16_t address_low);
 static void video_upload_sprite_assets(const video_asset_manifest_t *manifest);
@@ -125,10 +124,11 @@ static void video_expand_highlight_sprite(const uint8_t *source, uint8_t *dest);
 static void video_stage_initial_scene(void);
 static void video_position_initial_pieces(void);
 static void video_position_menu_icons(void);
-
-static void video_define_color(uint8_t slot, const video_rgb_t *color) {
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, slot, color->r, color->g, color->b);
-}
+static void video_position_move_indicators(void);
+static void video_apply_board_palette(const video_palette_t *palette);
+static void video_apply_support_palette(const video_palette_t *palette);
+static const uint8_t *video_board_bitmap_data(void);
+static uint32_t video_board_bitmap_size(void);
 
 void video_init(const video_config_t *config) {
     if (config != NULL) {
@@ -139,16 +139,9 @@ void video_init(const video_config_t *config) {
         s_video_config.theme = VIDEO_THEME_DEFAULT;
     }
 
-    if (s_video_config.front_bitmap_page > 2) {
-        s_video_config.front_bitmap_page = 0;
-    }
-    if (s_video_config.back_bitmap_page > 2) {
-        s_video_config.back_bitmap_page = 1;
-    }
-    if (s_video_config.enable_double_buffer &&
-        s_video_config.back_bitmap_page == s_video_config.front_bitmap_page) {
-        s_video_config.back_bitmap_page = (s_video_config.front_bitmap_page + 1) % 3;
-    }
+    s_video_config.enable_double_buffer = 0u;
+    s_video_config.front_bitmap_page = 2u;
+    s_video_config.back_bitmap_page = 2u;
 
     video_initialize_vram_layout();
 
@@ -158,28 +151,25 @@ void video_init(const video_config_t *config) {
 
     video_cache_bitmap_addresses();
 
+    graphicsSetLayerBitmap(2u, s_video_config.front_bitmap_page);
+    graphicsSetLayerBitmap(0u, 0u);
+    graphicsSetLayerBitmap(1u, 1u);
+
+    bitmapSetVisible(0u, 0);
+    bitmapSetVisible(1u, 0);
+    bitmapSetVisible(2u, 1);
+    bitmapSetActive(s_video_config.front_bitmap_page);
+    bitmapSetCLUT(VIDEO_PRIMARY_CLUT);
+
+    s_board_uploaded = false;
+
     s_active_theme = s_video_config.theme;
     video_apply_theme(s_active_theme);
 
-    bitmapSetActive(s_video_config.front_bitmap_page);
-    bitmapSetCLUT(VIDEO_PRIMARY_CLUT);
-    bitmapSetColor(VIDEO_SLOT_BACKGROUND);
-    bitmapClear();
-    bitmapSetVisible(s_video_config.front_bitmap_page, 1);
-
-    if (s_video_config.enable_double_buffer) {
-        bitmapSetActive(s_video_config.back_bitmap_page);
-        bitmapSetCLUT(VIDEO_PRIMARY_CLUT);
-        bitmapSetColor(VIDEO_SLOT_BACKGROUND);
-        bitmapClear();
-        bitmapSetVisible(s_video_config.back_bitmap_page, 0);
-        bitmapSetActive(s_video_config.front_bitmap_page);
-    }
-
-    bitmapSetVisible(2, 0);
-
     if (s_assets == NULL) {
         video_load_assets(&g_video_assets);
+    } else {
+        video_upload_board_bitmap();
     }
 }
 
@@ -189,14 +179,16 @@ void video_apply_palette(const video_palette_t *palette) {
 
     memcpy(&s_palette_cache, source, sizeof(video_palette_t));
 
-    video_define_color(VIDEO_SLOT_BACKGROUND, &source->background);
-    video_define_color(VIDEO_SLOT_BOARD_LIGHT, &source->board_light);
-    video_define_color(VIDEO_SLOT_BOARD_DARK, &source->board_dark);
-    video_define_color(VIDEO_SLOT_BOARD_BORDER, &source->board_border);
-    video_define_color(VIDEO_SLOT_UI_PANEL, &source->ui_panel);
-    video_define_color(VIDEO_SLOT_HIGHLIGHT_PRIMARY, &source->highlight_primary);
-    video_define_color(VIDEO_SLOT_HIGHLIGHT_SECONDARY, &source->highlight_secondary);
-    video_define_color(VIDEO_SLOT_TEXT_PRIMARY, &source->text_primary);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_TRANSPARENT, 0u, 0u, 0u);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_BACKGROUND, source->background.r, source->background.g, source->background.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_BOARD_BORDER, source->board_border.r, source->board_border.g, source->board_border.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_UI_PANEL, source->ui_panel.r, source->ui_panel.g, source->ui_panel.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_TEXT_PRIMARY, source->text_primary.r, source->text_primary.g, source->text_primary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_PRIMARY, source->highlight_primary.r, source->highlight_primary.g, source->highlight_primary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SECONDARY, source->highlight_secondary.r, source->highlight_secondary.g, source->highlight_secondary.b);
+
+    video_apply_support_palette(source);
+    video_apply_board_palette(source);
 }
 
 uint8_t video_load_assets(const video_asset_manifest_t *manifest) {
@@ -205,12 +197,10 @@ uint8_t video_load_assets(const video_asset_manifest_t *manifest) {
     }
 
     s_manifest_cache = *manifest;
-    s_manifest_cache.board_bitmap = s_board_bitmap;
-    s_manifest_cache.board_bitmap_size = sizeof(s_board_bitmap);
 
     s_assets = &s_manifest_cache;
 
-    video_refresh_board_surface();
+    video_upload_board_bitmap();
     video_upload_sprite_assets(s_assets);
     video_stage_initial_scene();
 
@@ -229,8 +219,6 @@ void video_apply_theme(video_theme_t theme) {
     s_active_theme = theme;
     const video_palette_t *palette = video_get_theme_palette(theme);
     video_apply_palette(palette);
-
-    video_refresh_board_surface();
 }
 
 const video_palette_t *video_get_theme_palette(video_theme_t theme) {
@@ -243,12 +231,6 @@ const video_palette_t *video_get_theme_palette(video_theme_t theme) {
 
 const video_asset_manifest_t *video_get_assets(void) {
     return s_assets;
-}
-
-static void video_refresh_board_surface(void) {
-    video_generate_board_bitmap();
-    video_upload_board_bitmap();
-    video_position_menu_icons();
 }
 
 static video_board_layout_t video_compute_layout(void) {
@@ -268,10 +250,16 @@ static void video_cache_bitmap_addresses(void) {
 }
 
 static void video_initialize_vram_layout(void) {
+    for (uint32_t index = 0; index < VIDEO_MOVE_INDICATOR_COUNT; ++index) {
+        s_vram_layout.move_indicator[index] = VIDEO_VRAM_MOVE_BASE + (index * VIDEO_VRAM_MOVE_STRIDE);
+    }
+
     for (uint32_t index = 0; index < VIDEO_PIECE_COUNT; ++index) {
         s_vram_layout.piece[index] = VIDEO_VRAM_PIECE_BASE + (index * VIDEO_VRAM_PIECE_STRIDE);
     }
+
     s_vram_layout.highlight = VIDEO_VRAM_HIGHLIGHT_BASE;
+
     for (uint32_t index = 0; index < VIDEO_ICON_COUNT; ++index) {
         s_vram_layout.icon[index] = VIDEO_VRAM_ICON_BASE + (index * VIDEO_VRAM_ICON_STRIDE);
     }
@@ -285,23 +273,18 @@ static uint32_t video_read_bitmap_register(uint16_t address_low) {
 }
 
 static void video_upload_board_bitmap(void) {
-    video_upload_board_page(s_video_config.front_bitmap_page);
-    if (s_video_config.enable_double_buffer) {
-        video_upload_board_page(s_video_config.back_bitmap_page);
-    }
-}
-
-static void video_upload_board_page(uint8_t page) {
-    if (page >= 3u) {
+    if (s_board_uploaded) {
         return;
     }
 
-    const uint32_t destination = s_vram_layout.bitmap_page[page];
-    if (destination == 0u) {
-        return;
-    }
+    const uint32_t destination = s_vram_layout.bitmap_page[s_video_config.front_bitmap_page];
+    const uint8_t *source = video_board_bitmap_data();
+    const uint32_t length = video_board_bitmap_size();
 
-    video_upload_buffer_to_vram(destination, s_board_bitmap, sizeof(s_board_bitmap));
+    if (destination != 0u && source != NULL && length > 0u) {
+        video_upload_buffer_to_vram(destination, source, length);
+        s_board_uploaded = true;
+    }
 }
 
 static void video_upload_buffer_to_vram(uint32_t destination, const uint8_t *source, uint32_t length) {
@@ -337,7 +320,7 @@ static void video_upload_buffer_to_vram(uint32_t destination, const uint8_t *sou
 
 static void video_expand_highlight_sprite(const uint8_t *source, uint8_t *dest) {
     const uint32_t total_size = VIDEO_HIGHLIGHT_SPRITE_SIZE * VIDEO_HIGHLIGHT_SPRITE_SIZE;
-    memset(dest, VIDEO_SLOT_BACKGROUND, total_size);
+    memset(dest, VIDEO_CLUT_TRANSPARENT, total_size);
 
     if (source == NULL) {
         return;
@@ -352,6 +335,15 @@ static void video_expand_highlight_sprite(const uint8_t *source, uint8_t *dest) 
 static void video_upload_sprite_assets(const video_asset_manifest_t *manifest) {
     if (manifest == NULL) {
         return;
+    }
+
+    if (manifest->move_indicator != NULL && manifest->move_indicator_size > 0u) {
+        for (uint32_t index = 0; index < VIDEO_MOVE_INDICATOR_COUNT; ++index) {
+            video_upload_buffer_to_vram(
+                s_vram_layout.move_indicator[index],
+                manifest->move_indicator,
+                manifest->move_indicator_size);
+        }
     }
 
     if (manifest->piece_sprite_size > 0u) {
@@ -384,29 +376,40 @@ static void video_stage_initial_scene(void) {
         return;
     }
 
+    s_board_layout = video_compute_layout();
+
+    for (uint8_t index = 0u; index < VIDEO_SPRITE_MOVE_COUNT; ++index) {
+        const uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_MOVE_BASE + index);
+        spriteDefine(sprite_id, s_vram_layout.move_indicator[index], VIDEO_MOVE_INDICATOR_SIZE, VIDEO_PRIMARY_CLUT, 0);
+        spriteSetVisible(sprite_id, 0);
+    }
+
     const uint32_t white_normal_addr = s_vram_layout.piece[VIDEO_PIECE_WHITE_NORMAL];
     const uint32_t black_normal_addr = s_vram_layout.piece[VIDEO_PIECE_BLACK_NORMAL];
 
     for (uint8_t index = 0u; index < VIDEO_SPRITE_WHITE_COUNT; ++index) {
-        spriteDefine(VIDEO_SPRITE_WHITE_BASE + index, white_normal_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 0);
-        spriteSetVisible(VIDEO_SPRITE_WHITE_BASE + index, 0);
+        const uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_WHITE_BASE + index);
+        spriteDefine(sprite_id, white_normal_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteSetVisible(sprite_id, 0);
     }
 
     for (uint8_t index = 0u; index < VIDEO_SPRITE_BLACK_COUNT; ++index) {
-        spriteDefine(VIDEO_SPRITE_BLACK_BASE + index, black_normal_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
-        spriteSetVisible(VIDEO_SPRITE_BLACK_BASE + index, 0);
+        const uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_BLACK_BASE + index);
+        spriteDefine(sprite_id, black_normal_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteSetVisible(sprite_id, 0);
     }
 
     for (uint8_t index = 0u; index < VIDEO_ICON_COUNT; ++index) {
         const uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + index);
-        spriteDefine(sprite_id, s_vram_layout.icon[index], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 3);
+        spriteDefine(sprite_id, s_vram_layout.icon[index], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
         spriteSetVisible(sprite_id, 1);
     }
 
-    spriteDefine(VIDEO_SPRITE_HIGHLIGHT, s_vram_layout.highlight, VIDEO_HIGHLIGHT_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 2);
+    spriteDefine(VIDEO_SPRITE_HIGHLIGHT, s_vram_layout.highlight, VIDEO_HIGHLIGHT_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
     spriteSetVisible(VIDEO_SPRITE_HIGHLIGHT, 0);
     spriteSetPosition(VIDEO_SPRITE_HIGHLIGHT, (uint16_t)(s_board_layout.board_x - 2), (uint16_t)(s_board_layout.board_y - 2));
 
+    video_position_move_indicators();
     video_position_initial_pieces();
     video_position_menu_icons();
 }
@@ -455,44 +458,55 @@ static void video_position_menu_icons(void) {
     }
 }
 
-static void video_generate_board_bitmap(void) {
-    s_board_layout = video_compute_layout();
+static void video_position_move_indicators(void) {
+    const uint16_t board_x = (uint16_t)s_board_layout.board_x;
+    const uint16_t board_y = (uint16_t)s_board_layout.board_y;
+    const uint16_t offset = (uint16_t)((VIDEO_BOARD_CELL_SIZE - VIDEO_MOVE_INDICATOR_SIZE) / 2u);
 
-    const int width = VIDEO_SCREEN_WIDTH;
-    const int height = VIDEO_SCREEN_HEIGHT;
-    const int board_x = s_board_layout.board_x;
-    const int board_y = s_board_layout.board_y;
-    const int board_width = s_board_layout.board_width;
-    const int board_height = s_board_layout.board_height;
-    const int ui_panel_x = s_board_layout.ui_panel_x;
-
-    for (int y = 0; y < height; ++y) {
-        for (int x = 0; x < width; ++x) {
-            uint8_t color = VIDEO_SLOT_BACKGROUND;
-
-            if (x >= ui_panel_x) {
-                color = VIDEO_SLOT_UI_PANEL;
-            } else if (y < (board_y - VIDEO_BOARD_MARGIN) ||
-                       y >= (board_y + board_height + VIDEO_BOARD_MARGIN) ||
-                       x < (board_x - VIDEO_BOARD_MARGIN) ||
-                       x >= (board_x + board_width + VIDEO_BOARD_MARGIN)) {
-                color = VIDEO_SLOT_BACKGROUND;
-            } else if ((x >= (board_x - VIDEO_BOARD_BORDER) &&
-                        x < (board_x + board_width + VIDEO_BOARD_BORDER) &&
-                        ((y == (board_y - VIDEO_BOARD_BORDER)) || (y == (board_y + board_height)))) ||
-                       (y >= (board_y - VIDEO_BOARD_BORDER) &&
-                        y < (board_y + board_height + VIDEO_BOARD_BORDER) &&
-                        ((x == (board_x - VIDEO_BOARD_BORDER)) || (x == (board_x + board_width))))) {
-                color = VIDEO_SLOT_BOARD_BORDER;
-            } else if (x >= board_x && x < (board_x + board_width) &&
-                       y >= board_y && y < (board_y + board_height)) {
-                const int cell_x = (x - board_x) / VIDEO_BOARD_CELL_SIZE;
-                const int cell_y = (y - board_y) / VIDEO_BOARD_CELL_SIZE;
-                const int parity = (cell_x + cell_y) & 1;
-                color = parity == 0 ? VIDEO_SLOT_BOARD_LIGHT : VIDEO_SLOT_BOARD_DARK;
-            }
-
-            s_board_bitmap[y * width + x] = color;
+    for (uint8_t row = 0u; row < VIDEO_BOARD_ROWS; ++row) {
+        for (uint8_t col = 0u; col < VIDEO_BOARD_COLUMNS; ++col) {
+            const uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_MOVE_BASE + (row * VIDEO_BOARD_COLUMNS) + col);
+            const uint16_t x = (uint16_t)(board_x + (col * VIDEO_BOARD_CELL_SIZE) + offset);
+            const uint16_t y = (uint16_t)(board_y + (row * VIDEO_BOARD_CELL_SIZE) + offset);
+            spriteSetPosition(sprite_id, x, y);
         }
     }
+}
+
+static void video_apply_support_palette(const video_palette_t *palette) {
+    if (palette == NULL) {
+        return;
+    }
+
+    graphicsDefineColor(
+        VIDEO_PRIMARY_CLUT,
+        VIDEO_CLUT_HIGHLIGHT_DISABLED,
+        palette->background.r,
+        palette->background.g,
+        palette->background.b);
+}
+
+static void video_apply_board_palette(const video_palette_t *palette) {
+    if (palette == NULL) {
+        return;
+    }
+
+    for (uint8_t row = 0u; row < VIDEO_BOARD_ROWS; ++row) {
+        for (uint8_t col = 0u; col < VIDEO_BOARD_COLUMNS; ++col) {
+            const uint8_t clut_index = video_board_palette_index(row, col);
+            const video_rgb_t *color = (((row + col) & 1u) == 0u) ? &palette->board_light : &palette->board_dark;
+            graphicsDefineColor(VIDEO_PRIMARY_CLUT, clut_index, color->r, color->g, color->b);
+        }
+    }
+}
+
+static const uint8_t *video_board_bitmap_data(void) {
+    extern const char video_board_bitmap_start[];
+    return (const uint8_t *)video_board_bitmap_start;
+}
+
+static uint32_t video_board_bitmap_size(void) {
+    extern const char video_board_bitmap_start[];
+    extern const char video_board_bitmap_end[];
+    return (uint32_t)(video_board_bitmap_end - video_board_bitmap_start);
 }

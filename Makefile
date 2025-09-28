@@ -35,6 +35,7 @@ GENERATED_ASSETS := \
 	$(ASSET_DIR)/sprite_white_swapped.bin \
 	$(ASSET_DIR)/sprite_black_normal.bin \
 	$(ASSET_DIR)/sprite_black_swapped.bin \
+	$(ASSET_DIR)/sprite_move_indicator.bin \
 	$(ASSET_DIR)/sprite_highlight.bin \
 	$(ASSET_DIR)/icon_reset.bin \
 	$(ASSET_DIR)/icon_info.bin \
