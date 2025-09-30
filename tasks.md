@@ -22,15 +22,15 @@ in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
 | ID | Title | Description | Deliverables | Dependencies | Status |
 | --- | --- | --- | --- | --- | --- |
 | T1 | Toolchain Setup | Configure LLVM-MOS, `f256lib`, and asset build tools; verify hardware emulator pipeline. | Build scripts, local linker script, `.pgz` packaging artifacts, validated tool versions. | None | Done |
-| T2 | Video Initialization | Implement video mode, sprite layer setup, and asset loader stubs per `f256jr_ref.pdf`. | Video init module, theme palettes, placeholder assets, VRAM upload routine, smoke test. | T1 | In Progress |
-| T3 | Input Subsystem | Integrate mouse and keyboard polling with event translation, including deselection via Escape or re-click, keyboard shortcuts, and volume controls. | Input manager module, shortcut handler, diagnostic overlay. | T1 | Not Started |
-| T4 | Board Model | Implement board data structures, adjacency lookup tables, swap state tracking, and rule enforcement. | Board module, unit tests. | T1 | Not Started |
-| T5 | Move History & Scoring | Build move logging, score tracking, session score display, and reset logic (clears history, preserves scores). | History buffer module, scoreboard renderer tests. | T4 | Not Started |
-| T6 | Rendering Pipeline | Draw checkerboard board bitmap with border, place normal/swapped sprites, render color-coded highlights, disabled icons, and scoreboard strip. | Render pipeline module, visual test. | T2, T4 | Not Started |
+| T2 | Video Initialization | Implement video mode, sprite layer setup, and asset loader stubs per `f256jr_ref.pdf`. | Video init module, theme palettes, placeholder assets, VRAM upload routine, smoke test. | T1 | Done |
+| T3 | Input Subsystem | Integrate mouse and keyboard polling with event translation, including deselection via Escape or re-click, keyboard shortcuts, and volume controls. | Input manager module, shortcut handler, diagnostic overlay. | T1 | Done |
+| T4 | Board Model | Implement board data structures, adjacency lookup tables, swap state tracking, and rule enforcement. | Board module, unit tests. | T1 | Done |
+| T5 | Move History & Scoring | Build move logging, score tracking, session score display, and reset logic (clears history, preserves scores). | History buffer module, scoreboard renderer tests. | T4 | Done (Integrated in game_state) |
+| T6 | Rendering Pipeline | Draw checkerboard board bitmap with border, place normal/swapped sprites, render color-coded highlights, disabled icons, and scoreboard strip. | Render pipeline module, visual test. | T2, T4 | Done |
 | T7 | Menu System | Implement icon widgets with enable/disable states, hover suppression for disabled icons, and overlay transitions. | Menu module, UI test. | T3, T6 | Not Started |
 | T8 | AI Engine | Implement 4-level difficulty system, heuristic evaluation, opening book, move explanations, and progressive search with thinking indicators. | AI module, opening book, explanation system, evaluation tests. | T4 | Not Started |
-| T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | Not Started |
-| T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Not Started |
+| T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | In Progress (Core state machine done) |
+| T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Done (Detection complete, rendering pending) |
 | T11 | Audio Feedback | Implement enhanced audio service with volume control, priority queuing, hover feedback, and expanded cue set for comprehensive audio experience. | Audio module, volume control, cue asset pack, priority system tests. | T2 | Not Started |
 | T12 | QA & Polishing | Execute test suite, hardware profiling, bug fixes, and documentation updates. | Test reports, updated docs. | T1-T11 | Not Started |
 | T13 | UX Enhancements | Implement undo functionality, tooltips, settings overlay, colorblind support, and AI move explanations. | UX enhancement module, accessibility tests. | T6, T7, T8 | Not Started |
