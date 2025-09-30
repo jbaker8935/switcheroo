@@ -1,0 +1,262 @@
+/**
+ * @file input_handler.c
+ * @brief Input event handler implementation
+ */
+
+#include "../src/input_handler.h"
+#include <string.h>
+
+// Layout constants from video.c
+#define SCREEN_WIDTH 320u
+#define SCREEN_HEIGHT 240u
+#define BOARD_CELL_SIZE 28u
+#define ICON_SIZE 16u
+#define BOARD_COLS 4u
+#define BOARD_ROWS 8u
+#define BOARD_BORDER 4u
+
+// Calculate board position (centered on screen)
+static int16_t s_board_x;
+static int16_t s_board_y;
+static int16_t s_menu_y;  // Menu strip at bottom
+
+void input_handler_init(void) {
+    // Board: 4px border + 4 cols * 28px = 116px wide
+    // Board: 4px border + 8 rows * 28px = 228px tall
+    const int16_t board_width = BOARD_BORDER + (BOARD_COLS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    const int16_t board_height = BOARD_BORDER + (BOARD_ROWS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    
+    s_board_x = (SCREEN_WIDTH - board_width) / 2;
+    s_board_y = (SCREEN_HEIGHT - board_height) / 2;
+    
+    // Menu strip at bottom (below board)
+    s_menu_y = s_board_y + board_height + 8;
+}
+
+hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
+    hit_result_t result;
+    result.type = HIT_NONE;
+    
+    // Check if click is within board area
+    const int16_t board_width = BOARD_BORDER + (BOARD_COLS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    const int16_t board_height = BOARD_BORDER + (BOARD_ROWS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    
+    if (screen_x >= s_board_x && screen_x < s_board_x + board_width &&
+        screen_y >= s_board_y && screen_y < s_board_y + board_height) {
+        
+        // Inside board - determine which cell
+        int16_t rel_x = screen_x - s_board_x - BOARD_BORDER;
+        int16_t rel_y = screen_y - s_board_y - BOARD_BORDER;
+        
+        if (rel_x >= 0 && rel_y >= 0) {
+            uint8_t col = rel_x / BOARD_CELL_SIZE;
+            uint8_t row = rel_y / BOARD_CELL_SIZE;
+            
+            if (col < BOARD_COLS && row < BOARD_ROWS) {
+                result.type = HIT_BOARD_CELL;
+                result.data.cell.row = row;
+                result.data.cell.col = col;
+                return result;
+            }
+        }
+    }
+    
+    // Check if click is on menu icons (horizontally centered, at menu_y)
+    // Icons are 16x16, spaced 20px apart, centered horizontally
+    const int16_t icon_spacing = 20;
+    const int16_t total_menu_width = MENU_ICON_COUNT * icon_spacing;
+    const int16_t menu_x = (SCREEN_WIDTH - total_menu_width) / 2;
+    
+    if (screen_y >= s_menu_y && screen_y < s_menu_y + ICON_SIZE) {
+        if (screen_x >= menu_x && screen_x < menu_x + total_menu_width) {
+            int16_t rel_x = screen_x - menu_x;
+            uint8_t icon_index = rel_x / icon_spacing;
+            
+            // Check if actually on the icon (not in gap between icons)
+            int16_t icon_local_x = rel_x % icon_spacing;
+            if (icon_local_x < ICON_SIZE && icon_index < MENU_ICON_COUNT) {
+                result.type = HIT_MENU_ICON;
+                result.data.icon = (menu_icon_t)icon_index;
+                return result;
+            }
+        }
+    }
+    
+    return result;
+}
+
+void input_handler_process_event(game_state_t *state, const input_event_t *event) {
+    if (state->phase == GAME_PHASE_EXIT) {
+        return;  // Don't process input when exiting
+    }
+    
+    switch (event->type) {
+        case INPUT_EVENT_MOUSE_DOWN:
+            if (event->data.mouse.button == MOUSE_BUTTON_LEFT) {
+                // Hit test to see what was clicked
+                hit_result_t hit = input_handler_hit_test(event->data.mouse.x, event->data.mouse.y);
+                
+                if (hit.type == HIT_BOARD_CELL) {
+                    // Clicked on board cell
+                    uint8_t row = hit.data.cell.row;
+                    uint8_t col = hit.data.cell.col;
+                    
+                    if (state->selection.has_selection) {
+                        // Check if clicked on a legal move
+                        bool found_move = false;
+                        for (uint8_t i = 0; i < state->selection.legal_move_count; i++) {
+                            if (state->selection.legal_moves[i].to_row == row &&
+                                state->selection.legal_moves[i].to_col == col) {
+                                // Execute the move
+                                game_state_execute_selected_move(state, i);
+                                found_move = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!found_move) {
+                            // Clicked somewhere else - deselect or select new piece
+                            game_state_deselect_piece(state);
+                            game_state_select_piece(state, row, col);
+                        }
+                    } else {
+                        // No selection - try to select this piece
+                        game_state_select_piece(state, row, col);
+                    }
+                } else if (hit.type == HIT_MENU_ICON) {
+                    // Clicked on menu icon
+                    if (state->menu.enabled[hit.data.icon]) {
+                        game_state_activate_menu_icon(state, hit.data.icon);
+                    }
+                }
+            }
+            break;
+            
+        case INPUT_EVENT_MOUSE_MOVE:
+            // Update hover state for highlights
+            // TODO: Set hovered_move or hovered_icon based on mouse position
+            break;
+            
+        case INPUT_EVENT_KEY_DOWN:
+            switch (event->data.key.code) {
+                case KEY_UP:
+                case KEY_DOWN:
+                case KEY_LEFT:
+                case KEY_RIGHT:
+                    input_handler_move_focus(state, event->data.key.code);
+                    break;
+                    
+                case KEY_ENTER:
+                    input_handler_activate_focused(state);
+                    break;
+                    
+                case KEY_ESCAPE:
+                    // Deselect piece or close overlay
+                    if (state->selection.has_selection) {
+                        game_state_deselect_piece(state);
+                    }
+                    break;
+                    
+                case KEY_R:  // Reset
+                    if (state->menu.enabled[MENU_ICON_RESET]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_RESET);
+                    }
+                    break;
+                    
+                case KEY_I:  // Info
+                    if (state->menu.enabled[MENU_ICON_INFO]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_INFO);
+                    }
+                    break;
+                    
+                case KEY_D:  // Difficulty
+                    if (state->menu.enabled[MENU_ICON_DIFFICULTY]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_DIFFICULTY);
+                    }
+                    break;
+                    
+                case KEY_S:  // Starting board
+                    if (state->menu.enabled[MENU_ICON_STARTING_BOARD]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_STARTING_BOARD);
+                    }
+                    break;
+                    
+                case KEY_H:  // History
+                    if (state->menu.enabled[MENU_ICON_HISTORY]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_HISTORY);
+                    }
+                    break;
+                    
+                case KEY_X:  // Exit
+                    if (state->menu.enabled[MENU_ICON_EXIT]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_EXIT);
+                    }
+                    break;
+                    
+                case KEY_U:  // Undo
+                    // TODO: Implement undo
+                    break;
+                    
+                default:
+                    break;
+            }
+            break;
+            
+        default:
+            break;
+    }
+}
+
+void input_handler_move_focus(game_state_t *state, key_code_t direction) {
+    // Get current focus from input state
+    uint8_t row, col;
+    input_get_focus(&row, &col);
+    
+    // Move focus based on direction
+    switch (direction) {
+        case KEY_UP:
+            if (row > 0) row--;
+            break;
+        case KEY_DOWN:
+            if (row < BOARD_ROWS - 1) row++;
+            break;
+        case KEY_LEFT:
+            if (col > 0) col--;
+            break;
+        case KEY_RIGHT:
+            if (col < BOARD_COLS - 1) col++;
+            break;
+        default:
+            break;
+    }
+    
+    // Update focus
+    input_set_focus(row, col);
+}
+
+void input_handler_activate_focused(game_state_t *state) {
+    // Get current focus
+    uint8_t row, col;
+    input_get_focus(&row, &col);
+    
+    if (input_is_keyboard_mode()) {
+        // Activate the focused cell
+        if (state->selection.has_selection) {
+            // Check if focused cell is a legal move
+            for (uint8_t i = 0; i < state->selection.legal_move_count; i++) {
+                if (state->selection.legal_moves[i].to_row == row &&
+                    state->selection.legal_moves[i].to_col == col) {
+                    game_state_execute_selected_move(state, i);
+                    return;
+                }
+            }
+            
+            // Not a legal move - deselect and select new
+            game_state_deselect_piece(state);
+            game_state_select_piece(state, row, col);
+        } else {
+            // No selection - select focused cell
+            game_state_select_piece(state, row, col);
+        }
+    }
+}

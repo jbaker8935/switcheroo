@@ -1,365 +1,454 @@
 #!/usr/bin/env python3
-"""Generate placeholder assets for Switcharoo.
+"""Generate assets for F256 Switcharoo game following video_assets.md specification.
 
-The script emits palette-indexed binary blobs sized for the Foenix F256 video
-pipeline so the rendering stack has concrete data prior to final art delivery.
+This script generates:
+- 320x240 board bitmap with 4x8 checkerboard (28x28 cells each)
+- 24x24 piece sprites (normal and swapped variants)
+- 16x16 icon sprites
+- Proper CLUT slot assignments per specification
+- PNG files with modern color theme for visualization
 """
 
 from __future__ import annotations
 
 import argparse
 import math
-from collections import OrderedDict
 from pathlib import Path
+from typing import Tuple
+
+try:
+    from PIL import Image
+except ImportError:
+    print("PIL (Python Imaging Library) is required for PNG generation.")
+    print("Install with: pip install pillow")
+    exit(1)
 
 
-# Palette slot indexes aligned with `video.c` definitions.
-COLOR_TRANSPARENT = 0
-COLOR_BACKGROUND = 1
-COLOR_BOARD_BORDER = 2
-COLOR_UI_PANEL = 3
-COLOR_TEXT_PRIMARY = 4
-COLOR_BOARD_BASE = 5
+# CLUT slot assignments per video_assets.md
+CLUT_TRANSPARENT = 0
+CLUT_BOARD_CELLS = list(range(1, 33))  # Slots 1-32 for board cells
+CLUT_BOARD_BORDER = 33
+CLUT_FUTURE_USE = list(range(34, 65))  # Slots 34-64 reserved
+# Piece sprite CLUT slots 65-76
+CLUT_PLAYER_A_EDGE_1 = 65
+CLUT_PLAYER_A_EDGE_2 = 66
+CLUT_PLAYER_A_FILL_1 = 67
+CLUT_PLAYER_A_FILL_2 = 68
+CLUT_PLAYER_B_EDGE_1 = 69
+CLUT_PLAYER_B_EDGE_2 = 70
+CLUT_PLAYER_B_FILL_1 = 71
+CLUT_PLAYER_B_FILL_2 = 72
+CLUT_PLAYER_A_SWAPPED_1 = 73
+CLUT_PLAYER_A_SWAPPED_2 = 74
+CLUT_PLAYER_B_SWAPPED_1 = 75
+CLUT_PLAYER_B_SWAPPED_2 = 76
+# Icon sprite CLUT slots 77-84
+CLUT_ICON_EDGE_1 = 77
+CLUT_ICON_EDGE_2 = 78
+CLUT_ICON_FILL_1 = 79
+CLUT_ICON_FILL_2 = 80
+CLUT_ICON_SYMBOL_1 = 81
+CLUT_ICON_SYMBOL_2 = 82
+CLUT_ICON_SYMBOL_3 = 83
+CLUT_ICON_SYMBOL_4 = 84
+
+# Modern color palette (RGB tuples) - maps CLUT indices to actual colors
+MODERN_COLOR_PALETTE: list[Tuple[int, int, int]] = [
+    # 0: Transparent
+    (0, 0, 0, 0),  # RGBA with alpha
+    
+    # 1-32: Board cells - modern gradient from dark blue to light blue
+    (26, 26, 46), (31, 31, 51), (36, 36, 56), (41, 41, 61),
+    (46, 46, 66), (51, 51, 71), (56, 56, 76), (61, 61, 81),
+    (66, 66, 86), (71, 71, 91), (76, 76, 96), (81, 81, 101),
+    (86, 86, 106), (91, 91, 111), (96, 96, 116), (101, 101, 121),
+    (106, 106, 126), (111, 111, 131), (116, 116, 136), (121, 121, 141),
+    (126, 126, 146), (131, 131, 151), (136, 136, 156), (141, 141, 161),
+    (146, 146, 166), (151, 151, 171), (156, 156, 176), (161, 161, 181),
+    (166, 166, 186), (171, 171, 191), (176, 176, 196), (181, 181, 201),
+    
+    # 33: Board border - light gray
+    (204, 204, 204),
+    
+    # 34-64: Future use - various grays
+    *[(i*4, i*4, i*4) for i in range(31)],
+    
+    # 65-68: Player A piece colors - blue theme
+    (74, 144, 226), (33, 113, 181), (52, 152, 219), (41, 128, 185),
+    
+    # 69-72: Player B piece colors - purple theme  
+    (155, 89, 182), (142, 68, 173), (125, 60, 152), (108, 52, 131),
+    
+    # 73-76: Swapped symbol colors - white and light variants
+    (255, 255, 255), (240, 240, 240), (255, 255, 255), (240, 240, 240),
+    
+    # 77-84: Icon colors - orange theme
+    (230, 126, 34), (211, 84, 0), (243, 156, 18), (230, 126, 34),
+    (241, 196, 15), (243, 156, 18), (230, 126, 34), (211, 84, 0),
+]
+
+# Board configuration
 BOARD_COLUMNS = 4
 BOARD_ROWS = 8
-BOARD_CELL_COUNT = BOARD_COLUMNS * BOARD_ROWS
-COLOR_HIGHLIGHT_PRIMARY = COLOR_BOARD_BASE + BOARD_CELL_COUNT
-COLOR_HIGHLIGHT_SECONDARY = COLOR_HIGHLIGHT_PRIMARY + 1
-COLOR_HIGHLIGHT_DISABLED = COLOR_HIGHLIGHT_PRIMARY + 2
+CELL_SIZE = 28
+BOARD_WIDTH = BOARD_COLUMNS * CELL_SIZE
+BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE
 
-BOARD_KEY = "board_bitmap.bin"
+# Screen configuration
+SCREEN_WIDTH = 320
+SCREEN_HEIGHT = 240
 
-ASSET_DEFINITIONS = OrderedDict([
-    (BOARD_KEY, "board"),
-    ("sprite_white_normal.bin", ("piece", COLOR_BOARD_BASE, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
-    ("sprite_white_swapped.bin", ("piece", COLOR_HIGHLIGHT_PRIMARY, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
-    ("sprite_black_normal.bin", ("piece", COLOR_BOARD_BASE + 1, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
-    ("sprite_black_swapped.bin", ("piece", COLOR_HIGHLIGHT_SECONDARY, COLOR_BOARD_BORDER, COLOR_TEXT_PRIMARY)),
-    ("sprite_move_indicator.bin", "move_indicator"),
-    ("sprite_highlight.bin", "highlight"),
-    ("icon_reset.bin", "icon_reset"),
-    ("icon_info.bin", "icon_info"),
-    ("icon_difficulty.bin", "icon_difficulty"),
-    ("icon_starting_board.bin", "icon_starting_board"),
-    ("icon_history.bin", "icon_history"),
-    ("icon_exit.bin", "icon_exit"),
-])
-
-PIECE_KEYS = [
-    "sprite_white_normal.bin",
-    "sprite_white_swapped.bin",
-    "sprite_black_normal.bin",
-    "sprite_black_swapped.bin",
-]
-
-ICON_KEYS = [
-    "icon_reset.bin",
-    "icon_info.bin",
-    "icon_difficulty.bin",
-    "icon_starting_board.bin",
-    "icon_history.bin",
-    "icon_exit.bin",
-]
-
-MOVE_INDICATOR_KEY = "sprite_move_indicator.bin"
+# Asset definitions
+PIECE_SIZE = 24
+ICON_SIZE = 16
 
 
 def ensure_directory(path: Path) -> None:
+    """Create directory if it doesn't exist."""
     path.mkdir(parents=True, exist_ok=True)
 
 
 def write_binary(path: Path, data: bytes) -> None:
+    """Write binary data to file."""
     ensure_directory(path.parent)
     path.write_bytes(data)
 
 
-def to_symbol_name(stem: str) -> str:
-    sanitized = stem.replace("-", "_")
-    return f"g_{sanitized}"
-
-
-def format_c_array(name: str, data: bytes, values_per_line: int = 12) -> list[str]:
-    lines: list[str] = [f"static const uint8_t {name}[{len(data)}] = {{"]
-    for index in range(0, len(data), values_per_line):
-        chunk = ", ".join(f"0x{byte:02X}" for byte in data[index:index + values_per_line])
-        if index + values_per_line >= len(data):
-            lines.append(f"    {chunk}")
-        else:
-            lines.append(f"    {chunk},")
-    lines.append("};")
-    lines.append("")
-    return lines
-
-
 def generate_board_bitmap() -> bytes:
-    width, height = 320, 240
-    board_cols, board_rows = BOARD_COLUMNS, BOARD_ROWS
-    cell_size = 28
+    """Generate 320x240 board bitmap with centered 4x8 checkerboard."""
+    # Calculate board position (centered)
+    board_x = (SCREEN_WIDTH - BOARD_WIDTH) // 2
+    board_y = (SCREEN_HEIGHT - BOARD_HEIGHT) // 2
+    
+    # 4-pixel border around board
+    board_margin = 4
+    
+    buffer = bytearray(SCREEN_WIDTH * SCREEN_HEIGHT)
+    
+    for y in range(SCREEN_HEIGHT):
+        for x in range(SCREEN_WIDTH):
+            idx = y * SCREEN_WIDTH + x
+            
+            # Check if we're in the board area (including border)
+            in_board_area = (
+                x >= board_x - board_margin and 
+                x < board_x + BOARD_WIDTH + board_margin and
+                y >= board_y - board_margin and 
+                y < board_y + BOARD_HEIGHT + board_margin
+            )
+            
+            if not in_board_area:
+                # Outside board area - use first board cell color as background
+                buffer[idx] = CLUT_BOARD_CELLS[0]
+                continue
+            
+            # Check if we're in the border area
+            in_border = (
+                x < board_x or x >= board_x + BOARD_WIDTH or
+                y < board_y or y >= board_y + BOARD_HEIGHT
+            )
+            
+            if in_border:
+                buffer[idx] = CLUT_BOARD_BORDER
+                continue
+            
+            # We're inside the board - calculate cell
+            cell_x = (x - board_x) // CELL_SIZE
+            cell_y = (y - board_y) // CELL_SIZE
+            
+            # Check for single-pixel borders between cells
+            local_x = (x - board_x) % CELL_SIZE
+            local_y = (y - board_y) % CELL_SIZE
+            
+            if local_x == CELL_SIZE - 1 or local_y == CELL_SIZE - 1:
+                buffer[idx] = CLUT_BOARD_BORDER
+            else:
+                # Calculate which board cell (0-31)
+                cell_index = cell_y * BOARD_COLUMNS + cell_x
+                buffer[idx] = CLUT_BOARD_CELLS[cell_index]
+    
+    return bytes(buffer)
 
-    board_width = board_cols * cell_size
-    board_height = board_rows * cell_size
-    board_x = (width - board_width) // 2
-    board_y = (height - board_height) // 2
 
-    ui_panel_x = board_x + board_width + 16
+def generate_piece_sprite_normal_a() -> bytes:
+    """Generate 24x24 normal piece sprite for Player A."""
+    size = PIECE_SIZE
+    center = size / 2.0
+    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+    
+    for y in range(size):
+        for x in range(size):
+            # 1-pixel transparent border requirement
+            if x == 0 or x == size-1 or y == 0 or y == size-1:
+                continue
+            
+            dx = x - center
+            dy = y - center
+            dist = math.sqrt(dx * dx + dy * dy)
+            idx = y * size + x
+            
+            # 2-pixel edge border, then fill
+            if dist <= 8.0:
+                buffer[idx] = CLUT_PLAYER_A_FILL_1
+            elif dist <= 10.0:
+                buffer[idx] = CLUT_PLAYER_A_EDGE_1
+    
+    return bytes(buffer)
 
-    buffer = bytearray(width * height)
 
+def generate_piece_sprite_swapped_a() -> bytes:
+    """Generate 24x24 swapped piece sprite for Player A with inset star."""
+    size = PIECE_SIZE
+    center = size / 2.0
+    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+    
+    for y in range(size):
+        for x in range(size):
+            # 1-pixel transparent border requirement
+            if x == 0 or x == size-1 or y == 0 or y == size-1:
+                continue
+            
+            dx = x - center
+            dy = y - center
+            dist = math.sqrt(dx * dx + dy * dy)
+            idx = y * size + x
+            
+            # Base circle with 2-pixel edge border
+            if dist <= 8.0:
+                buffer[idx] = CLUT_PLAYER_A_FILL_1
+            elif dist <= 10.0:
+                buffer[idx] = CLUT_PLAYER_A_EDGE_1
+            
+            # Add star symbol in center
+            if dist <= 6.0:
+                angle = math.atan2(dy, dx)
+                # Create 5-pointed star pattern
+                star_radius = 3.0 + 1.5 * math.cos(5 * angle)
+                if dist >= star_radius:
+                    buffer[idx] = CLUT_PLAYER_A_SWAPPED_1
+    
+    return bytes(buffer)
+
+
+def generate_piece_sprite_normal_b() -> bytes:
+    """Generate 24x24 normal piece sprite for Player B."""
+    size = PIECE_SIZE
+    center = size / 2.0
+    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+    
+    for y in range(size):
+        for x in range(size):
+            # 1-pixel transparent border requirement
+            if x == 0 or x == size-1 or y == 0 or y == size-1:
+                continue
+            
+            dx = x - center
+            dy = y - center
+            dist = math.sqrt(dx * dx + dy * dy)
+            idx = y * size + x
+            
+            # Square shape for Player B
+            if abs(dx) <= 8.0 and abs(dy) <= 8.0:
+                if abs(dx) <= 6.0 and abs(dy) <= 6.0:
+                    buffer[idx] = CLUT_PLAYER_B_FILL_1
+                else:
+                    buffer[idx] = CLUT_PLAYER_B_EDGE_1
+    
+    return bytes(buffer)
+
+
+def generate_piece_sprite_swapped_b() -> bytes:
+    """Generate 24x24 swapped piece sprite for Player B with inset diamond."""
+    size = PIECE_SIZE
+    center = size / 2.0
+    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+    
+    for y in range(size):
+        for x in range(size):
+            # 1-pixel transparent border requirement
+            if x == 0 or x == size-1 or y == 0 or y == size-1:
+                continue
+            
+            dx = x - center
+            dy = y - center
+            idx = y * size + x
+            
+            # Square shape for Player B
+            if abs(dx) <= 8.0 and abs(dy) <= 8.0:
+                if abs(dx) <= 6.0 and abs(dy) <= 6.0:
+                    buffer[idx] = CLUT_PLAYER_B_FILL_1
+                else:
+                    buffer[idx] = CLUT_PLAYER_B_EDGE_1
+                
+                # Add diamond symbol in center
+                diamond_dist = abs(dx) + abs(dy)
+                if diamond_dist <= 4.0 and diamond_dist >= 2.0:
+                    buffer[idx] = CLUT_PLAYER_B_SWAPPED_1
+    
+    return bytes(buffer)
+
+
+def generate_icon_sprite(icon_type: str) -> bytes:
+    """Generate 16x16 icon sprite with 2-pixel border."""
+    size = ICON_SIZE
+    buffer = bytearray([CLUT_ICON_FILL_1] * size * size)
+    
+    # 2-pixel border
+    for i in range(size):
+        for j in range(2):
+            buffer[j * size + i] = CLUT_ICON_EDGE_1  # Top
+            buffer[(size-1-j) * size + i] = CLUT_ICON_EDGE_1  # Bottom
+            buffer[i * size + j] = CLUT_ICON_EDGE_1  # Left
+            buffer[i * size + (size-1-j)] = CLUT_ICON_EDGE_1  # Right
+    
+    center = size // 2
+    
+    # Icon-specific symbols
+    if icon_type == "reset":
+        # Circular arrow
+        for y in range(4, 12):
+            for x in range(4, 12):
+                dx = x - center
+                dy = y - center
+                dist = math.sqrt(dx * dx + dy * dy)
+                if 2.5 <= dist <= 3.5:
+                    buffer[y * size + x] = CLUT_ICON_SYMBOL_1
+        # Arrow tip
+        buffer[5 * size + 10] = CLUT_ICON_SYMBOL_1
+        buffer[6 * size + 11] = CLUT_ICON_SYMBOL_1
+    
+    elif icon_type == "info":
+        # "i" symbol
+        buffer[5 * size + center] = CLUT_ICON_SYMBOL_1  # dot
+        for y in range(7, 12):
+            buffer[y * size + center] = CLUT_ICON_SYMBOL_1  # stem
+    
+    elif icon_type == "difficulty":
+        # Three bars of increasing height
+        for i in range(3):
+            height = 2 + i * 2
+            start_y = 12 - height
+            x = 5 + i * 2
+            for y in range(start_y, 12):
+                buffer[y * size + x] = CLUT_ICON_SYMBOL_1
+    
+    elif icon_type == "starting_board":
+        # Mini checkerboard
+        for y in range(6, 10):
+            for x in range(6, 10):
+                if (x + y) % 2 == 0:
+                    buffer[y * size + x] = CLUT_ICON_SYMBOL_1
+                else:
+                    buffer[y * size + x] = CLUT_ICON_SYMBOL_2
+    
+    elif icon_type == "history":
+        # List lines
+        for y in range(5, 11):
+            buffer[y * size + 5] = CLUT_ICON_SYMBOL_1
+            buffer[y * size + 10] = CLUT_ICON_SYMBOL_1
+    
+    elif icon_type == "exit":
+        # X mark
+        for i in range(5, 11):
+            buffer[i * size + i] = CLUT_ICON_SYMBOL_1
+            buffer[i * size + (15 - i)] = CLUT_ICON_SYMBOL_1
+    
+    return bytes(buffer)
+
+
+def create_png_from_clut_data(data: bytes, width: int, height: int, filename: Path) -> None:
+    """Create a PNG image from CLUT-indexed data using the modern color palette."""
+    # Create RGB image
+    img = Image.new('RGB', (width, height), (0, 0, 0))
+    pixels = img.load()
+    
     for y in range(height):
         for x in range(width):
-            idx = y * width + x
-
-            if x >= ui_panel_x:
-                buffer[idx] = COLOR_UI_PANEL
-                continue
-
-            if y < board_y - 4 or y >= board_y + board_height + 4:
-                buffer[idx] = COLOR_BACKGROUND
-                continue
-
-            if x < board_x - 4 or x >= board_x + board_width + 4:
-                buffer[idx] = COLOR_BACKGROUND
-                continue
-
-            if (board_x - 1) <= x < (board_x + board_width + 1) and (
-                (y == board_y - 1) or (y == board_y + board_height)
-            ):
-                buffer[idx] = COLOR_BOARD_BORDER
-                continue
-
-            if (board_y - 1) <= y < (board_y + board_height + 1) and (
-                (x == board_x - 1) or (x == board_x + board_width)
-            ):
-                buffer[idx] = COLOR_BOARD_BORDER
-                continue
-
-            if board_x <= x < board_x + board_width and board_y <= y < board_y + board_height:
-                cell_x = (x - board_x) // cell_size
-                cell_y = (y - board_y) // cell_size
-                palette_index = COLOR_BOARD_BASE + cell_y * board_cols + cell_x
-                buffer[idx] = palette_index
-                continue
-
-            buffer[idx] = COLOR_BACKGROUND
-
-    return bytes(buffer)
+            clut_index = data[y * width + x]
+            if clut_index < len(MODERN_COLOR_PALETTE):
+                color = MODERN_COLOR_PALETTE[clut_index]
+                # Handle RGBA tuples (for transparency)
+                if len(color) == 4:
+                    # For transparent pixels, use a dark background color
+                    pixels[x, y] = (26, 26, 46) if color[3] == 0 else color[:3]
+                else:
+                    pixels[x, y] = color
+            else:
+                # Fallback for out-of-range indices
+                pixels[x, y] = (255, 0, 255)  # Magenta for errors
+    
+    img.save(filename)
 
 
-def generate_piece_sprite(fill_color: int, border_color: int, accent_color: int) -> bytes:
-    size = 24
-    center = (size - 1) / 2.0
-    radius = 10.5
-    edge_band = 1.2
-
-    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
-
-    for y in range(size):
-        for x in range(size):
-            dx = x - center
-            dy = y - center
-            dist = math.sqrt(dx * dx + dy * dy)
-            idx = y * size + x
-
-            if dist <= radius - edge_band:
-                buffer[idx] = fill_color
-            elif dist <= radius:
-                buffer[idx] = border_color
-            elif dist <= radius + 0.8:
-                buffer[idx] = accent_color
-
-    return bytes(buffer)
-
-
-def generate_highlight_sprite() -> bytes:
-    size = 28
-    thickness = 2
-    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
-
-    for y in range(size):
-        for x in range(size):
-            idx = y * size + x
-            on_border = (
-                x < thickness
-                or y < thickness
-                or x >= size - thickness
-                or y >= size - thickness
-            )
-            if on_border:
-                buffer[idx] = COLOR_HIGHLIGHT_PRIMARY
-
-    return bytes(buffer)
+def generate_png_assets(output_dir: Path, binary_assets: dict[str, bytes]) -> None:
+    """Generate PNG versions of all binary assets."""
+    png_dir = output_dir / "png"
+    ensure_directory(png_dir)
+    
+    # Board bitmap
+    board_data = binary_assets["board_bitmap.bin"]
+    create_png_from_clut_data(board_data, SCREEN_WIDTH, SCREEN_HEIGHT, 
+                            png_dir / "board_bitmap.png")
+    
+    # Piece sprites
+    piece_files = [
+        ("piece_bitmap_a_normal.bin", "piece_a_normal.png"),
+        ("piece_bitmap_a_swapped.bin", "piece_a_swapped.png"),
+        ("piece_bitmap_b_normal.bin", "piece_b_normal.png"),
+        ("piece_bitmap_b_swapped.bin", "piece_b_swapped.png"),
+    ]
+    
+    for bin_file, png_file in piece_files:
+        if bin_file in binary_assets:
+            piece_data = binary_assets[bin_file]
+            create_png_from_clut_data(piece_data, PIECE_SIZE, PIECE_SIZE,
+                                    png_dir / png_file)
+    
+    # Icon sprites
+    icon_types = ["reset", "info", "difficulty", "starting_board", "history", "exit"]
+    for icon_type in icon_types:
+        bin_file = f"icon_{icon_type}.bin"
+        png_file = f"icon_{icon_type}.png"
+        if bin_file in binary_assets:
+            icon_data = binary_assets[bin_file]
+            create_png_from_clut_data(icon_data, ICON_SIZE, ICON_SIZE,
+                                    png_dir / png_file)
 
 
-def draw_icon_border(buffer: bytearray, size: int) -> None:
-    for x in range(size):
-        buffer[x] = COLOR_BOARD_BORDER
-        buffer[(size - 1) * size + x] = COLOR_BOARD_BORDER
-    for y in range(size):
-        buffer[y * size] = COLOR_BOARD_BORDER
-        buffer[y * size + (size - 1)] = COLOR_BOARD_BORDER
+def generate_assets(output_dir: Path) -> dict[str, bytes]:
+    """Generate all game assets."""
+    assets = {}
+    
+    # Board bitmap
+    assets["board_bitmap.bin"] = generate_board_bitmap()
+    
+    # Piece bitmaps (only 4 total - 2 per player)
+    assets["piece_bitmap_a_normal.bin"] = generate_piece_sprite_normal_a()
+    assets["piece_bitmap_a_swapped.bin"] = generate_piece_sprite_swapped_a()
+    assets["piece_bitmap_b_normal.bin"] = generate_piece_sprite_normal_b()
+    assets["piece_bitmap_b_swapped.bin"] = generate_piece_sprite_swapped_b()
+    
+    # Icon sprites
+    icon_types = ["reset", "info", "difficulty", "starting_board", "history", "exit"]
+    for icon_type in icon_types:
+        assets[f"icon_{icon_type}.bin"] = generate_icon_sprite(icon_type)
+    
+    # Write all binary assets to files
+    for filename, data in assets.items():
+        write_binary(output_dir / filename, data)
+    
+    # Generate PNG versions
+    generate_png_assets(output_dir, assets)
+    
+    return assets
 
 
-def generate_icon_reset() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
 
-    center = (size - 1) / 2.0
-    radius = 5.5
-
-    for y in range(size):
-        for x in range(size):
-            dx = x - center
-            dy = y - center
-            dist = math.sqrt(dx * dx + dy * dy)
-            idx = y * size + x
-            if 4.5 <= dist <= radius:
-                buffer[idx] = COLOR_HIGHLIGHT_PRIMARY
-
-    # Arrow head
-    for offset in range(3):
-        buffer[5 * size + 9 + offset] = COLOR_HIGHLIGHT_PRIMARY
-        buffer[(5 + offset) * size + 11] = COLOR_HIGHLIGHT_PRIMARY
-
-    return bytes(buffer)
-
-
-def generate_icon_info() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
-
-    # Outer circle
-    center = (size - 1) / 2.0
-    for y in range(size):
-        for x in range(size):
-            dist = math.sqrt((x - center) ** 2 + (y - center) ** 2)
-            if 5.0 <= dist <= 6.0:
-                buffer[y * size + x] = COLOR_HIGHLIGHT_SECONDARY
-
-    # Dot and stem
-    buffer[4 * size + 7] = COLOR_TEXT_PRIMARY
-    buffer[5 * size + 7] = COLOR_TEXT_PRIMARY
-    for y in range(6, 12):
-        buffer[y * size + 7] = COLOR_TEXT_PRIMARY
-
-    return bytes(buffer)
-
-
-def generate_icon_difficulty() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
-
-    heights = [4, 7, 10]
-    base_x = 4
-
-    for i, height in enumerate(heights):
-        color = COLOR_HIGHLIGHT_PRIMARY if i == len(heights) - 1 else COLOR_HIGHLIGHT_SECONDARY
-        for y in range(size - 2, size - 2 - height, -1):
-            for x in range(base_x + i * 3, base_x + i * 3 + 2):
-                buffer[y * size + x] = color
-
-    return bytes(buffer)
-
-
-def generate_icon_starting_board() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
-
-    origin_x = 3
-    origin_y = 3
-    cell = 3
-
-    base_light = COLOR_BOARD_BASE
-    base_dark = COLOR_BOARD_BASE + 1
-
-    for row in range(4):
-        for col in range(4):
-            color = base_light if (row + col) % 2 == 0 else base_dark
-            for y in range(origin_y + row * cell, origin_y + row * cell + cell):
-                for x in range(origin_x + col * cell, origin_x + col * cell + cell):
-                    buffer[y * size + x] = color
-
-    return bytes(buffer)
-
-
-def generate_icon_history() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
-
-    for y in range(3, 13):
-        buffer[y * size + 4] = COLOR_TEXT_PRIMARY
-        buffer[y * size + 11] = COLOR_TEXT_PRIMARY
-
-    for x in range(4, 12):
-        buffer[8 * size + x] = COLOR_TEXT_PRIMARY
-
-    # Arrow to indicate scrolling
-    buffer[5 * size + 12] = COLOR_HIGHLIGHT_SECONDARY
-    buffer[6 * size + 11] = COLOR_HIGHLIGHT_SECONDARY
-    buffer[7 * size + 10] = COLOR_HIGHLIGHT_SECONDARY
-
-    return bytes(buffer)
-
-
-def generate_icon_exit() -> bytes:
-    size = 16
-    buffer = bytearray([COLOR_UI_PANEL] * size * size)
-    draw_icon_border(buffer, size)
-
-    for i in range(3, 13):
-        buffer[i * size + i] = COLOR_HIGHLIGHT_PRIMARY
-        buffer[(15 - i) * size + i] = COLOR_HIGHLIGHT_PRIMARY
-
-    return bytes(buffer)
-
-
-def generate_move_indicator() -> bytes:
-    size = 16
-    radius = 5.0
-    buffer = bytearray([COLOR_TRANSPARENT] * size * size)
-
-    for y in range(size):
-        for x in range(size):
-            dx = x - (size - 1) / 2.0
-            dy = y - (size - 1) / 2.0
-            dist = math.sqrt(dx * dx + dy * dy)
-            if dist <= radius:
-                buffer[y * size + x] = COLOR_HIGHLIGHT_PRIMARY
-
-    return bytes(buffer)
-
-
-GENERATOR_TABLE = {
-    "board": generate_board_bitmap,
-    "highlight": generate_highlight_sprite,
-    "move_indicator": generate_move_indicator,
-    "icon_reset": generate_icon_reset,
-    "icon_info": generate_icon_info,
-    "icon_difficulty": generate_icon_difficulty,
-    "icon_starting_board": generate_icon_starting_board,
-    "icon_history": generate_icon_history,
-    "icon_exit": generate_icon_exit,
-}
-
-
-def build_asset(name: str, descriptor, output_dir: Path) -> None:
-    if isinstance(descriptor, tuple) and descriptor[0] == "piece":
-        _, fill, border, accent = descriptor
-        data = generate_piece_sprite(fill, border, accent)
-    else:
-        generator = GENERATOR_TABLE[descriptor]
-        data = generator()
-
-    write_binary(output_dir / name, data)
-    return data
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate placeholder assets")
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(description="Generate F256 Switcharoo game assets")
     parser.add_argument(
         "--output",
         type=Path,
@@ -370,94 +459,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Main entry point."""
     args = parse_args()
     output_dir = args.output.resolve()
-
+    
     project_root = Path(__file__).resolve().parents[1]
-    src_output = project_root / "src" / "assets" / "generated_assets.c"
-    header_output = project_root / "include" / "assets" / "generated_assets.h"
 
-    generated_payloads: dict[str, bytes] = {}
+    
+    print(f"Generating assets to {output_dir}")
+    assets = generate_assets(output_dir)
 
-    for filename, descriptor in ASSET_DEFINITIONS.items():
-        data = build_asset(filename, descriptor, output_dir)
-        generated_payloads[filename] = data
-
-    manifest_path = output_dir / "MANIFEST.txt"
-    lines = [f"{name}" for name in sorted(ASSET_DEFINITIONS.keys())]
-    manifest_content = "\n".join(lines) + "\n"
-    write_binary(manifest_path, manifest_content.encode("ascii"))
-
-    emit_c_sources(src_output, header_output, generated_payloads)
-
-
-def emit_c_sources(c_path: Path, header_path: Path, payloads: dict[str, bytes]) -> None:
-    ensure_directory(c_path.parent)
-    ensure_directory(header_path.parent)
-
-    array_meta = {}
-
-    for filename, data in payloads.items():
-        if filename == BOARD_KEY:
-            continue
-        array_name = to_symbol_name(Path(filename).stem)
-        array_meta[filename] = (array_name, data)
-
-    lines = [
-        "// Auto-generated by scripts/generate_assets.py. Do not edit manually.",
-        "#include <stdint.h>",
-        "",
-        "#include \"platform/video.h\"",
-        "#include \"assets/generated_assets.h\"",
-        "",
-    ]
-
-    for filename in ASSET_DEFINITIONS.keys():
-        if filename == BOARD_KEY:
-            continue
-        array_name, data = array_meta[filename]
-        lines.extend(format_c_array(array_name, data))
-
-    board_symbol = "0"
-    highlight_symbol = array_meta["sprite_highlight.bin"][0]
-    move_indicator_symbol = array_meta[MOVE_INDICATOR_KEY][0]
-    piece_symbols = [array_meta[key][0] for key in PIECE_KEYS]
-    icon_symbols = [array_meta[key][0] for key in ICON_KEYS]
-
-    lines.append("const video_asset_manifest_t g_video_assets = {")
-    lines.append(f"    .highlight_frame = {highlight_symbol},")
-    lines.append(f"    .highlight_frame_size = sizeof({highlight_symbol}),")
-    lines.append(f"    .move_indicator = {move_indicator_symbol},")
-    lines.append(f"    .move_indicator_size = sizeof({move_indicator_symbol}),")
-    lines.append("    .piece_sprites = {")
-    for symbol in piece_symbols:
-        lines.append(f"        {symbol},")
-    lines.append("    },")
-    lines.append(f"    .piece_sprite_size = sizeof({piece_symbols[0]}),")
-    lines.append("    .menu_icons = {")
-    for symbol in icon_symbols:
-        lines.append(f"        {symbol},")
-    lines.append("    },")
-    lines.append(f"    .menu_icon_size = sizeof({icon_symbols[0]}),")
-    lines.append("};")
-    lines.append("")
-
-    c_path.write_text("\n".join(lines), encoding="ascii")
-
-    header_lines = [
-        "// Auto-generated by scripts/generate_assets.py. Do not edit manually.",
-        "#ifndef ASSETS_GENERATED_ASSETS_H",
-        "#define ASSETS_GENERATED_ASSETS_H",
-        "",
-        "#include \"platform/video.h\"",
-        "",
-        "extern const video_asset_manifest_t g_video_assets;",
-        "",
-        "#endif /* ASSETS_GENERATED_ASSETS_H */",
-        "",
-    ]
-
-    header_path.write_text("\n".join(header_lines), encoding="ascii")
+    
+    print(f"Generated {len(assets)} binary assets:")
+    for filename in sorted(assets.keys()):
+        print(f"  {filename} ({len(assets[filename])} bytes)")
+    
+    png_dir = output_dir / "png"
+    png_files = list(png_dir.glob("*.png")) if png_dir.exists() else []
+    print(f"Generated {len(png_files)} PNG assets:")
+    for png_file in sorted(png_files):
+        print(f"  {png_file.name}")
 
 
 if __name__ == "__main__":

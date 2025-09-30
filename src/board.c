@@ -1,0 +1,353 @@
+/**
+ * @file board.c
+ * @brief Game board model implementation for F256 Switcharoo
+ * 
+ * Implements board state management, move validation, and win detection
+ * using Union-Find for connectivity checks per design.md.
+ */
+
+#include "../src/board.h"
+#include <string.h>
+
+// Direction deltas for 8-way adjacency (N, NE, E, SE, S, SW, W, NW)
+static const int8_t kDirRow[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
+static const int8_t kDirCol[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
+
+// Starting layout definitions
+static const piece_type_t kStartingLayout0[BOARD_ROWS][BOARD_COLS] = {
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL }
+};
+
+void board_init(board_t *board) {
+    memset(board, 0, sizeof(board_t));
+    board_reset(board);
+}
+
+void board_reset(board_t *board) {
+    // Copy default starting layout
+    memcpy(board->cells, kStartingLayout0, sizeof(board->cells));
+    board->current_player = PLAYER_WHITE;
+    board->move_count = 0;
+    board->history_count = 0;
+}
+
+void board_set_starting_layout(board_t *board, uint8_t layout_id) {
+    // For now, only layout 0 exists
+    (void)layout_id;
+    board_reset(board);
+}
+
+piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
+    if (!board_is_valid_cell(row, col)) {
+        return PIECE_NONE;
+    }
+    return board->cells[row][col].piece;
+}
+
+void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
+    if (board_is_valid_cell(row, col)) {
+        board->cells[row][col].piece = piece;
+    }
+}
+
+player_t board_get_piece_owner(piece_type_t piece) {
+    switch (piece) {
+        case PIECE_WHITE_NORMAL:
+        case PIECE_WHITE_SWAPPED:
+            return PLAYER_WHITE;
+        case PIECE_BLACK_NORMAL:
+        case PIECE_BLACK_SWAPPED:
+            return PLAYER_BLACK;
+        default:
+            return PLAYER_NONE;
+    }
+}
+
+bool board_is_piece_swapped(piece_type_t piece) {
+    return piece == PIECE_WHITE_SWAPPED || piece == PIECE_BLACK_SWAPPED;
+}
+
+bool board_is_piece_normal(piece_type_t piece) {
+    return piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL;
+}
+
+bool board_is_valid_cell(uint8_t row, uint8_t col) {
+    return row < BOARD_ROWS && col < BOARD_COLS;
+}
+
+bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
+    int8_t dr = (int8_t)(r2 - r1);
+    int8_t dc = (int8_t)(c2 - c1);
+    
+    // Check if within 1 step in both dimensions
+    return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
+}
+
+bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
+                    uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
+    // Validate cells
+    if (!board_is_valid_cell(from_row, from_col) || !board_is_valid_cell(to_row, to_col)) {
+        return false;
+    }
+    
+    // Check adjacency
+    if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
+        return false;
+    }
+    
+    // Get pieces
+    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
+    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
+    
+    // Check that source has a piece belonging to current player
+    if (board_get_piece_owner(from_piece) != board->current_player) {
+        return false;
+    }
+    
+    // Empty cell move
+    if (to_piece == PIECE_NONE) {
+        if (out_type) *out_type = MOVE_TYPE_EMPTY;
+        return true;
+    }
+    
+    // Swap move - target must be opponent's NORMAL piece
+    player_t to_owner = board_get_piece_owner(to_piece);
+    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
+        if (out_type) *out_type = MOVE_TYPE_SWAP;
+        return true;
+    }
+    
+    return false;
+}
+
+uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
+                               move_t *moves, uint8_t max_moves) {
+    uint8_t count = 0;
+    
+    // Check all 8 directions
+    for (uint8_t dir = 0; dir < 8 && count < max_moves; ++dir) {
+        int8_t new_row = (int8_t)row + kDirRow[dir];
+        int8_t new_col = (int8_t)col + kDirCol[dir];
+        
+        if (new_row >= 0 && new_row < BOARD_ROWS && new_col >= 0 && new_col < BOARD_COLS) {
+            move_type_t type;
+            if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
+                moves[count].from_row = row;
+                moves[count].from_col = col;
+                moves[count].to_row = (uint8_t)new_row;
+                moves[count].to_col = (uint8_t)new_col;
+                moves[count].type = type;
+                moves[count].player = board->current_player;
+                count++;
+            }
+        }
+    }
+    
+    return count;
+}
+
+bool board_execute_move(board_t *board, const move_t *move) {
+    // Validate move
+    move_type_t type;
+    if (!board_can_move(board, move->from_row, move->from_col,
+                        move->to_row, move->to_col, &type)) {
+        return false;
+    }
+    
+    // Save to history if space available
+    if (board->history_count < MAX_MOVE_HISTORY) {
+        board->history[board->history_count++] = *move;
+    }
+    
+    piece_type_t from_piece = board_get_piece(board, move->from_row, move->from_col);
+    piece_type_t to_piece = board_get_piece(board, move->to_row, move->to_col);
+    
+    if (type == MOVE_TYPE_EMPTY) {
+        // Move to empty cell
+        board_set_piece(board, move->to_row, move->to_col, from_piece);
+        board_set_piece(board, move->from_row, move->from_col, PIECE_NONE);
+        
+        // Clear all swapped pieces per rules
+        board_clear_all_swapped(board);
+        
+    } else if (type == MOVE_TYPE_SWAP) {
+        // Swap pieces and mark both as swapped
+        player_t from_owner = board_get_piece_owner(from_piece);
+        player_t to_owner = board_get_piece_owner(to_piece);
+        
+        piece_type_t from_swapped = (from_owner == PLAYER_WHITE) ? 
+            PIECE_WHITE_SWAPPED : PIECE_BLACK_SWAPPED;
+        piece_type_t to_swapped = (to_owner == PLAYER_WHITE) ?
+            PIECE_WHITE_SWAPPED : PIECE_BLACK_SWAPPED;
+        
+        board_set_piece(board, move->to_row, move->to_col, from_swapped);
+        board_set_piece(board, move->from_row, move->from_col, to_swapped);
+    }
+    
+    board->move_count++;
+    return true;
+}
+
+void board_undo_last_move(board_t *board) {
+    // TODO: Implement undo functionality
+    // Requires storing previous board state
+    (void)board;
+}
+
+void board_clear_all_swapped(board_t *board) {
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(board, row, col);
+            
+            if (piece == PIECE_WHITE_SWAPPED) {
+                board_set_piece(board, row, col, PIECE_WHITE_NORMAL);
+            } else if (piece == PIECE_BLACK_SWAPPED) {
+                board_set_piece(board, row, col, PIECE_BLACK_NORMAL);
+            }
+        }
+    }
+}
+
+// Union-Find helper for connectivity
+static uint8_t find_root(uint8_t *parent, uint8_t x) {
+    if (parent[x] != x) {
+        parent[x] = find_root(parent, parent[x]); // Path compression
+    }
+    return parent[x];
+}
+
+static void union_cells(uint8_t *parent, uint8_t x, uint8_t y) {
+    uint8_t root_x = find_root(parent, x);
+    uint8_t root_y = find_root(parent, y);
+    if (root_x != root_y) {
+        parent[root_x] = root_y;
+    }
+}
+
+bool board_check_win(const board_t *board, player_t player, win_path_t *out_path) {
+    // Union-Find to detect connected components
+    uint8_t parent[BOARD_CELLS];
+    bool belongs_to_player[BOARD_CELLS];
+    
+    // Initialize
+    for (uint8_t i = 0; i < BOARD_CELLS; ++i) {
+        parent[i] = i;
+        belongs_to_player[i] = false;
+    }
+    
+    // Mark cells belonging to player
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(board, row, col);
+            uint8_t idx = row * BOARD_COLS + col;
+            belongs_to_player[idx] = (board_get_piece_owner(piece) == player);
+        }
+    }
+    
+    // Union adjacent cells belonging to same player
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            uint8_t idx = row * BOARD_COLS + col;
+            if (!belongs_to_player[idx]) continue;
+            
+            // Check all 8 directions
+            for (uint8_t dir = 0; dir < 8; ++dir) {
+                int8_t new_row = (int8_t)row + kDirRow[dir];
+                int8_t new_col = (int8_t)col + kDirCol[dir];
+                
+                if (new_row >= 0 && new_row < BOARD_ROWS && 
+                    new_col >= 0 && new_col < BOARD_COLS) {
+                    uint8_t adj_idx = (uint8_t)new_row * BOARD_COLS + (uint8_t)new_col;
+                    if (belongs_to_player[adj_idx]) {
+                        union_cells(parent, idx, adj_idx);
+                    }
+                }
+            }
+        }
+    }
+    
+    // Check if any cell in row 2 connects to any cell in row 7
+    for (uint8_t c1 = 0; c1 < BOARD_COLS; ++c1) {
+        uint8_t idx1 = WIN_START_ROW * BOARD_COLS + c1;
+        if (!belongs_to_player[idx1]) continue;
+        
+        for (uint8_t c2 = 0; c2 < BOARD_COLS; ++c2) {
+            uint8_t idx2 = WIN_END_ROW * BOARD_COLS + c2;
+            if (!belongs_to_player[idx2]) continue;
+            
+            if (find_root(parent, idx1) == find_root(parent, idx2)) {
+                // Found winning connection
+                if (out_path) {
+                    out_path->has_path = true;
+                    out_path->winner = player;
+                    
+                    // Collect all cells in the winning component
+                    uint8_t root = find_root(parent, idx1);
+                    out_path->path_length = 0;
+                    
+                    for (uint8_t i = 0; i < BOARD_CELLS && out_path->path_length < BOARD_CELLS; ++i) {
+                        if (belongs_to_player[i] && find_root(parent, i) == root) {
+                            out_path->path_cells[out_path->path_length++] = i;
+                        }
+                    }
+                }
+                return true;
+            }
+        }
+    }
+    
+    if (out_path) {
+        out_path->has_path = false;
+        out_path->path_length = 0;
+    }
+    return false;
+}
+
+bool board_has_legal_moves(const board_t *board, player_t player) {
+    // Check if player has any pieces that can move
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(board, row, col);
+            if (board_get_piece_owner(piece) == player) {
+                // Check all 8 directions
+                for (uint8_t dir = 0; dir < 8; ++dir) {
+                    int8_t new_row = (int8_t)row + kDirRow[dir];
+                    int8_t new_col = (int8_t)col + kDirCol[dir];
+                    
+                    if (new_row >= 0 && new_row < BOARD_ROWS &&
+                        new_col >= 0 && new_col < BOARD_COLS) {
+                        if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, NULL)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+void board_switch_turn(board_t *board) {
+    board->current_player = (board->current_player == PLAYER_WHITE) ? 
+        PLAYER_BLACK : PLAYER_WHITE;
+}
+
+uint8_t board_count_pieces(const board_t *board, player_t player) {
+    uint8_t count = 0;
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(board, row, col);
+            if (board_get_piece_owner(piece) == player) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
