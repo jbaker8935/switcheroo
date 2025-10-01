@@ -1,6 +1,7 @@
 #include "f256lib.h"
 #include <stdint.h>
 #include <stddef.h>
+#include "../src/board.h"
 
 // PS/2 Mouse hardware registers (not in f256lib.h)
 #define PS2_M_MODE_EN 0xD6E0
@@ -22,8 +23,12 @@ EMBED(icon_starting_board, "../assets/generated/icon_starting_board.bin", 0x5d40
 EMBED(icon_history, "../assets/generated/icon_history.bin", 0x5dc00);
 EMBED(icon_exit, "../assets/generated/icon_exit.bin", 0x5e400);
 
-// Move Highlight sprite bitmap
-EMBED(highlight_bitmap, "../assets/generated/highlight_bitmap.bin", 0x5e500);
+// Move Highlight sprite bitmaps
+EMBED(highlight_empty_bitmap, "../assets/generated/highlight_empty_bitmap.bin", 0x5e500);
+EMBED(highlight_occupied_bitmap, "../assets/generated/highlight_occupied_bitmap.bin", 0x5e800);
+// Focus indicator bitmaps
+EMBED(focus_piece_bitmap, "../assets/generated/focus_piece_bitmap.bin", 0x5ec00);
+EMBED(focus_icon_bitmap, "../assets/generated/focus_icon_bitmap.bin", 0x5f000);
 
 // Type definitions needed for video system
 typedef enum {
@@ -85,6 +90,9 @@ typedef enum {
 // Function declarations 
 const video_palette_t *video_get_theme_palette(video_theme_t theme);
 uint8_t video_board_palette_index(uint8_t row, uint8_t col);
+void video_reset_board_cell_color(uint8_t row, uint8_t col);
+void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player);
+void video_reset_all_board_cell_colors(void);
 
 // Constants
 #define VIDEO_PRIMARY_CLUT 0
@@ -113,8 +121,12 @@ uint8_t video_board_palette_index(uint8_t row, uint8_t col);
 // Icon exit placed at 0x5e400 per user correction
 #define VIDEO_VRAM_ICON_EXIT 0x5e400u
 
-// Highlight sprite VRAM address (bitmap embedded at 0x5e500)
-#define VIDEO_VRAM_HIGHLIGHT 0x5e500u
+// Highlight sprite VRAM addresses (empty and occupied variants)
+#define VIDEO_VRAM_HIGHLIGHT_EMPTY 0x5e500u
+#define VIDEO_VRAM_HIGHLIGHT_OCCUPIED 0x5e800u
+// Focus VRAM addresses
+#define VIDEO_VRAM_FOCUS_PIECE 0x5ec00u
+#define VIDEO_VRAM_FOCUS_ICON 0x5f000u
 
 // Sprite ID assignments  
 #define VIDEO_SPRITE_PIECE_BASE 0u
@@ -132,6 +144,9 @@ uint8_t video_board_palette_index(uint8_t row, uint8_t col);
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY 86
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY 87
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY 88
+
+// Focus CLUT index (single slot used for focus outline)
+#define VIDEO_CLUT_FOCUS 89
 
 // Player A piece colors (indices 65-68, 73-74) - per video_assets.md
 #define VIDEO_CLUT_PLAYER_A_EDGE_1 65
@@ -503,4 +518,41 @@ void video_set_piece_sprite_swapped(uint8_t sprite_id, uint8_t swapped) {
     
     uint8_t actual_sprite_id = (uint8_t)(VIDEO_SPRITE_PIECE_BASE + sprite_id);
     spriteDefine(actual_sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+}
+
+// Reset board cell CLUT to original checkerboard color
+void video_reset_board_cell_color(uint8_t row, uint8_t col) {
+    uint8_t clut_index = video_board_palette_index(row, col);
+    const video_palette_t *palette = video_get_theme_palette(s_active_theme);
+    const video_rgb_t *color = ((row + col) & 1) ? &palette->board_dark : &palette->board_light;
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, clut_index, color->r, color->g, color->b);
+}
+
+// Set board cell CLUT to win highlight color for a player
+void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player) {
+    uint8_t clut_index = video_board_palette_index(row, col);
+    const video_palette_t *palette = video_get_theme_palette(s_active_theme);
+    
+    // Use different highlight colors for different players
+    const video_rgb_t *color;
+    if (player == PLAYER_WHITE) {
+        color = &palette->highlight_primary;  // Player A (white) uses primary highlight
+    } else {
+        color = &palette->highlight_secondary; // Player B (black) uses secondary highlight
+    }
+    
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, clut_index, color->r, color->g, color->b);
+}
+
+// Reset all board cell CLUTs to original checkerboard colors
+void video_reset_all_board_cell_colors(void) {
+    const video_palette_t *palette = video_get_theme_palette(s_active_theme);
+    
+    for (uint8_t row = 0; row < VIDEO_BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < VIDEO_BOARD_COLUMNS; ++col) {
+            uint8_t clut_index = video_board_palette_index(row, col);
+            const video_rgb_t *color = ((row + col) & 1) ? &palette->board_dark : &palette->board_light;
+            graphicsDefineColor(VIDEO_PRIMARY_CLUT, clut_index, color->r, color->g, color->b);
+        }
+    }
 }
