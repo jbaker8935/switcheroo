@@ -45,7 +45,8 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
   normal opponent pieces.
 - WHEN a move yields a continuous chain of the active player's pieces connecting
   any cell in row 2 to any cell in row 7 via 8-way adjacency, THE SYSTEM SHALL
-  declare victory for that player.
+  declare victory for that player and highlight one cell per row (rows 2-7) in
+  the winning path using CLUT color changes.
 - IF a piece is marked swapped, then the system will display a different piece graphic from the normal piece graphic.
 
 ### Turn Management
@@ -66,6 +67,7 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the user selects a highlighted destination, THE SYSTEM SHALL execute the
   associated move, update game state, and refresh highlights.
 - WHEN the user presses Escape while a piece is selected Or clicks the mouse while hovering over the piece, THE SYSTEM SHALL deselect the piece and clear move highlights.
+- IF a piece has no legal moves, THEN THE SYSTEM SHALL prevent it from being selected.
 
 ### Menu and Overlays
 
@@ -100,7 +102,7 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 
 - WHEN a move completes, THE SYSTEM SHALL append an algebraic notation entry to
   the move history and scroll older entries as needed.
-- WHEN a player wins, THE SYSTEM SHALL increment their session score and highlight the winning path cells until the game is reset.
+- WHEN a player wins, THE SYSTEM SHALL increment their session score and highlight the winning path cells (one per row, rows 2-7) using CLUT color changes until the game is reset.
 - WHEN a game is initialized or a player wins, THE SYSTEM SHALL display the session score as a bitmap graphic positioned under the last menu item as `W: (white wins) B: (black wins)`.
 - WHEN the session resets, THE SYSTEM SHALL clear the move history unless a tournament mode is introduced in future updates.
 
@@ -231,6 +233,7 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - THE SYSTEM SHALL color highlighted cells for a winning path in a color consisent with the UI theme
 - THE SYSTEM SHALL use colors for the winning path from each player.
 - THE SYSTEM SHALL display both winning paths if a move creates a simultaneous win for both players.
+- THE SYSTEM SHALL highlight one cell per row (rows 2-7) in the winning path using CLUT color changes.
 - THE SYSTEM SHALL store persistent session stats in volatile memory; long-term
   persistence is out of scope.
 - THE SYSTEM SHALL operate without network connectivity.

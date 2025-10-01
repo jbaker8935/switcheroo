@@ -111,6 +111,14 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
         return false;
     }
     
+    // Check that target cell does not contain current player's piece
+    if (to_piece != PIECE_NONE) {
+        player_t to_owner = board_get_piece_owner(to_piece);
+        if (to_owner == board->current_player) {
+            return false;  // Cannot move to cell occupied by own piece
+        }
+    }
+    
     // Empty cell move
     if (to_piece == PIECE_NONE) {
         if (out_type) *out_type = MOVE_TYPE_EMPTY;
@@ -288,13 +296,18 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
                     out_path->has_path = true;
                     out_path->winner = player;
                     
-                    // Collect all cells in the winning component
+                    // Collect one cell per row in the winning component (rows 2-7)
                     uint8_t root = find_root(parent, idx1);
                     out_path->path_length = 0;
                     
-                    for (uint8_t i = 0; i < BOARD_CELLS && out_path->path_length < BOARD_CELLS; ++i) {
-                        if (belongs_to_player[i] && find_root(parent, i) == root) {
-                            out_path->path_cells[out_path->path_length++] = i;
+                    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW && out_path->path_length < BOARD_CELLS; ++row) {
+                        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+                            uint8_t idx = row * BOARD_COLS + col;
+                            if (belongs_to_player[idx] && find_root(parent, idx) == root) {
+                                // Found a cell in this row that's part of the winning path
+                                out_path->path_cells[out_path->path_length++] = idx;
+                                break; // Only take one cell per row
+                            }
                         }
                     }
                 }

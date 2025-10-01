@@ -41,6 +41,10 @@ void game_state_reset_board(game_state_t *state) {
     game_state_deselect_piece(state);
     game_state_update_menu_enables(state);
     state->win_path.has_path = false;
+    
+    // Reset board cell colors to original checkerboard pattern
+    extern void video_reset_all_board_cell_colors(void);
+    video_reset_all_board_cell_colors();
 }
 
 void game_state_start_new_game(game_state_t *state) {
@@ -57,16 +61,23 @@ void game_state_select_piece(game_state_t *state, uint8_t row, uint8_t col) {
         return;
     }
     
-    // Select and get legal moves
+    // Get legal moves first
+    uint8_t legal_move_count = board_get_legal_moves(
+        &state->board, row, col,
+        state->selection.legal_moves, 8
+    );
+    
+    // Only select if there are legal moves
+    if (legal_move_count == 0) {
+        return;
+    }
+    
+    // Select the piece
     state->selection.has_selection = true;
     state->selection.selected_row = row;
     state->selection.selected_col = col;
     state->selection.hovered_move = -1;
-    
-    state->selection.legal_move_count = board_get_legal_moves(
-        &state->board, row, col,
-        state->selection.legal_moves, 8
-    );
+    state->selection.legal_move_count = legal_move_count;
 }
 
 void game_state_deselect_piece(game_state_t *state) {

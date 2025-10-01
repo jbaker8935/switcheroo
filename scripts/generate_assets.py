@@ -51,6 +51,8 @@ CLUT_ICON_SYMBOL_1 = 81
 CLUT_ICON_SYMBOL_2 = 82
 CLUT_ICON_SYMBOL_3 = 83
 CLUT_ICON_SYMBOL_4 = 84
+# Focus color slot
+CLUT_FOCUS = 89
 
 # Modern color palette (RGB tuples) - maps CLUT indices to actual colors
 MODERN_COLOR_PALETTE: list[Tuple[int, int, int]] = [
@@ -86,6 +88,12 @@ MODERN_COLOR_PALETTE: list[Tuple[int, int, int]] = [
     (230, 126, 34), (211, 84, 0), (243, 156, 18), (230, 126, 34),
     (241, 196, 15), (243, 156, 18), (230, 126, 34), (211, 84, 0),
 ]
+
+# Ensure palette is large enough to include focus color index (89)
+if len(MODERN_COLOR_PALETTE) <= CLUT_FOCUS:
+    # Pad with white for focus by default
+    while len(MODERN_COLOR_PALETTE) <= CLUT_FOCUS:
+        MODERN_COLOR_PALETTE.append((255, 255, 255))
 
 # Board configuration
 BOARD_COLUMNS = 4
@@ -414,11 +422,25 @@ def generate_png_assets(output_dir: Path, binary_assets: dict[str, bytes]) -> No
             create_png_from_clut_data(icon_data, ICON_SIZE, ICON_SIZE,
                                     png_dir / png_file)
 
-    # Highlight sprite PNG
-    if "highlight_bitmap.bin" in binary_assets:
-        highlight_data = binary_assets["highlight_bitmap.bin"]
+    # Highlight sprite PNGs (empty and occupied)
+    if "highlight_empty_bitmap.bin" in binary_assets:
+        highlight_data = binary_assets["highlight_empty_bitmap.bin"]
         create_png_from_clut_data(highlight_data, PIECE_SIZE, PIECE_SIZE,
-                                png_dir / "highlight_bitmap.png")
+                                png_dir / "highlight_empty_bitmap.png")
+    if "highlight_occupied_bitmap.bin" in binary_assets:
+        highlight_data = binary_assets["highlight_occupied_bitmap.bin"]
+        create_png_from_clut_data(highlight_data, PIECE_SIZE, PIECE_SIZE,
+                                png_dir / "highlight_occupied_bitmap.png")
+
+    # Focus sprite PNGs
+    if "focus_piece_bitmap.bin" in binary_assets:
+        focus_data = binary_assets["focus_piece_bitmap.bin"]
+        create_png_from_clut_data(focus_data, PIECE_SIZE, PIECE_SIZE,
+                                png_dir / "focus_piece_bitmap.png")
+    if "focus_icon_bitmap.bin" in binary_assets:
+        focus_data = binary_assets["focus_icon_bitmap.bin"]
+        create_png_from_clut_data(focus_data, ICON_SIZE, ICON_SIZE,
+                                png_dir / "focus_icon_bitmap.png")
 
 
 def generate_assets(output_dir: Path) -> dict[str, bytes]:
@@ -439,30 +461,72 @@ def generate_assets(output_dir: Path) -> dict[str, bytes]:
     for icon_type in icon_types:
         assets[f"icon_{icon_type}.bin"] = generate_icon_sprite(icon_type)
 
-    # Highlight sprite (24x24) - simple rounded square with two-color CLUT
-    def generate_highlight_sprite() -> bytes:
+    # Highlight sprites (24x24) - generate two bitmaps: empty and occupied
+    def generate_highlight_empty() -> bytes:
         size = PIECE_SIZE
-        # Requirement: 24x24 with 8-pixel transparent border, 1-pixel edge, and color fill.
-        # Layout: indices 0..7 and 16..23 are fully transparent (8px border), inner region is 8x8 at coords 8..15.
-        # Inner 8x8: outermost pixels (x==8 or x==15 or y==8 or y==15) are edge (CLUT 85), inner pixels are fill (CLUT 86).
         buffer = bytearray([CLUT_TRANSPARENT] * size * size)
         inner_start = 8
         inner_end = size - inner_start - 1  # 15
         for y in range(size):
             for x in range(size):
                 idx = y * size + x
-                # Transparent border region
                 if x < inner_start or x > inner_end or y < inner_start or y > inner_end:
-                    # leave as CLUT_TRANSPARENT
                     continue
-                # Edge of inner region -> 1-pixel border
+                # Edge uses empty-outline CLUT (85), fill uses empty-fill CLUT (86)
                 if x == inner_start or x == inner_end or y == inner_start or y == inner_end:
-                    buffer[idx] = 85  # VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY (outline)
+                    buffer[idx] = 85
                 else:
-                    buffer[idx] = 86  # VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY (fill)
+                    buffer[idx] = 86
         return bytes(buffer)
 
-    assets["highlight_bitmap.bin"] = generate_highlight_sprite()
+    def generate_highlight_occupied() -> bytes:
+        size = PIECE_SIZE
+        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+        inner_start = 8
+        inner_end = size - inner_start - 1  # 15
+        for y in range(size):
+            for x in range(size):
+                idx = y * size + x
+                if x < inner_start or x > inner_end or y < inner_start or y > inner_end:
+                    continue
+                # Edge uses occupied-outline CLUT (87), fill uses occupied-fill CLUT (88)
+                if x == inner_start or x == inner_end or y == inner_start or y == inner_end:
+                    buffer[idx] = 87
+                else:
+                    buffer[idx] = 88
+        return bytes(buffer)
+
+    assets["highlight_empty_bitmap.bin"] = generate_highlight_empty()
+    assets["highlight_occupied_bitmap.bin"] = generate_highlight_occupied()
+
+    # Focus sprites
+    def generate_focus_piece() -> bytes:
+        size = PIECE_SIZE
+        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+        # 1-pixel dashed border using focus CLUT (CLUT_FOCUS)
+        for x in range(size):
+            for y in range(size):
+                idx = y * size + x
+                if x == 0 or x == size - 1 or y == 0 or y == size - 1:
+                    # dashed: draw every other pixel along border
+                    if ((x + y) & 1) == 0:
+                        buffer[idx] = CLUT_FOCUS
+        return bytes(buffer)
+
+    def generate_focus_icon() -> bytes:
+        size = ICON_SIZE
+        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+        # 1-pixel dashed border using focus CLUT (CLUT_FOCUS)
+        for x in range(size):
+            for y in range(size):
+                idx = y * size + x
+                if x == 0 or x == size - 1 or y == 0 or y == size - 1:
+                    if ((x + y) & 1) == 0:
+                        buffer[idx] = CLUT_FOCUS
+        return bytes(buffer)
+
+    assets["focus_piece_bitmap.bin"] = generate_focus_piece()
+    assets["focus_icon_bitmap.bin"] = generate_focus_icon()
     
     # Write all binary assets to files
     for filename, data in assets.items():

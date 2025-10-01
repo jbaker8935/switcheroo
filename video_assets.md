@@ -31,10 +31,12 @@
 - Clut slot 86 Highlight Sprite Empty Cell Color 2
 - Clut slot 87 Highlight Sprite Occupied Cell Color 1
 - Clut slot 88 Highlight Sprite Occupied Cell Color 2
+- Clut slot 89 Focus Color
 
 ## Sprites
 - 
 ## Piece Sprite
+- Piece Sprites are defined on Sprite Layer 1
 - 24x24 pixels
 - two sprite bitmaps are defined for each player
 - - normal piece bitmap
@@ -47,20 +49,47 @@
 - - piece sprite should have a color fill
 - - swapped piece sprite should have an inset symbol, e.g. star shaped
 
-## Highlight Sprite 
+## Highlight Sprites
+- Highlight Sprites are defined on Sprite Layer 0
 - 24x24 pixels
-- One bit map required for highlight sprites
-- Eight highlight sprites are defined representing the 8 possible movement directions from a piece position
-- Highlight sprites placed over empty cells use a different color palette than a highlight sprite placed over an opponent's piece that is a candidate for swapping.
+- Two bit maps required for highlight sprites
+- - one bitmap for Highlight Sprites used on an Empty Cell
+- - one bitmap for Highlight Sprites used on an Occupied Cell
+- Eight highlight sprites for Empty Cells are defined representing the 8 possible movement directions from a piece position
+- Eight highlight sprites for Occupied Cells are defined representing the 8 possible movement directions from a piece position
+- Highlight sprites placed over empty cells use a different color slot than a highlight sprite placed over an opponent's piece that is a candidate for swapping.
 - Highlight Sprite bitmaps use the reserved Piece Clut slot values defined in the Graphics Color Lookup Table
+- - bitmaps for Empty Cells use the Clut indices for Highlight Sprite Empty Cell Color
+- - bitmaps for Occupied Cells use the Clut indices for Highlight Sprite Occupied Cell Color
 
 - generated assets to be used during testing
 - - highlight sprite should have a 8 pixel transparent border
 - - highlight sprite should have a 1 pixel edge border
 - - highlight sprite should have a color fill
 
+## Piece Focus Sprite
+- Piece Focus Sprites are defined on Sprite Layer 0
+- 24x24 pixels
+- one bitmaps 
+- focus sprite bitmaps use the reserved Focus Clut slot values defined in the Graphics Color Lookup Table
+- one Piece Focus Sprite is defined
+- generated assets to be used during testing
+- - piece focus sprite should have a 1 pixel white dashed line border
+- - the interior of the focus sprite will be transparent
+
+## Icon Focus Sprite
+- Icon Focus Sprites are defined on Sprite Layer 0
+- 16x16 pixels
+- one bitmaps 
+- focus sprite bitmaps use the reserved Focus Clut slot values defined in the Graphics Color Lookup Table
+- one Icon Focus Sprite is defined
+- generated assets to be used during testing
+- - icon focus sprite should have a 1 pixel white dashed line border
+- - the interior of the focus sprite will be transparent
+
 
 ## Icon Sprite
+- Icon Sprites are defined on Sprite Layer 1
 - 16x16 pixels
 - sprite bitmap defined for each Icon
 - - Reset: reinitializes the game board
@@ -74,6 +103,7 @@
 - - each icon sprite should have unique symbology for test purposes
 - Icon Sprites use the Color Lut slot values defined in the Graphics Color Lookup Table
 ## Board Bitmap
+- Board Bitmap is defined on Bitmap Layer 2
 - a single 320x240 bitmap bill be used
 - bitmap will be located at high-memory address 0x44000
 - bitmap memory  Page 2 - 0x44000 → 0x56bff

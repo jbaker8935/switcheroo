@@ -13,6 +13,12 @@ Empty Cell Move: Move to an adjacent empty cell. This unmarks ALL swapped pieces
 Swap Move: Move to an adjacent cell occupied by an opponent's NORMAL piece. Both pieces swap positions and become SWAPPED.
 SWAPPED Pieces: Cannot be the target of a swap, but can initiate a swap with a NORMAL opponent piece.
 Win Condition: Create a connected path of your pieces linking row 2 and row 7 (inclusive). pieces are considered connected if they are adjacent in any direction, including diagonally.
+Swap Rules: The game may be played in one of four swap rule modes, which can be selected by the player.
+- Classic: Moving into an empty cell clears all swapped pieces. This is the default mode described above
+- Clears Own: Moving into an empty cell clears the player's swapped pieces. Opponent's pieces remain unchanged.
+- Swapped Clears: Moving a swapped piece into an empty cell clears all pieces. Moving a normal piece to an empty cell does not clear any swapped pieces.
+- Swapped Clears Own: Moving a swapped piece into an empty cell clears only the player's swapped pieces. Opponent's pieces remain unchanged. Moving a normal piece to an empty cell does not clear any swapped pieces.
+
 
 ## User Interface
 Screen shows a centered game board with the human player's white pieces positioned at the bottom of the screen.
@@ -46,6 +52,7 @@ negative heuristic elements: number of pieces on 'back' row, opponent connected 
 win heuristics: move creates an immediate win for the player, move forces the opponent to make a move that allows the player to win on their subsequent move
 lose avoidance heuristic: move creates an immediate win for the opponent player, move allows the opponent to make a winning move.
 advanced loss avoidance heuristic:  move allows the opponent to create a forcing move which forces the player to make a move on their next move that allows the opponent to win on their following move.
+the AI will use the selected Swap Rule to determine legal moves and to select optimal play.
 
 
 

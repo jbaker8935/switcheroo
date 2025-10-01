@@ -172,10 +172,18 @@ bool input_translate_event(input_event_t *event) {
             if (button_changed) {
                 // Button state changed - prioritize that
                 bool pressed = (new_buttons & 1) && !(s_input_state.mouse_buttons_prev & 1);
-                event->type = pressed ? INPUT_EVENT_MOUSE_DOWN : INPUT_EVENT_MOUSE_UP;
-                event->data.mouse.x = s_input_state.mouse_x;
-                event->data.mouse.y = s_input_state.mouse_y;
-                event->data.mouse.button = MOUSE_BUTTON_LEFT;
+                if (pressed) {
+                    event->type = INPUT_EVENT_MOUSE_DOWN;
+                    event->data.mouse.x = s_input_state.mouse_x;
+                    event->data.mouse.y = s_input_state.mouse_y;
+                    event->data.mouse.button = MOUSE_BUTTON_LEFT;
+                } else {
+                    // Mouse up
+                    event->type = INPUT_EVENT_MOUSE_UP;
+                    event->data.mouse.x = s_input_state.mouse_x;
+                    event->data.mouse.y = s_input_state.mouse_y;
+                    event->data.mouse.button = MOUSE_BUTTON_LEFT;
+                }
             } else {
                 // Just movement
                 event->type = INPUT_EVENT_MOUSE_MOVE;
@@ -196,27 +204,10 @@ bool input_translate_event(input_event_t *event) {
     }
     
     if (kernelEventData.type == kernelEvent(mouse.CLICKS)) {
-        // Handle mouse clicks
-        if (event) {
-            event->type = INPUT_EVENT_MOUSE_DOWN;
-            event->data.mouse.x = s_input_state.mouse_x;
-            event->data.mouse.y = s_input_state.mouse_y;
-            
-            if (kernelEventData.mouse.clicks.inner) {
-                event->data.mouse.button = MOUSE_BUTTON_LEFT;
-            } else if (kernelEventData.mouse.clicks.outer) {
-                event->data.mouse.button = MOUSE_BUTTON_RIGHT;
-            } else {
-                event->data.mouse.button = MOUSE_BUTTON_MIDDLE;
-            }
-            s_input_state.keyboard_mode = false;
-            
-            // Debug: show successful mouse clicks translation
-            textGotoXY(0, 8);
-            printf("Translate returning: true (MOUSE_CLICKS)     ");
-            
-            return true;
-        }
+        // Handle mouse clicks - but for our simple selection logic, we only care about
+        // the initial button press from DELTA events. CLICKS events are redundant
+        // and can cause double-processing. Consume them without generating input events.
+        return false;
     }
     
     // No events we recognize

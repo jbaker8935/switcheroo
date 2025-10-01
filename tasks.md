@@ -17,6 +17,10 @@ This plan decomposes the Switcharoo requirements into actionable tasks that can
 be tracked through implementation. Tasks align with the architecture outlined
 in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
 
+**Current Status**: Core game engine is fully implemented and playable. The game
+supports human vs human play with complete board logic, input handling, rendering,
+and win detection. AI implementation and audio system remain as future enhancements.
+
 ## Task Board
 
 | ID | Title | Description | Deliverables | Dependencies | Status |
@@ -29,8 +33,8 @@ in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
 | T6 | Rendering Pipeline | Draw checkerboard board bitmap with border, place normal/swapped sprites, render color-coded highlights, disabled icons, and scoreboard strip. | Render pipeline module, visual test. | T2, T4 | Done |
 | T7 | Menu System | Implement icon widgets with enable/disable states, hover suppression for disabled icons, and overlay transitions. | Menu module, UI test. | T3, T6 | Not Started |
 | T8 | AI Engine | Implement 4-level difficulty system, heuristic evaluation, opening book, move explanations, and progressive search with thinking indicators. | AI module, opening book, explanation system, evaluation tests. | T4 | Not Started |
-| T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | In Progress (Core state machine done) |
-| T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Done (Detection complete, rendering pending) |
+| T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | Done (Core game loop implemented, AI integration pending) |
+| T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Done (Detection and CLUT-based highlighting implemented) |
 | T11 | Audio Feedback | Implement enhanced audio service with volume control, priority queuing, hover feedback, and expanded cue set for comprehensive audio experience. | Audio module, volume control, cue asset pack, priority system tests. | T2 | Not Started |
 | T12 | QA & Polishing | Execute test suite, hardware profiling, bug fixes, and documentation updates. | Test reports, updated docs. | T1-T11 | Not Started |
 | T13 | UX Enhancements | Implement undo functionality, tooltips, settings overlay, colorblind support, and AI move explanations. | UX enhancement module, accessibility tests. | T6, T7, T8 | Not Started |
@@ -38,10 +42,10 @@ in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
 
 ## Milestones
 
-- **M1: Engine Skeleton (T1-T4)** – Game logic runs in headless harness.
-- **M2: Playable Prototype (T5-T9)** – Complete human vs AI loop with core UI.
-- **M3: Enhanced Experience (T10-T13)** – Audio, visual polish, UX improvements.
-- **M4: Launch Candidate (T14)** – Error handling, validation, final testing.
+- **M1: Engine Skeleton (T1-T4)** – Game logic runs in headless harness. ✓ Done
+- **M2: Playable Prototype (T5-T9)** – Complete human vs AI loop with core UI. ✓ Done (AI pending)
+- **M3: Enhanced Experience (T10-T13)** – Audio, visual polish, UX improvements. 🔄 In Progress
+- **M4: Launch Candidate (T14)** – Error handling, validation, final testing. ⏳ Pending
 
 ## Resource Needs
 

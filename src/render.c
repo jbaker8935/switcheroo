@@ -4,7 +4,14 @@
  */
 
 #include "../src/render.h"
+#include "../src/input.h"
+#include "../src/board.h"
 #include <string.h>
+
+// External functions from video.c
+extern void video_reset_board_cell_color(uint8_t row, uint8_t col);
+extern void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player);
+extern void video_reset_all_board_cell_colors(void);
 
 // Constants from video.c (should eventually be in a shared header)
 #define VIDEO_SCREEN_WIDTH 320u
@@ -37,6 +44,8 @@
 
 // Highlight sprite CLUT indices (defined in video.c)
 #define VIDEO_VRAM_HIGHLIGHT 0x5e500u
+#define VIDEO_VRAM_HIGHLIGHT_EMPTY 0x5e500u
+#define VIDEO_VRAM_HIGHLIGHT_OCCUPIED 0x5e800u
 #define VIDEO_CLUT_HIGHLIGHT_PRIMARY 35
 #define VIDEO_CLUT_HIGHLIGHT_SECONDARY 36
 // Highlight sprite CLUT slots (distinct from board highlight CLUTs)
@@ -44,6 +53,11 @@
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY 86
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY 87
 #define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY 88
+
+// Focus CLUT/Vram (mirrors video.c defs used by render)
+#define VIDEO_CLUT_FOCUS 89
+#define VIDEO_VRAM_FOCUS_PIECE 0x5ec00u
+#define VIDEO_VRAM_FOCUS_ICON 0x5ee00u
 
 // Icon bitmap addresses
 static const uint32_t s_icon_bitmap_addrs[6] = {
@@ -61,6 +75,29 @@ static int16_t s_board_y;
 static int16_t s_icon_x;
 static int16_t s_icon_start_y;
 
+// Cached render state to avoid unnecessary sprite redefinitions/positioning
+static bool s_cache_initialized = false;
+static uint8_t s_cache_board_snapshot[BOARD_ROWS][BOARD_COLS];
+// Cached selection state to avoid per-frame highlight updates
+static bool s_cache_selection_has = false;
+static uint8_t s_cache_selected_row_val = 0xFF;
+static uint8_t s_cache_selected_col_val = 0xFF;
+static uint8_t s_cache_legal_move_count = 0;
+static move_t s_cache_legal_moves[8];
+
+// Focus sprite IDs
+#define VIDEO_SPRITE_FOCUS_PIECE (VIDEO_SPRITE_HIGHLIGHT_BASE + 16)
+#define VIDEO_SPRITE_FOCUS_ICON  (VIDEO_SPRITE_HIGHLIGHT_BASE + 17)
+
+// Helper: snapshot board pieces for change detection
+static void cache_board_snapshot(const board_t *board) {
+    for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+        for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+            s_cache_board_snapshot[r][c] = (uint8_t)board_get_piece(board, r, c);
+        }
+    }
+}
+
 void render_init(void) {
     // Calculate board layout (matching video_position_sprites logic)
     const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11;
@@ -72,6 +109,44 @@ void render_init(void) {
     // Icon panel position
     s_icon_x = s_board_x + board_width + 16;
     s_icon_start_y = s_board_y + 8;
+
+    // Initialize and define sprites once (bitmaps + CLUTs). Positions are updated at runtime.
+    // Define piece sprites (16)
+    for (uint8_t i = 0; i < 16; ++i) {
+        uint32_t bitmap = (i < 8) ? VIDEO_VRAM_PIECE_A_NORMAL : VIDEO_VRAM_PIECE_B_NORMAL;
+        spriteDefine((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), bitmap, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteSetVisible((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), 0);
+    }
+
+    // Define icon sprites (6)
+    for (uint8_t i = 0; i < 6; ++i) {
+        uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
+        spriteDefine(sid, s_icon_bitmap_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteSetVisible(sid, 1);
+    }
+
+    // Define highlight sprites (8 empty + 8 occupied) - one per direction each.
+    // Empty cell highlight sprites: base..base+7 use the EMPTY bitmap
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + i);
+        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_EMPTY, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 0);
+        spriteSetVisible(sid, 0);
+    }
+    // Occupied cell highlight sprites: base+8..base+15 use the OCCUPIED bitmap
+    for (uint8_t i = 0; i < 8; ++i) {
+        uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + 8 + i);
+        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_OCCUPIED, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 0);
+        spriteSetVisible(sid, 0);
+    }
+
+    // Define focus sprites (piece and icon) on layer 0
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_VRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_CLUT_FOCUS, 0);
+    spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_VRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_CLUT_FOCUS, 0);
+    spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
+
+    // Mark cache initialized
+    s_cache_initialized = true;
 }
 
 void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y) {
@@ -144,6 +219,11 @@ void render_update_pieces(const board_t *board) {
     // Track which sprites we've used for each player
     uint8_t white_sprite_count = 0;
     uint8_t black_sprite_count = 0;
+
+    // If cache not initialized, snapshot board and mark all for update
+    if (!s_cache_initialized) {
+        cache_board_snapshot(board);
+    }
     
     // Scan board and assign sprites to pieces
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
@@ -188,13 +268,19 @@ void render_update_pieces(const board_t *board) {
             }
             
             if (is_white || black_sprite_count > 0) {
-                // Position and configure sprite
+                // Always ensure piece sprites are visible when pieces exist
+                spriteSetVisible(sprite_id, 1);
+                
+                // Always position the sprite when assigned to a piece
                 uint16_t x, y;
                 render_cell_to_screen(row, col, &x, &y);
-                
-                spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
                 spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
-                spriteSetVisible(sprite_id, 1);
+                
+                // If piece type changed (especially NORMAL<->SWAPPED), redefine sprite with new bitmap
+                uint8_t prev_piece = s_cache_board_snapshot[row][col];
+                if (prev_piece != (uint8_t)piece) {
+                    spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+                }
             }
         }
     }
@@ -208,91 +294,168 @@ void render_update_pieces(const board_t *board) {
     for (uint8_t i = black_sprite_count; i < 8; ++i) {
         spriteSetVisible(VIDEO_SPRITE_PIECE_BASE + 8 + i, 0);
     }
+
+    // Update cache of board pieces after positioning
+    cache_board_snapshot(board);
 }
 
 void render_update_highlights(const selection_state_t *selection) {
-    // Clear all highlight sprites first
-    for (uint8_t i = 0; i < 16; ++i) {
-        spriteSetVisible(VIDEO_SPRITE_HIGHLIGHT_BASE + i, 0);
-    }
+    // Mouse-based selection design:
+    // - Select piece by clicking (only when no piece selected)
+    // - Deselect by clicking the same piece again
+    // - Move by clicking a highlighted legal move cell
+    // - Highlights remain visible while selected piece doesn't change
+    // - Mouse movement without clicking does not affect selection
     
-    if (!selection->has_selection) {
+    // Only update highlights when selection state changes
+    bool selection_changed = false;
+
+    if (s_cache_selection_has != selection->has_selection) {
+        selection_changed = true;
+    } else if (selection->has_selection) {
+        if (s_cache_selected_row_val != selection->selected_row || s_cache_selected_col_val != selection->selected_col) {
+            selection_changed = true;
+        } else if (s_cache_legal_move_count != selection->legal_move_count) {
+            selection_changed = true;
+        } else {
+            // Compare cached moves
+            for (uint8_t i = 0; i < selection->legal_move_count; ++i) {
+                if (s_cache_legal_moves[i].to_row != selection->legal_moves[i].to_row ||
+                    s_cache_legal_moves[i].to_col != selection->legal_moves[i].to_col ||
+                    s_cache_legal_moves[i].type != selection->legal_moves[i].type) {
+                    selection_changed = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!selection_changed) {
+        // No change — leave highlights alone
         return;
     }
-    
-    uint8_t highlight_index = 0;
-    
-    // Highlight selected piece cell - use a distinct visual indicator
-    uint16_t sel_x, sel_y;
-    render_cell_to_screen(selection->selected_row, selection->selected_col, &sel_x, &sel_y);
-    
-    uint8_t sel_sprite = VIDEO_SPRITE_HIGHLIGHT_BASE + highlight_index++;
-    // Use dedicated highlight bitmap and highlight CLUT
-    spriteDefine(sel_sprite, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE, 
-                VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY, 1);
-    spriteSetPosition(sel_sprite, VIDEO_SPRITE_OFFSET + sel_x, VIDEO_SPRITE_OFFSET + sel_y);
-    spriteSetVisible(sel_sprite, 1);
-    
-    // Highlight all legal move destinations
-    for (uint8_t i = 0; i < selection->legal_move_count && highlight_index < 16; ++i) {
-        const move_t *move = &selection->legal_moves[i];
-        
-        uint16_t move_x, move_y;
-        render_cell_to_screen(move->to_row, move->to_col, &move_x, &move_y);
-        
-    // Do not highlight a move that targets the currently selected cell
-    if (move->to_row == selection->selected_row && move->to_col == selection->selected_col) {
-        continue;
-    }
 
-    uint8_t move_sprite = VIDEO_SPRITE_HIGHLIGHT_BASE + highlight_index++;
-        
-    // Distinguish hovered move from other legal moves and empty vs occupied target
-    bool target_occupied = (move->type == MOVE_TYPE_SWAP);
-    uint8_t clut_index;
-    if (target_occupied) {
-        clut_index = (selection->hovered_move == (int8_t)i) ? VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY : VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY;
-    } else {
-        clut_index = (selection->hovered_move == (int8_t)i) ? VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY : VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY;
-    }
-
-    spriteDefine(move_sprite, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE,
-            clut_index, 1);
-        spriteSetPosition(move_sprite, VIDEO_SPRITE_OFFSET + move_x, VIDEO_SPRITE_OFFSET + move_y);
-        spriteSetVisible(move_sprite, 1);
-    }
-}
-
-void render_update_win_path(const win_path_t *path) {
-    // Clear highlight sprites when no win path
-    if (!path || !path->has_path) {
+    // Update cache
+    s_cache_selection_has = selection->has_selection;
+    if (!selection->has_selection) {
+        s_cache_selected_row_val = 0xFF;
+        s_cache_selected_col_val = 0xFF;
+        s_cache_legal_move_count = 0;
+        // Hide all highlights
         for (uint8_t i = 0; i < 16; ++i) {
             spriteSetVisible(VIDEO_SPRITE_HIGHLIGHT_BASE + i, 0);
         }
         return;
     }
-    
-    // Highlight each cell in the winning path
-    for (uint8_t i = 0; i < path->path_length && i < 16; ++i) {
-        uint8_t cell_index = path->path_cells[i];
-        uint8_t row = cell_index / BOARD_COLS;
-        uint8_t col = cell_index % BOARD_COLS;
-        
+
+    s_cache_selected_row_val = selection->selected_row;
+    s_cache_selected_col_val = selection->selected_col;
+    s_cache_legal_move_count = selection->legal_move_count;
+    for (uint8_t i = 0; i < s_cache_legal_move_count && i < 8; ++i) {
+        s_cache_legal_moves[i] = selection->legal_moves[i];
+    }
+
+    // Clear all highlight sprites first (8 empty + 8 occupied)
+    for (uint8_t i = 0; i < 16; ++i) {
+        spriteSetVisible(VIDEO_SPRITE_HIGHLIGHT_BASE + i, 0);
+    }
+
+    /* highlight_index removed: we use direction-mapped sprites (8 total) */
+    uint8_t used_directions = 0u;
+
+    // Highlight all legal move destinations
+    for (uint8_t i = 0; i < selection->legal_move_count; ++i) {
+        const move_t *move = &selection->legal_moves[i];
+        uint16_t move_x, move_y;
+        render_cell_to_screen(move->to_row, move->to_col, &move_x, &move_y);
+
+        // Do not highlight a move that targets the currently selected cell
+        if (move->to_row == selection->selected_row && move->to_col == selection->selected_col) {
+            continue;
+        }
+
+        // Compute direction delta from selected cell to move target
+        int8_t dr = (int8_t)move->to_row - (int8_t)selection->selected_row;
+        int8_t dc = (int8_t)move->to_col - (int8_t)selection->selected_col;
+        if (dr < 0) dr = -1; else if (dr > 0) dr = 1; else dr = 0;
+        if (dc < 0) dc = -1; else if (dc > 0) dc = 1; else dc = 0;
+
+        // Map (dr,dc) to a direction index 0..7
+        uint8_t dir_index = 0;
+        if (dr == -1 && dc == 0) dir_index = 0;       // N
+        else if (dr == -1 && dc == 1) dir_index = 1;  // NE
+        else if (dr == 0 && dc == 1) dir_index = 2;   // E
+        else if (dr == 1 && dc == 1) dir_index = 3;   // SE
+        else if (dr == 1 && dc == 0) dir_index = 4;   // S
+        else if (dr == 1 && dc == -1) dir_index = 5;  // SW
+        else if (dr == 0 && dc == -1) dir_index = 6;  // W
+        else if (dr == -1 && dc == -1) dir_index = 7; // NW
+
+        // If this direction sprite already used, skip (we only have one per dir)
+        if (used_directions & (1u << dir_index)) {
+            continue;
+        }
+
+        // Choose sprite group based on whether the target is occupied (swap candidate)
+        bool target_occupied = (move->type == MOVE_TYPE_SWAP);
+        uint8_t group_base = target_occupied ? (VIDEO_SPRITE_HIGHLIGHT_BASE + 8) : VIDEO_SPRITE_HIGHLIGHT_BASE;
+        uint8_t move_sprite = group_base + dir_index;
+        spriteSetPosition(move_sprite, VIDEO_SPRITE_OFFSET + move_x, VIDEO_SPRITE_OFFSET + move_y);
+        spriteSetVisible(move_sprite, 1);
+
+        // Mark the direction used
+        used_directions |= (1u << dir_index);
+    }
+
+    // Also, ensure piece focus sprite is hidden when selection is active (mouse selection takes precedence)
+    spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
+}
+
+// Called from render_update to show focus indicator when keyboard mode is active
+static void render_update_focus(void) {
+    // Query input focus
+    uint8_t row, col;
+    input_get_focus(&row, &col);
+    if (!input_is_keyboard_mode()) {
+        // Hide both focus sprites
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
+        return;
+    }
+
+    // Determine whether focus is on board cell or icon area.
+    // If focus row within board rows, show piece focus; otherwise show icon focus.
+    if (row < VIDEO_BOARD_ROWS) {
+        // Show piece focus at focused cell
         uint16_t x, y;
         render_cell_to_screen(row, col, &x, &y);
-        
-        uint8_t sprite_id = VIDEO_SPRITE_HIGHLIGHT_BASE + i;
-        
-    // Use special CLUT for winning path (occupied-style highlight)
-    spriteDefine(sprite_id, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE,
-        VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY, 1);  // Distinct CLUT for win highlight
-        spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
-        spriteSetVisible(sprite_id, 1);
+        spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 1);
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
+    } else {
+        // Map focus to icon index (col used for icon index)
+        uint8_t icon_index = col % 6; // defensive
+        uint16_t y = s_icon_start_y + (icon_index * (VIDEO_ICON_SPRITE_SIZE + 8));
+        spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_SPRITE_OFFSET + s_icon_x, VIDEO_SPRITE_OFFSET + y);
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 1);
+        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
     }
+}
+
+void render_update_win_path(const win_path_t *path) {
+    // Clear any existing win highlights by resetting all board cell colors
+    video_reset_all_board_cell_colors();
     
-    // Hide unused highlight sprites
-    for (uint8_t i = path->path_length; i < 16; ++i) {
-        spriteSetVisible(VIDEO_SPRITE_HIGHLIGHT_BASE + i, 0);
+    // If there's a winning path, highlight the cells
+    if (path && path->has_path) {
+        for (uint8_t i = 0; i < path->path_length; ++i) {
+            uint8_t cell_index = path->path_cells[i];
+            uint8_t row = cell_index / BOARD_COLS;
+            uint8_t col = cell_index % BOARD_COLS;
+            
+            // Set the cell color to the win highlight color for the winner
+            video_set_board_cell_win_color(row, col, path->winner);
+        }
     }
 }
 
@@ -357,6 +520,8 @@ void render_update(const game_state_t *state) {
     
     // Update highlights for selection
     render_update_highlights(&state->selection);
+    // Update focus indicator (keyboard navigation)
+    render_update_focus();
     
     // Update winning path if game over
     if (state->phase == GAME_PHASE_GAME_OVER) {

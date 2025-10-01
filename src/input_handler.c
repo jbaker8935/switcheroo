@@ -100,12 +100,13 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                     uint8_t col = hit.data.cell.col;
                     
                     if (state->selection.has_selection) {
-                        // Check if clicked on a legal move
+                        // A piece is already selected
+                        // Check if clicked on a legal move destination
                         bool found_move = false;
                         for (uint8_t i = 0; i < state->selection.legal_move_count; i++) {
                             if (state->selection.legal_moves[i].to_row == row &&
                                 state->selection.legal_moves[i].to_col == col) {
-                                // Execute the move
+                                // Execute the move (this will deselect automatically)
                                 game_state_execute_selected_move(state, i);
                                 found_move = true;
                                 break;
@@ -113,12 +114,15 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                         }
                         
                         if (!found_move) {
-                            // Clicked somewhere else - deselect or select new piece
-                            game_state_deselect_piece(state);
-                            game_state_select_piece(state, row, col);
+                            // Not a legal move - check if clicking the same selected cell to deselect
+                            if (row == state->selection.selected_row && col == state->selection.selected_col) {
+                                // Clicking selected piece again - deselect it
+                                game_state_deselect_piece(state);
+                            }
+                            // Otherwise, ignore the click (don't select a different piece while one is selected)
                         }
                     } else {
-                        // No selection - try to select this piece
+                        // No selection - try to select this piece (will only work if it's current player's piece)
                         game_state_select_piece(state, row, col);
                     }
                 } else if (hit.type == HIT_MENU_ICON) {

@@ -43,7 +43,7 @@ hardware efficiency.
 
 1. Boot strap via `crt0` entry and perform zero-page setup using LLVM-MOS
    defaults.
-2. Initialize `f256lib` subsystems: video (bitmap layer 0, sprite layers 0-2),
+2. Initialize `f256lib` subsystems: video (bitmap layer 2, sprite layers 0-2),
    input (mouse, keyboard), audio (tone generator for feedback with preloaded
    cue envelopes), and timers. Trigger the startup cue once initialization
    completes.
@@ -55,7 +55,7 @@ hardware efficiency.
 6. On each tick: process input, update selection/hover state, run AI when
    applicable, mutate game state, enqueue render commands, and flush frame.
 7. Detect win/exit conditions, play the appropriate victory or defeat jingle,
-  lock in the winning-path highlight until the next reset, update the session
+  lock in the winning-path highlight (one cell per row, rows 2-7, using CLUT color changes) until the next reset, update the session
   scoreboard bitmap, and transition overlays as needed.
 
 ## Video Subsystem
@@ -153,22 +153,19 @@ minimize runtime branching.
 
 ## Rendering Strategy
 
-- Use bitmap layer 0 for the board background with precomputed 28x28 cell grid
+- Use bitmap layer 2 for the board background with precomputed 28x28 cell grid
   aligned to screen center, including a 1-pixel outer border and checkerboard
   fills that match the UI palette.
-- Use sprite layer 0 for white pieces and sprite layer 1 for black pieces, with
+- Use sprite layer 1 for white pieces and sprite layer 1 for black pieces, with
   dedicated sprite indices for swapped variants so their artwork differs from
-  normal pieces; highlight overlays occupy sprite layer 2.
-- Winning path highlights draw color-coded overlays: one palette for the active
+  normal pieces; highlight overlays occupy sprite layer 0.
+- Winning path highlights draw color-coded CLUT changes: one color for the winning
   player's path, another for the opponent, and logic to composite both if a
-  simultaneous win occurs.
+  simultaneous win occurs. Only one cell per row (rows 2-7) is highlighted.
 - Menu icons appear on the right margin using dedicated sprite indices in layer
   1, spaced vertically with 8-pixel padding. Disabled icons swap to desaturated
   frames and suppress hover sprites.
-- Session score is rendered as a bitmap strip positioned beneath the last menu
-  item with the format `W:## B:##`, refreshed after initialization and each win.
-- Text overlays render via tile-based font on bitmap layer 1 to simplify
-  scrolling move history and information screens.
+- Text output for messages and scores will use the text overlay layer.  Future design may render text to a bitmap or tile layer
 - Double-buffer sprite attribute tables where possible to prevent tearing during
   AI turns.
 
@@ -189,10 +186,11 @@ minimize runtime branching.
 - For each selection, evaluate candidate cells; mark `Move` structs with rule
   outcomes (empty or swap) and store the impacted piece IDs to update swapped
   flags efficiently.
-- Victory detection uses Union-Find or DFS on the subset of player cells from
+- Victory detection uses Union-Find on the subset of player cells from
   rows 2-7; caches connectivity bitsets to accelerate repeated checks. Winning
   paths feed the renderer with per-player color selections and support dual-path
-  highlighting when both players satisfy the condition simultaneously.
+  highlighting when both players satisfy the condition simultaneously. Only one
+  cell per row (rows 2-7) is collected for highlighting.
 
 ## Audio System
 
@@ -254,38 +252,20 @@ minimize runtime branching.
   and bitmap data via `f256lib` asset tools. During early development a
   deterministic Python script (`scripts/generate_assets.py`) produces
   placeholder assets into `assets/generated/`, including the 320x240 board
-  bitmap, 24x24 piece sprites, 28x28 highlight overlays, and 16x16 menu icon
+  bitmap, 24x24 piece sprites, highlight sprites, and 16x16 menu icon
   sprites. The script encodes palette indexes aligned with the active theme so
-  visual smoke tests exercise the real CLUT layout, and it emits
-  `src/assets/generated_assets.c` plus a companion header exposing the
-  `g_video_assets` manifest consumed by the runtime loader.
+  visual smoke tests exercise the real CLUT layout.  Assets are loaded using the llvm-mos EMBED function.
 - Font glyphs derived from an 8x8 monospace set for legibility at low
   resolution.
-- Build process integrates asset packing into the LLVM-MOS project using custom
-  `Makefile` rules. The `assets` target runs the generation script before
-  compilation to guarantee binaries always have the expected placeholder data.
+- Build process uses the llvm-mos build script: llvm-mos/f256dev/f256build.sh
 
 ## Build and Packaging
 
-- Maintain the Foenix-specific linker logic in-repo under
-  `toolchain/linker/link.ld` so the project does not depend on the upstream
-  `f256dev` directory layout. A thin wrapper `link.ld` at the repository root
-  keeps compatibility with the llvm-mos driver's `-Tlink.ld` default while the
-  full script inlines the zero-page, section, and overlay handling sourced from
-  the Foenix SDK.
+- Build is done with the following command:
+llvm-mos/f256dev/f256build.sh ../f256_switch
 - The primary build target is a `.pgz` image produced by `mos-f256-clang` with
   the local linker script. The build also emits the companion ELF binary, map
   file, raw binary dump, symbol table, and annotated disassembly for debugging.
-- Packaging steps are orchestrated through the project `Makefile`, which runs
-  the Python helper `scripts/pgz_thunk.py` after each link to print segment
-  metadata in the build log for quick validation.
-- Toolchain executables (compiler, objdump, objcopy, nm) default to the
-  versions shipped with the checked-out llvm-mos toolchain, but can be
-  overridden via `toolchain.mk` when needed.
-- Core `f256lib` rendering helpers (`f_graphics.c`, `f_bitmap.c`,
-  `f_sprite.c`, `f_math.c`) are compiled as part of the project build so the
-  generated binary remains self-contained even if the upstream SDK layout
-  shifts.
 
 ## Memory Layout
 

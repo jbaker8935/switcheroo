@@ -50,10 +50,10 @@ int main(int argc, char *argv[])
             kernelNextEvent();
 
             // Debug: print raw kernel event type, kernelError and pending count
-            // textGotoXY(0, 1);
-            // printf("Kernel event type: 0x%02X  kernelError=%d pending=%d Iter:%ld
-            // ", kernelEventData.type, (int)kernelError,
-            // (int)kernelArgs->events.pending, loop_iterations);
+            textGotoXY(0, 1);
+            printf("Kernel event type: 0x%02X  kernelError=%d pending=%d Iter:%ld",
+                kernelEventData.type, (int)kernelError,
+                (int)kernelArgs->events.pending, loop_iterations);
 
             // Translate kernel event to input event
             input_event_t event;
