@@ -414,6 +414,12 @@ def generate_png_assets(output_dir: Path, binary_assets: dict[str, bytes]) -> No
             create_png_from_clut_data(icon_data, ICON_SIZE, ICON_SIZE,
                                     png_dir / png_file)
 
+    # Highlight sprite PNG
+    if "highlight_bitmap.bin" in binary_assets:
+        highlight_data = binary_assets["highlight_bitmap.bin"]
+        create_png_from_clut_data(highlight_data, PIECE_SIZE, PIECE_SIZE,
+                                png_dir / "highlight_bitmap.png")
+
 
 def generate_assets(output_dir: Path) -> dict[str, bytes]:
     """Generate all game assets."""
@@ -432,6 +438,31 @@ def generate_assets(output_dir: Path) -> dict[str, bytes]:
     icon_types = ["reset", "info", "difficulty", "starting_board", "history", "exit"]
     for icon_type in icon_types:
         assets[f"icon_{icon_type}.bin"] = generate_icon_sprite(icon_type)
+
+    # Highlight sprite (24x24) - simple rounded square with two-color CLUT
+    def generate_highlight_sprite() -> bytes:
+        size = PIECE_SIZE
+        # Requirement: 24x24 with 8-pixel transparent border, 1-pixel edge, and color fill.
+        # Layout: indices 0..7 and 16..23 are fully transparent (8px border), inner region is 8x8 at coords 8..15.
+        # Inner 8x8: outermost pixels (x==8 or x==15 or y==8 or y==15) are edge (CLUT 85), inner pixels are fill (CLUT 86).
+        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
+        inner_start = 8
+        inner_end = size - inner_start - 1  # 15
+        for y in range(size):
+            for x in range(size):
+                idx = y * size + x
+                # Transparent border region
+                if x < inner_start or x > inner_end or y < inner_start or y > inner_end:
+                    # leave as CLUT_TRANSPARENT
+                    continue
+                # Edge of inner region -> 1-pixel border
+                if x == inner_start or x == inner_end or y == inner_start or y == inner_end:
+                    buffer[idx] = 85  # VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY (outline)
+                else:
+                    buffer[idx] = 86  # VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY (fill)
+        return bytes(buffer)
+
+    assets["highlight_bitmap.bin"] = generate_highlight_sprite()
     
     # Write all binary assets to files
     for filename, data in assets.items():

@@ -27,6 +27,10 @@
 - Clut slot 82 Icon Sprite Symbol Color 2
 - Clut slot 83 Icon Sprite Symbol Color 3
 - Clut slot 84 Icon Sprite Symbol Color 4
+- Clut slot 85 Highlight Sprite Empty Cell Color 1
+- Clut slot 86 Highlight Sprite Empty Cell Color 2
+- Clut slot 87 Highlight Sprite Occupied Cell Color 1
+- Clut slot 88 Highlight Sprite Occupied Cell Color 2
 
 ## Sprites
 - 
@@ -42,6 +46,20 @@
 - - piece sprite should have a 2 pixel edge border
 - - piece sprite should have a color fill
 - - swapped piece sprite should have an inset symbol, e.g. star shaped
+
+## Highlight Sprite 
+- 24x24 pixels
+- One bit map required for highlight sprites
+- Eight highlight sprites are defined representing the 8 possible movement directions from a piece position
+- Highlight sprites placed over empty cells use a different color palette than a highlight sprite placed over an opponent's piece that is a candidate for swapping.
+- Highlight Sprite bitmaps use the reserved Piece Clut slot values defined in the Graphics Color Lookup Table
+
+- generated assets to be used during testing
+- - highlight sprite should have a 8 pixel transparent border
+- - highlight sprite should have a 1 pixel edge border
+- - highlight sprite should have a color fill
+
+
 ## Icon Sprite
 - 16x16 pixels
 - sprite bitmap defined for each Icon

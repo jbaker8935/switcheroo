@@ -11,8 +11,6 @@
 #define SCREEN_HEIGHT 240u
 #define BOARD_CELL_SIZE 28u
 #define ICON_SIZE 16u
-#define BOARD_COLS 4u
-#define BOARD_ROWS 8u
 #define BOARD_BORDER 4u
 
 // Calculate board position (centered on screen)

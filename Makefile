@@ -52,17 +52,23 @@ INCLUDE_DIRS ?= include $(F256DEV_ROOT)/include $(F256DEV_ROOT)/f256lib
 LIB_DIRS     ?= $(F256DEV_ROOT)/llvm-mos/lib \
 				$(F256DEV_ROOT)/llvm-mos/mos-platform/common/lib
 
-LOCAL_SRC := $(shell find $(SRC_DIRS) -name '*.c') $(GENERATED_SRC)
-LOCAL_SRC := $(sort $(LOCAL_SRC))
-EXTERNAL_LIB_SRC := f_graphics.c f_bitmap.c f_sprite.c f_math.c
-EXTERNAL_SRC := $(addprefix $(F256DEV_ROOT)/f256lib/,$(EXTERNAL_LIB_SRC))
+LOCAL_SRC := src/main.c \
+             src/board.c \
+             src/game_state.c \
+             src/input.c \
+             src/input_handler.c \
+             src/system.c \
+             src/video.c \
+             src/render.c
+EXTERNAL_LIB_SRC := 
+EXTERNAL_SRC := 
 
 LOCAL_OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(LOCAL_SRC))
 EXTERNAL_OBJ := $(addprefix $(OBJ_DIR)/f256lib/,$(EXTERNAL_LIB_SRC:.c=.o))
 
 OBJ := $(LOCAL_OBJ) $(EXTERNAL_OBJ)
 
-CFLAGS := -Os -ffreestanding -fdata-sections -ffunction-sections -Wall \
+CFLAGS := -O0 -ffreestanding -fdata-sections -ffunction-sections -Wall \
 		  $(addprefix -I,$(INCLUDE_DIRS))
 
 LDFLAGS := -Wl,-gc-sections -Wl,-Map=$(MAP) $(addprefix -L,$(LIB_DIRS))
@@ -73,7 +79,7 @@ LIBS := -lm    # Additional libraries can be appended via toolchain.mk
 
 .PHONY: all clean assets dirs print-toolchain
 
-all: assets dirs $(PGZ) $(SYM) $(LST) $(BIN)
+all: dirs $(PGZ) $(SYM) $(LST) $(BIN)
 
 print-toolchain:
 	@echo "Toolchain root: $(F256DEV_ROOT)"

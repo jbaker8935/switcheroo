@@ -8,7 +8,7 @@
  */
 
 /* Fake C stack placed at the top of banked memory. */
-PROVIDE(__stack = 0xA000);
+PROVIDE(__stack = 0x20000);
 /* Entry point to the program; 0x200-0x2FF are reserved for arguments. */
 PROVIDE(__f256_start = 0x300);
 /* Size (in bytes) of a Foenix memory block. */
@@ -84,7 +84,7 @@ __block23_lma   = (23 << 24) | __SLOT_ADDR;
 /* Placeholder for binary data overlays (none defined yet). */
 
 MEMORY {
-    board_bitmap : ORIGIN = __block8_lma, LENGTH = __BLOCK_SIZE * 10
+    /* Removed board_bitmap region - not needed for minimal text test */
     block18      : ORIGIN = __block18_lma, LENGTH = __BLOCK_SIZE
     block19      : ORIGIN = __block19_lma, LENGTH = __BLOCK_SIZE
     block20      : ORIGIN = __block20_lma, LENGTH = __BLOCK_SIZE
@@ -172,11 +172,7 @@ SECTIONS {
         __heap_start = ALIGN(., 2);
     } >c_writeable
 
-    /* Overlay hooks: no sections defined yet, but keep layout compatible. */
-    .video_board_bitmap : {
-        *(.video_board_bitmap .video_board_bitmap.*)
-    } >board_bitmap
-    end_video_board_bitmap = .;
+    /* Overlay hooks removed - no video assets needed for minimal text test */
 }
 
 OUTPUT_FORMAT {
@@ -190,11 +186,7 @@ OUTPUT_FORMAT {
     TRIM(ram)
 
     /* Embedded assets */
-    SHORT(ORIGIN(board_bitmap))
-    BYTE(ORIGIN(board_bitmap) >> 16)
-    SHORT(SIZEOF(.video_board_bitmap))
-    BYTE(SIZEOF(.video_board_bitmap) >> 16)
-    TRIM(board_bitmap)
+    /* TRIM(board_bitmap) removed */
 
     /* Launch the program at _start. */
     SHORT(_start)

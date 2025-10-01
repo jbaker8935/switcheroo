@@ -22,6 +22,9 @@ EMBED(icon_starting_board, "../assets/generated/icon_starting_board.bin", 0x5d40
 EMBED(icon_history, "../assets/generated/icon_history.bin", 0x5dc00);
 EMBED(icon_exit, "../assets/generated/icon_exit.bin", 0x5e400);
 
+// Move Highlight sprite bitmap
+EMBED(highlight_bitmap, "../assets/generated/highlight_bitmap.bin", 0x5e500);
+
 // Type definitions needed for video system
 typedef enum {
     VIDEO_THEME_DEFAULT = 0,
@@ -42,6 +45,11 @@ typedef struct {
     video_rgb_t ui_panel;
     video_rgb_t highlight_primary;
     video_rgb_t highlight_secondary;
+    /* Highlight SPRITE colors (separate from board highlight) */
+    video_rgb_t highlight_sprite_empty_primary;
+    video_rgb_t highlight_sprite_empty_secondary;
+    video_rgb_t highlight_sprite_occupied_primary;
+    video_rgb_t highlight_sprite_occupied_secondary;
     video_rgb_t text_primary;
 } video_palette_t;
 
@@ -102,7 +110,11 @@ uint8_t video_board_palette_index(uint8_t row, uint8_t col);
 #define VIDEO_VRAM_ICON_DIFFICULTY 0x5cc00u
 #define VIDEO_VRAM_ICON_STARTING_BOARD 0x5d400u
 #define VIDEO_VRAM_ICON_HISTORY 0x5dc00u
+// Icon exit placed at 0x5e400 per user correction
 #define VIDEO_VRAM_ICON_EXIT 0x5e400u
+
+// Highlight sprite VRAM address (bitmap embedded at 0x5e500)
+#define VIDEO_VRAM_HIGHLIGHT 0x5e500u
 
 // Sprite ID assignments  
 #define VIDEO_SPRITE_PIECE_BASE 0u
@@ -115,6 +127,11 @@ uint8_t video_board_palette_index(uint8_t row, uint8_t col);
 #define VIDEO_CLUT_HIGHLIGHT_PRIMARY 35
 #define VIDEO_CLUT_HIGHLIGHT_SECONDARY 36
 #define VIDEO_CLUT_TEXT_PRIMARY 37
+// Highlight sprite CLUT slots (distinct from board highlight CLUTs)
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY 85
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY 86
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY 87
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY 88
 
 // Player A piece colors (indices 65-68, 73-74) - per video_assets.md
 #define VIDEO_CLUT_PLAYER_A_EDGE_1 65
@@ -164,6 +181,10 @@ static const video_palette_t kThemePalettes[VIDEO_THEME_COUNT] = {
         .ui_panel = { .r = 0x22, .g = 0x28, .b = 0x36 },
         .highlight_primary = { .r = 0xF4, .g = 0xC2, .b = 0x44 },
         .highlight_secondary = { .r = 0xF0, .g = 0x7C, .b = 0x40 },
+        .highlight_sprite_empty_primary = { .r = 0xFF, .g = 0xF1, .b = 0xC4 },
+        .highlight_sprite_empty_secondary = { .r = 0xFF, .g = 0xD9, .b = 0x94 },
+        .highlight_sprite_occupied_primary = { .r = 0xF4, .g = 0xC2, .b = 0x44 },
+        .highlight_sprite_occupied_secondary = { .r = 0xF0, .g = 0x7C, .b = 0x40 },
         .text_primary = { .r = 0xF4, .g = 0xF4, .b = 0xFA },
     },
     [VIDEO_THEME_HIGH_CONTRAST] = {
@@ -174,6 +195,10 @@ static const video_palette_t kThemePalettes[VIDEO_THEME_COUNT] = {
         .ui_panel = { .r = 0x20, .g = 0x20, .b = 0x20 },
         .highlight_primary = { .r = 0xFF, .g = 0x45, .b = 0x00 },
         .highlight_secondary = { .r = 0x00, .g = 0xBF, .b = 0xFF },
+    .highlight_sprite_empty_primary = { .r = 0xFF, .g = 0x80, .b = 0x40 },
+    .highlight_sprite_empty_secondary = { .r = 0xFF, .g = 0x60, .b = 0x20 },
+    .highlight_sprite_occupied_primary = { .r = 0xFF, .g = 0x45, .b = 0x00 },
+    .highlight_sprite_occupied_secondary = { .r = 0x00, .g = 0xBF, .b = 0xFF },
         .text_primary = { .r = 0xFF, .g = 0xFF, .b = 0xFF },
     },
     [VIDEO_THEME_COLORBLIND] = {
@@ -184,6 +209,10 @@ static const video_palette_t kThemePalettes[VIDEO_THEME_COUNT] = {
         .ui_panel = { .r = 0x1A, .g = 0x26, .b = 0x22 },
         .highlight_primary = { .r = 0xFF, .g = 0xB0, .b = 0x4C },
         .highlight_secondary = { .r = 0x5A, .g = 0xC8, .b = 0xFF },
+        .highlight_sprite_empty_primary = { .r = 0xFF, .g = 0xD9, .b = 0xB0 },
+        .highlight_sprite_empty_secondary = { .r = 0xFF, .g = 0xC0, .b = 0x88 },
+        .highlight_sprite_occupied_primary = { .r = 0xFF, .g = 0xB0, .b = 0x4C },
+        .highlight_sprite_occupied_secondary = { .r = 0x5A, .g = 0xC8, .b = 0xFF },
         .text_primary = { .r = 0xF0, .g = 0xFF, .b = 0xF0 },
     },
 };
@@ -329,6 +358,22 @@ static void video_setup_clut(const video_palette_t *palette) {
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_2, 0xF3, 0x9C, 0x12);  // Orange symbol 2
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_3, 0xE6, 0x7E, 0x22);  // Orange symbol 3
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_4, 0xD3, 0x54, 0x00);  // Dark orange symbol 4
+
+    // Highlight colors (slots 35-36) - from active palette
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_PRIMARY,
+                       palette->highlight_primary.r, palette->highlight_primary.g, palette->highlight_primary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SECONDARY,
+                       palette->highlight_secondary.r, palette->highlight_secondary.g, palette->highlight_secondary.b);
+    
+    // Highlight SPRITE colors (slots 85-88) - separate from board highlight
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY,
+                       palette->highlight_sprite_empty_primary.r, palette->highlight_sprite_empty_primary.g, palette->highlight_sprite_empty_primary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY,
+                       palette->highlight_sprite_empty_secondary.r, palette->highlight_sprite_empty_secondary.g, palette->highlight_sprite_empty_secondary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY,
+                       palette->highlight_sprite_occupied_primary.r, palette->highlight_sprite_occupied_primary.g, palette->highlight_sprite_occupied_primary.b);
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY,
+                       palette->highlight_sprite_occupied_secondary.r, palette->highlight_sprite_occupied_secondary.g, palette->highlight_sprite_occupied_secondary.b);
     
 }
 

@@ -30,13 +30,20 @@
 #define VIDEO_VRAM_ICON_DIFFICULTY 0x5cc00u
 #define VIDEO_VRAM_ICON_STARTING_BOARD 0x5d400u
 #define VIDEO_VRAM_ICON_HISTORY 0x5dc00u
+// ICON_EXIT was moved; reference via video constants
 #define VIDEO_VRAM_ICON_EXIT 0x5e400u
 
 #define VIDEO_PRIMARY_CLUT 0
 
-// Highlight colors (CLUT indices 35-36)
-#define CLUT_HIGHLIGHT_PRIMARY 35
-#define CLUT_HIGHLIGHT_SECONDARY 36
+// Highlight sprite CLUT indices (defined in video.c)
+#define VIDEO_VRAM_HIGHLIGHT 0x5e500u
+#define VIDEO_CLUT_HIGHLIGHT_PRIMARY 35
+#define VIDEO_CLUT_HIGHLIGHT_SECONDARY 36
+// Highlight sprite CLUT slots (distinct from board highlight CLUTs)
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY 85
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY 86
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY 87
+#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY 88
 
 // Icon bitmap addresses
 static const uint32_t s_icon_bitmap_addrs[6] = {
@@ -220,9 +227,9 @@ void render_update_highlights(const selection_state_t *selection) {
     render_cell_to_screen(selection->selected_row, selection->selected_col, &sel_x, &sel_y);
     
     uint8_t sel_sprite = VIDEO_SPRITE_HIGHLIGHT_BASE + highlight_index++;
-    // TODO: Create dedicated highlight bitmap - for now reuse piece with different CLUT
-    spriteDefine(sel_sprite, VIDEO_VRAM_PIECE_A_NORMAL, VIDEO_PIECE_SPRITE_SIZE, 
-                VIDEO_PRIMARY_CLUT + 1, 1);  // Different CLUT for highlight effect
+    // Use dedicated highlight bitmap and highlight CLUT
+    spriteDefine(sel_sprite, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE, 
+                VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY, 1);
     spriteSetPosition(sel_sprite, VIDEO_SPRITE_OFFSET + sel_x, VIDEO_SPRITE_OFFSET + sel_y);
     spriteSetVisible(sel_sprite, 1);
     
@@ -233,13 +240,24 @@ void render_update_highlights(const selection_state_t *selection) {
         uint16_t move_x, move_y;
         render_cell_to_screen(move->to_row, move->to_col, &move_x, &move_y);
         
-        uint8_t move_sprite = VIDEO_SPRITE_HIGHLIGHT_BASE + highlight_index++;
+    // Do not highlight a move that targets the currently selected cell
+    if (move->to_row == selection->selected_row && move->to_col == selection->selected_col) {
+        continue;
+    }
+
+    uint8_t move_sprite = VIDEO_SPRITE_HIGHLIGHT_BASE + highlight_index++;
         
-        // Distinguish hovered move from other legal moves
-        uint8_t clut_offset = (selection->hovered_move == (int8_t)i) ? 3 : 2;
-        
-        spriteDefine(move_sprite, VIDEO_VRAM_PIECE_A_SWAPPED, VIDEO_PIECE_SPRITE_SIZE,
-                    VIDEO_PRIMARY_CLUT + clut_offset, 1);
+    // Distinguish hovered move from other legal moves and empty vs occupied target
+    bool target_occupied = (move->type == MOVE_TYPE_SWAP);
+    uint8_t clut_index;
+    if (target_occupied) {
+        clut_index = (selection->hovered_move == (int8_t)i) ? VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY : VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY;
+    } else {
+        clut_index = (selection->hovered_move == (int8_t)i) ? VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY : VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY;
+    }
+
+    spriteDefine(move_sprite, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE,
+            clut_index, 1);
         spriteSetPosition(move_sprite, VIDEO_SPRITE_OFFSET + move_x, VIDEO_SPRITE_OFFSET + move_y);
         spriteSetVisible(move_sprite, 1);
     }
@@ -265,9 +283,9 @@ void render_update_win_path(const win_path_t *path) {
         
         uint8_t sprite_id = VIDEO_SPRITE_HIGHLIGHT_BASE + i;
         
-        // Use special CLUT for winning path (could be animated or pulsing effect)
-        spriteDefine(sprite_id, VIDEO_VRAM_PIECE_A_SWAPPED, VIDEO_PIECE_SPRITE_SIZE,
-                    VIDEO_PRIMARY_CLUT + 4, 1);  // Distinct CLUT for win highlight
+    // Use special CLUT for winning path (occupied-style highlight)
+    spriteDefine(sprite_id, VIDEO_VRAM_HIGHLIGHT, VIDEO_PIECE_SPRITE_SIZE,
+        VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY, 1);  // Distinct CLUT for win highlight
         spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
         spriteSetVisible(sprite_id, 1);
     }
@@ -328,7 +346,9 @@ void render_update_score(const session_stats_t *stats) {
 
 void render_update(const game_state_t *state) {
     // Wait for vertical blank to avoid tearing
-    graphicsWaitVerticalBlank();
+	while (PEEKW(RAST_ROW_L) < 482u)
+		// Spin our wheels.
+		;
     
     // Update all rendering based on current game state
     
