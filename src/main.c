@@ -40,31 +40,31 @@ int main(int argc, char *argv[])
         game_state_update(&g_game_state, 1.0f / 60.0f);
 
         // Process input events - drain all pending events like sprites example
-        uint32_t events_this_frame = 0;
-        uint32_t loop_iterations = 0;
         do
         {
-            loop_iterations++;
-
             // Get next kernel event (always call, like the example)
             kernelNextEvent();
-
-            // Debug: print raw kernel event type, kernelError and pending count
-            textGotoXY(0, 1);
-            printf("Kernel event type: 0x%02X  kernelError=%d pending=%d Iter:%ld",
-                kernelEventData.type, (int)kernelError,
-                (int)kernelArgs->events.pending, loop_iterations);
 
             // Translate kernel event to input event
             input_event_t event;
             if (input_translate_event(&event))
             {
-                events_this_frame++;
-
                 // Process event through input handler
                 input_handler_process_event(&g_game_state, &event);
             }
         } while (kernelGetPending() > 0);
+        
+        // Diagnostic output
+        textGotoXY(0, 0);
+        const char* player_name = (g_game_state.board.current_player == PLAYER_WHITE) ? "WHITE" : "BLACK";
+        const char* phase_name;
+        switch (g_game_state.phase) {
+            case GAME_PHASE_PLAYING: phase_name = "PLAY"; break;
+            case GAME_PHASE_AI_THINKING: phase_name = "AI"; break;
+            case GAME_PHASE_GAME_OVER: phase_name = "WIN"; break;
+            default: phase_name = "????"; break;
+        }
+        printf("%s %s Mv:%d", player_name, phase_name, g_game_state.board.move_count);
 
         // Update rendering
         render_update(&g_game_state);

@@ -10,6 +10,7 @@
 
 #include "f256lib.h"
 #include "../src/board.h"
+#include "../src/ai_agent.h"
 #include <stdint.h>
 
 // Game phases
@@ -75,6 +76,8 @@ typedef struct {
     selection_state_t selection;
     win_path_t win_path;
     uint32_t frame_count;
+    ai_config_t ai_config;
+    uint8_t ai_think_frames;      // Frames spent in AI thinking (for visual delay)
 } game_state_t;
 
 // Initialize game state

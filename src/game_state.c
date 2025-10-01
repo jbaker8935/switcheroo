@@ -19,6 +19,9 @@ void game_state_init(game_state_t *state) {
     state->prefs.audio_enabled = true;
     state->prefs.volume_level = 7;
     
+    // Initialize AI config - Classic swap rules, AI plays as Black (second player)
+    ai_agent_init(&state->ai_config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_STANDARD, PLAYER_BLACK);
+    
     // Initialize menu state
     game_state_update_menu_enables(state);
     state->menu.hovered_icon = -1;
@@ -156,6 +159,8 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
         case MENU_ICON_DIFFICULTY:
             // Cycle difficulty
             state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
+            // Update AI difficulty
+            state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
             break;
             
         case MENU_ICON_STARTING_BOARD:
@@ -181,6 +186,12 @@ bool game_state_check_win_condition(game_state_t *state) {
     
     if (white_wins) {
         state->stats.white_wins++;
+        
+        // Diagnostic output
+        textGotoXY(0, 5);
+        printf("WHITE WINS! W:%d B:%d",
+               state->stats.white_wins,
+               state->stats.black_wins);
         return true;
     }
     
@@ -190,6 +201,12 @@ bool game_state_check_win_condition(game_state_t *state) {
     if (black_wins) {
         state->stats.black_wins++;
         state->win_path = black_path;
+        
+        // Diagnostic output
+        textGotoXY(0, 5);
+        printf("BLACK WINS! W:%d B:%d",
+               state->stats.white_wins,
+               state->stats.black_wins);
         return true;
     }
     
@@ -202,11 +219,52 @@ void game_state_update(game_state_t *state, float delta_time) {
     
     // Phase-specific updates
     switch (state->phase) {
-        case GAME_PHASE_AI_THINKING:
-            // TODO: Run AI evaluation
-            // For now, just switch back to playing
-            state->phase = GAME_PHASE_PLAYING;
+        case GAME_PHASE_AI_THINKING: {
+            // Add a small visual delay before AI makes move
+            state->ai_think_frames++;
+            
+            // Diagnostic output
+            textGotoXY(0, 3);
+            printf("AI thinking... %d", (int)state->ai_think_frames);
+            
+            // Wait at least 30 frames (~0.5 seconds) before executing AI move
+            if (state->ai_think_frames >= 30) {
+                move_t ai_move;
+                if (ai_agent_find_best_move(&state->board, &state->ai_config, &ai_move)) {
+                    // Diagnostic output with piece types
+                    piece_type_t from_piece = board_get_piece(&state->board, ai_move.from_row, ai_move.from_col);
+                    piece_type_t to_piece = board_get_piece(&state->board, ai_move.to_row, ai_move.to_col);
+                    
+                    textGotoXY(0, 4);
+                    printf("AI: (%d,%d)->(%d,%d) %s",
+                           ai_move.from_row, ai_move.from_col,
+                           ai_move.to_row, ai_move.to_col,
+                           (ai_move.type == MOVE_TYPE_SWAP) ? "SWAP" : "EMPTY");
+                    
+                    textGotoXY(0, 6);
+                    const char* from_name = board_is_piece_swapped(from_piece) ? "SWAP" : "NORM";
+                    const char* to_name = (to_piece == PIECE_NONE) ? "EMPT" : 
+                                         (board_is_piece_swapped(to_piece) ? "SWAP" : "NORM");
+                    printf("From:%s To:%s", from_name, to_name);
+                    
+                    // Execute AI move
+                    if (board_execute_move(&state->board, &ai_move)) {
+                        // Check for win
+                        if (game_state_check_win_condition(state)) {
+                            state->phase = GAME_PHASE_GAME_OVER;
+                        } else {
+                            // Switch back to human player
+                            board_switch_turn(&state->board);
+                            state->phase = GAME_PHASE_PLAYING;
+                        }
+                    }
+                }
+                
+                state->ai_think_frames = 0;
+                game_state_update_menu_enables(state);
+            }
             break;
+        }
             
         default:
             break;

@@ -219,10 +219,12 @@ void render_update_pieces(const board_t *board) {
     // Track which sprites we've used for each player
     uint8_t white_sprite_count = 0;
     uint8_t black_sprite_count = 0;
+    uint8_t unswap_count = 0;  // Track how many pieces changed from swapped to normal
 
     // If cache not initialized, snapshot board and mark all for update
     if (!s_cache_initialized) {
         cache_board_snapshot(board);
+        s_cache_initialized = true;
     }
     
     // Scan board and assign sprites to pieces
@@ -280,9 +282,23 @@ void render_update_pieces(const board_t *board) {
                 uint8_t prev_piece = s_cache_board_snapshot[row][col];
                 if (prev_piece != (uint8_t)piece) {
                     spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+                    
+                    // Count swapped->normal transitions
+                    if ((prev_piece == PIECE_WHITE_SWAPPED || prev_piece == PIECE_BLACK_SWAPPED) &&
+                        (piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL)) {
+                        unswap_count++;
+                    }
                 }
             }
         }
+    }
+    
+    // Debug: Report total unswap count
+    if (unswap_count > 0) {
+        extern void textGotoXY(uint8_t x, uint8_t y);
+        extern int printf(const char *format, ...);
+        textGotoXY(0, 11);
+        printf("Unswapped %d pieces", unswap_count);
     }
     
     // Hide unused white sprites

@@ -132,6 +132,8 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
         return true;
     }
     
+    // If we reach here, the target is an opponent's piece but NOT normal (i.e., swapped)
+    // This should not be a valid move
     return false;
 }
 
@@ -166,6 +168,19 @@ bool board_execute_move(board_t *board, const move_t *move) {
     move_type_t type;
     if (!board_can_move(board, move->from_row, move->from_col,
                         move->to_row, move->to_col, &type)) {
+        // ERROR: Invalid move attempted!
+        // Add diagnostic output
+        extern void textGotoXY(uint8_t x, uint8_t y);
+        extern int printf(const char *format, ...);
+        textGotoXY(0, 7);
+        printf("ERR:Invalid move!");
+        return false;
+    }
+    
+    // Verify move type matches
+    if (type != move->type) {
+        textGotoXY(0, 7);
+        printf("ERR:Type mismatch!");
         return false;
     }
     
@@ -296,9 +311,18 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
                     out_path->has_path = true;
                     out_path->winner = player;
                     
+                    // Debug: Print which rows connected
+                    extern void textGotoXY(uint8_t x, uint8_t y);
+                    extern int printf(const char *format, ...);
+                    textGotoXY(0, 9);
+                    printf("Win: R%d to R%d", WIN_START_ROW, WIN_END_ROW);
+                    
                     // Collect one cell per row in the winning component (rows 2-7)
                     uint8_t root = find_root(parent, idx1);
                     out_path->path_length = 0;
+                    
+                    // Debug: Track which rows have winning pieces
+                    uint8_t min_row = 255, max_row = 0;
                     
                     for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW && out_path->path_length < BOARD_CELLS; ++row) {
                         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -306,10 +330,16 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
                             if (belongs_to_player[idx] && find_root(parent, idx) == root) {
                                 // Found a cell in this row that's part of the winning path
                                 out_path->path_cells[out_path->path_length++] = idx;
+                                if (row < min_row) min_row = row;
+                                if (row > max_row) max_row = row;
                                 break; // Only take one cell per row
                             }
                         }
                     }
+                    
+                    // Debug: Print actual row span
+                    textGotoXY(0, 10);
+                    printf("Path: R%d-R%d", min_row, max_row);
                 }
                 return true;
             }

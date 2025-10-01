@@ -16,19 +16,21 @@
 // Calculate board position (centered on screen)
 static int16_t s_board_x;
 static int16_t s_board_y;
-static int16_t s_menu_y;  // Menu strip at bottom
+static int16_t s_icon_x;       // Menu icons on right side
+static int16_t s_icon_start_y; // First icon Y position
 
 void input_handler_init(void) {
-    // Board: 4px border + 4 cols * 28px = 116px wide
-    // Board: 4px border + 8 rows * 28px = 228px tall
-    const int16_t board_width = BOARD_BORDER + (BOARD_COLS * BOARD_CELL_SIZE) + BOARD_BORDER;
-    const int16_t board_height = BOARD_BORDER + (BOARD_ROWS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    // Board: 4 cols * 28px + 11px = 123px wide
+    // Board: 8 rows * 28px + 15px = 239px tall
+    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + 11;
+    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + 15;
     
     s_board_x = (SCREEN_WIDTH - board_width) / 2;
     s_board_y = (SCREEN_HEIGHT - board_height) / 2;
     
-    // Menu strip at bottom (below board)
-    s_menu_y = s_board_y + board_height + 8;
+    // Menu icons positioned vertically on right side of board
+    s_icon_x = s_board_x + board_width + 16;
+    s_icon_start_y = s_board_y + 8;
 }
 
 hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
@@ -59,20 +61,20 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
         }
     }
     
-    // Check if click is on menu icons (horizontally centered, at menu_y)
-    // Icons are 16x16, spaced 20px apart, centered horizontally
-    const int16_t icon_spacing = 20;
-    const int16_t total_menu_width = MENU_ICON_COUNT * icon_spacing;
-    const int16_t menu_x = (SCREEN_WIDTH - total_menu_width) / 2;
+    // Check if click is on menu icons (vertical layout on right side)
+    // Icons are 16x16, spaced 24px apart (16 + 8 gap), arranged vertically
+    const int16_t icon_spacing = 24;  // ICON_SIZE (16) + 8 gap
     
-    if (screen_y >= s_menu_y && screen_y < s_menu_y + ICON_SIZE) {
-        if (screen_x >= menu_x && screen_x < menu_x + total_menu_width) {
-            int16_t rel_x = screen_x - menu_x;
-            uint8_t icon_index = rel_x / icon_spacing;
+    // Check if X coordinate is in icon area
+    if (screen_x >= s_icon_x && screen_x < s_icon_x + ICON_SIZE) {
+        // Check if Y coordinate is within icon area
+        if (screen_y >= s_icon_start_y) {
+            int16_t rel_y = screen_y - s_icon_start_y;
+            uint8_t icon_index = rel_y / icon_spacing;
             
             // Check if actually on the icon (not in gap between icons)
-            int16_t icon_local_x = rel_x % icon_spacing;
-            if (icon_local_x < ICON_SIZE && icon_index < MENU_ICON_COUNT) {
+            int16_t icon_y = s_icon_start_y + (icon_index * icon_spacing);
+            if (screen_y >= icon_y && screen_y < icon_y + ICON_SIZE && icon_index < MENU_ICON_COUNT) {
                 result.type = HIT_MENU_ICON;
                 result.data.icon = (menu_icon_t)icon_index;
                 return result;
