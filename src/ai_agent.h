@@ -10,6 +10,7 @@
 
 #include "f256lib.h"
 #include "../src/board.h"
+#include <stdbool.h>
 #include <stdint.h>
 
 // Difficulty levels
@@ -20,11 +21,42 @@ typedef enum {
     AI_DIFFICULTY_EXPERT = 3     // Full heuristics + lookahead
 } ai_difficulty_t;
 
-// AI configuration
+typedef struct {
+    int16_t connection_progress;
+    int16_t bridge_potential;
+    int16_t swap_pressure;
+    int16_t blocking_coverage;
+    int16_t mobility;
+} ai_eval_weights_t;
+
+typedef struct {
+    int16_t connection_progress;
+    int16_t bridge_potential;
+    int16_t swap_pressure;
+    int16_t blocking_coverage;
+    int16_t mobility;
+    int16_t total;
+} ai_eval_breakdown_t;
+
+typedef struct {
+    uint8_t base_depth;
+    uint8_t max_depth;
+    uint8_t max_extension;
+    uint32_t node_limit;
+    uint16_t time_limit_ms;
+    bool use_iterative_deepening;
+    bool use_transposition;
+    bool use_move_ordering;
+    bool use_killer_moves;
+} ai_search_settings_t;
+
 typedef struct {
     swap_rule_t swap_rule;
     ai_difficulty_t difficulty;
     player_t ai_player;
+    ai_eval_weights_t weights;
+    ai_search_settings_t search;
+    bool diagnostics_enabled;
 } ai_config_t;
 
 // Initialize AI agent
@@ -40,5 +72,9 @@ bool ai_agent_find_best_move(const board_t *board, const ai_config_t *config,
 // Higher scores are better for that player
 int16_t ai_agent_evaluate_board(const board_t *board, player_t player,
                                 const ai_config_t *config);
+
+// Retrieve the feature breakdown for the most recent move selection.
+// If diagnostics are disabled, all fields are set to zero.
+void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out);
 
 #endif // AI_AGENT_H

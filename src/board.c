@@ -7,6 +7,7 @@
  */
 
 #include "../src/board.h"
+#include <stdio.h>
 #include <string.h>
 
 // Direction deltas for 8-way adjacency (N, NE, E, SE, S, SW, W, NW)
@@ -169,19 +170,16 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
     move_type_t type;
     if (!board_can_move(board, move->from_row, move->from_col,
                         move->to_row, move->to_col, &type)) {
-        // ERROR: Invalid move attempted!
-        // Add diagnostic output
+        // ERROR: Invalid move attempted! Optional diagnostics are disabled in release builds.
         extern void textGotoXY(uint8_t x, uint8_t y);
-        extern int printf(const char *format, ...);
         textGotoXY(0, 7);
-        printf("ERR:Invalid move!");
         return false;
     }
     
     // Verify move type matches
     if (type != move->type) {
+        extern void textGotoXY(uint8_t x, uint8_t y);
         textGotoXY(0, 7);
-        printf("ERR:Type mismatch!");
         return false;
     }
     
@@ -389,9 +387,7 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
                     
                     // Debug: Print which rows connected
                     extern void textGotoXY(uint8_t x, uint8_t y);
-                    extern int printf(const char *format, ...);
                     textGotoXY(0, 9);
-                    printf("Win: R%d to R%d", WIN_START_ROW, WIN_END_ROW);
                     
                     /* Construct a connected path inside the winning component.
                        Use BFS from any start-row cell in the component to reach

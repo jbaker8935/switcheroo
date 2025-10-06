@@ -32,12 +32,14 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T5 | Move History & Scoring | Build move logging, score tracking, session score display, and reset logic (clears history, preserves scores). | History buffer module, scoreboard renderer tests. | T4 | Done (Integrated in game_state) |
 | T6 | Rendering Pipeline | Draw checkerboard board bitmap with border, place normal/swapped sprites, render color-coded highlights, disabled icons, and scoreboard strip. | Render pipeline module, visual test. | T2, T4 | Done |
 | T7 | Menu System | Implement icon widgets with enable/disable states, hover suppression for disabled icons, and overlay transitions. | Menu module, UI test. | T3, T6 | Not Started |
-| T8 | AI Engine | Implement 4-level difficulty system, heuristic evaluation, opening book, move explanations, and progressive search with thinking indicators. | AI module, opening book, explanation system, evaluation tests. | T4 | Not Started |
+| T8 | AI Engine | Implement deterministic iterative-deepening negamax with alpha-beta pruning, rule-aware heuristics, killer moves, and transposition cache. | Updated `ai_agent.c`, search diagnostics, difficulty profiles. | T4 | In Progress |
 | T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | Done (Core game loop implemented, AI integration pending) |
 | T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Done (Detection and CLUT-based highlighting implemented) |
 | T11 | Audio Feedback | Implement enhanced audio service with volume control, priority queuing, hover feedback, and expanded cue set for comprehensive audio experience. | Audio module, volume control, cue asset pack, priority system tests. | T2 | Not Started |
 | T12 | QA & Polishing | Execute test suite, hardware profiling, bug fixes, and documentation updates. | Test reports, updated docs. | T1-T11 | Not Started |
 | T13 | UX Enhancements | Implement undo functionality, tooltips, settings overlay, colorblind support, and AI move explanations. | UX enhancement module, accessibility tests. | T6, T7, T8 | Not Started |
+| T15 | AI Validation Suite | Deliver host-side AI regression tests and heuristic tuning documentation per agent specification. | `tests/ai_agent_tests.c`, `docs/heuristic_tuning.md`, test logs. | T8 | Not Started |
+| T16 | AI Overlay Integration | Move the AI search/evaluation core into a Foenix overlay and stream it into the 0xA000 workspace to resolve the RAM overflow. | Overlay linker script, runtime loader, successful `./build.sh` run. | T8 | In Progress |
 | T14 | Error Handling | Implement comprehensive error recovery, graceful degradation, and diagnostic logging across all subsystems. | Error handling framework, recovery tests. | T1-T12 | Not Started |
 
 ## Milestones

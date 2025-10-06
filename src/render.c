@@ -312,13 +312,7 @@ void render_update_pieces(const board_t *board) {
         }
     }
     
-    // Debug: Report total unswap count
-    if (unswap_count > 0) {
-        extern void textGotoXY(uint8_t x, uint8_t y);
-        extern int printf(const char *format, ...);
-        textGotoXY(0, 11);
-        printf("Unswapped %d pieces", unswap_count);
-    }
+    (void)unswap_count; // Debug-only metric suppressed in release builds
     
     // Hide unused white sprites
     for (uint8_t i = white_sprite_count; i < 8; ++i) {

@@ -108,25 +108,36 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 
 ### Artificial Intelligence
 
-- WHEN it is the AI player's turn, THE SYSTEM SHALL evaluate legal moves using
-  heuristic weights for row occupancy between 2 and 7, connectivity, swapped
-  piece count, opponent threats, and loss avoidance patterns.
-- WHEN evaluating a candidate move, THE SYSTEM SHALL detect immediate wins or
-  losses and prioritize moves that secure a win or prevent the opponent from
-  winning on the next turn.
-- WHEN the selected difficulty changes, THE SYSTEM SHALL adjust heuristic depth,
-  iteration limits, or weight values to match the chosen profile.
-- THE SYSTEM SHALL provide at least four difficulty levels: "Learning" (depth 1,
-  occasional suboptimal moves), "Easy" (depth 2), "Standard" (depth 3 with
-  pruning), and "Expert" (depth 4 with opening book).
-- WHEN the AI completes a move, THE SYSTEM SHALL optionally display the move
-  reasoning in a brief overlay (e.g., "Blocked opponent path" or "Advanced
-  towards goal") if explanation mode is enabled.
-- THE SYSTEM SHALL maintain basic opening book knowledge for the first 3-4 moves
-  to provide varied, reasonable play patterns.
-- THE SYSTEM SHALL implement move randomization at lower difficulties by
-  occasionally selecting the 2nd or 3rd best evaluated move to reduce
-  predictability.
+- WHEN it is the AI player's turn, THE SYSTEM SHALL enumerate every legal
+  empty-cell and swap move for the active player using the configured swap rule
+  and supply those moves to the search engine.
+- WHEN the AI explores the game tree, THE SYSTEM SHALL execute a deterministic
+  iterative deepening negamax search that evaluates at least four plies and
+  extends depth when the position contains an immediate win or loss threat.
+- WHEN a simulated move results in a win for either side, THE SYSTEM SHALL stop
+  expanding that branch and return the evaluated score to the caller to ensure
+  forced wins and losses are detected.
+- WHEN the search budget in nodes or milliseconds is exhausted before
+  completing the intended depth, THE SYSTEM SHALL return the best move from the
+  deepest fully evaluated iteration.
+- WHEN evaluating a board, THE SYSTEM SHALL combine connection progress, bridge
+  potential, swap pressure, blocking coverage, and mobility features using
+  signed 16-bit arithmetic that respects rule-specific weight tables.
+- WHEN the swap rule changes, THE SYSTEM SHALL load the associated evaluation
+  weights and swap-clearing behaviour so that move selection reflects the
+  current rule set.
+- WHEN ordering candidate moves, THE SYSTEM SHALL prioritise immediate wins,
+  double threats, central advances, blocking replies, and remaining moves in
+  that sequence to improve alpha-beta efficiency.
+- WHEN transposition caching is enabled, THE SYSTEM SHALL store up to 64 recent
+  board positions using Zobrist hashing and reuse cached scores and principal
+  variations for subsequent searches.
+- WHEN operating at Learning or Easy difficulty levels, THE SYSTEM SHALL reduce
+  the maximum search depth or feature weights to honour the selected profile
+  while preserving deterministic move choice.
+- WHEN evaluation diagnostics are requested, THE SYSTEM SHALL produce a
+  breakdown of feature contributions for the chosen move so tuning can be
+  reviewed without altering search determinism.
 
 ### Audio Feedback
 
@@ -183,6 +194,15 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
   during initialization to accelerate victory detection during gameplay.
 - THE SYSTEM SHALL implement progressive AI evaluation, displaying intermediate
   move candidates if search exceeds 250ms to maintain responsiveness.
+
+### Memory Management
+
+- WHEN the AI search routine starts on Foenix hardware builds, THE SYSTEM SHALL
+  load the AI overlay image into the reserved 0xA000 execution workspace before
+  evaluating moves so the resident RAM segment remains within the 48 KB limit.
+- WHEN the AI overlay image is resident, THE SYSTEM SHALL reuse the loaded
+  workspace for subsequent searches instead of duplicating the copy operation
+  to preserve headroom for the software stack and global data.
 
 ### Reliability
 

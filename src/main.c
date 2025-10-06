@@ -54,17 +54,7 @@ int main(int argc, char *argv[])
             }
         } while (kernelGetPending() > 0);
         
-        // Diagnostic output
-        textGotoXY(0, 0);
-        const char* player_name = (g_game_state.board.current_player == PLAYER_WHITE) ? "WHITE" : "BLACK";
-        const char* phase_name;
-        switch (g_game_state.phase) {
-            case GAME_PHASE_PLAYING: phase_name = "PLAY"; break;
-            case GAME_PHASE_AI_THINKING: phase_name = "AI"; break;
-            case GAME_PHASE_GAME_OVER: phase_name = "WIN"; break;
-            default: phase_name = "????"; break;
-        }
-        printf("%s %s Mv:%d", player_name, phase_name, g_game_state.board.move_count);
+        // Diagnostic text output disabled in release builds to conserve ROM/RAM.
 
         // Update rendering
         render_update(&g_game_state);

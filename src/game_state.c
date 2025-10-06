@@ -7,6 +7,45 @@
 #include "../src/puzzle_data.h"
 #include <string.h>
 
+static void gs_copy_text(char *dest, size_t dest_size, const char *src) {
+    if (!dest || dest_size == 0) {
+        return;
+    }
+    size_t i = 0;
+    if (src) {
+        while (i + 1 < dest_size && src[i] != '\0') {
+            dest[i] = src[i];
+            ++i;
+        }
+    }
+    dest[i] = '\0';
+}
+
+static void gs_format_win_in(char *dest, size_t dest_size, unsigned value) {
+    if (!dest || dest_size == 0) {
+        return;
+    }
+    static const char prefix[] = "WIN IN ";
+    size_t len = 0;
+    while (len + 1 < dest_size && prefix[len] != '\0') {
+        dest[len] = prefix[len];
+        ++len;
+    }
+
+    char digits[6];
+    size_t count = 0;
+    do {
+        digits[count++] = (char)('0' + (value % 10u));
+        value /= 10u;
+    } while (value != 0u && count < sizeof(digits));
+
+    while (count > 0 && len + 1 < dest_size) {
+        dest[len++] = digits[--count];
+    }
+
+    dest[len] = '\0';
+}
+
 // Helper function to format strings to exactly 25 characters with right-padding
 void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
     char buf[26]; // 25 chars + null terminator
@@ -258,15 +297,15 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
                 state->phase = GAME_PHASE_PLAYING;
                 // Display debugging info: id, swap rule, and difficulty (WIN IN <n>)
                 char id_msg[32];
-                snprintf(id_msg, sizeof(id_msg), "%s", puzzle->id);
+                gs_copy_text(id_msg, sizeof(id_msg), puzzle->id);
                 print_formatted_text(0, 18, id_msg);
 
                 char rule_msg[32];
-                snprintf(rule_msg, sizeof(rule_msg), "%s", swap_rule_to_string(puzzle->swap_rule));
+                gs_copy_text(rule_msg, sizeof(rule_msg), swap_rule_to_string(puzzle->swap_rule));
                 print_formatted_text(0, 19, rule_msg);
 
                 char diff_msg[32];
-                snprintf(diff_msg, sizeof(diff_msg), "WIN IN %u", (unsigned)puzzle->difficulty);
+                gs_format_win_in(diff_msg, sizeof(diff_msg), (unsigned)puzzle->difficulty);
                 print_formatted_text(0, 20, diff_msg);
             }
             break;
@@ -290,12 +329,6 @@ bool game_state_check_win_condition(game_state_t *state) {
     
     if (white_wins) {
         state->stats.white_wins++;
-        
-        // Diagnostic output
-        textGotoXY(0, 5);
-        printf("WHITE WINS! W:%d B:%d",
-               state->stats.white_wins,
-               state->stats.black_wins);
         return true;
     }
     
@@ -305,12 +338,6 @@ bool game_state_check_win_condition(game_state_t *state) {
     if (black_wins) {
         state->stats.black_wins++;
         state->win_path = black_path;
-        
-        // Diagnostic output
-        textGotoXY(0, 5);
-        printf("BLACK WINS! W:%d B:%d",
-               state->stats.white_wins,
-               state->stats.black_wins);
         return true;
     }
     
@@ -326,31 +353,10 @@ void game_state_update(game_state_t *state, float delta_time) {
         case GAME_PHASE_AI_THINKING: {
             // Add a small visual delay before AI makes move
             state->ai_think_frames++;
-            
-            // Diagnostic output
-            textGotoXY(0, 3);
-            printf("AI thinking... %d", (int)state->ai_think_frames);
-            
             // Wait at least 30 frames (~0.5 seconds) before executing AI move
             if (state->ai_think_frames >= 30) {
                 move_t ai_move;
                 if (ai_agent_find_best_move(&state->board, &state->ai_config, &ai_move)) {
-                    // Diagnostic output with piece types
-                    piece_type_t from_piece = board_get_piece(&state->board, ai_move.from_row, ai_move.from_col);
-                    piece_type_t to_piece = board_get_piece(&state->board, ai_move.to_row, ai_move.to_col);
-                    
-                    textGotoXY(0, 4);
-                    printf("AI: (%d,%d)->(%d,%d) %s",
-                           ai_move.from_row, ai_move.from_col,
-                           ai_move.to_row, ai_move.to_col,
-                           (ai_move.type == MOVE_TYPE_SWAP) ? "SWAP" : "EMPTY");
-                    
-                    textGotoXY(0, 6);
-                    const char* from_name = board_is_piece_swapped(from_piece) ? "SWAP" : "NORM";
-                    const char* to_name = (to_piece == PIECE_NONE) ? "EMPT" : 
-                                         (board_is_piece_swapped(to_piece) ? "SWAP" : "NORM");
-                    printf("From:%s To:%s", from_name, to_name);
-                    
                     // Execute AI move
                     if (board_execute_move(&state->board, &ai_move, state->ai_config.swap_rule)) {
                         // Check for win

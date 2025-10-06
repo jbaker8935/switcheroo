@@ -5,6 +5,51 @@
 #include "../src/board.h"
 #include <string.h>
 
+static uint8_t pd_append_char(char *buf, size_t buf_size, uint8_t pos, char ch) {
+    if (buf && pos + 1 < buf_size) {
+        buf[pos] = ch;
+    }
+    return (uint8_t)(pos + 1u);
+}
+
+static uint8_t pd_format_move(char *buf, size_t buf_size, player_t player,
+                              uint8_t from_col, uint8_t from_row,
+                              uint8_t to_col, uint8_t to_row, bool is_swap) {
+    uint8_t pos = 0;
+    if (buf_size == 0) {
+        return 0;
+    }
+
+    pos = pd_append_char(buf, buf_size, pos, (player == PLAYER_WHITE) ? 'W' : 'B');
+    pos = pd_append_char(buf, buf_size, pos, ':');
+    pos = pd_append_char(buf, buf_size, pos, ' ');
+    pos = pd_append_char(buf, buf_size, pos, (char)('A' + from_col));
+    pos = pd_append_char(buf, buf_size, pos, (char)('0' + from_row));
+    pos = pd_append_char(buf, buf_size, pos, '-');
+    pos = pd_append_char(buf, buf_size, pos, '>');
+    pos = pd_append_char(buf, buf_size, pos, (char)('A' + to_col));
+    pos = pd_append_char(buf, buf_size, pos, (char)('0' + to_row));
+
+    if (is_swap) {
+        pos = pd_append_char(buf, buf_size, pos, '(');
+        pos = pd_append_char(buf, buf_size, pos, 's');
+        pos = pd_append_char(buf, buf_size, pos, 'w');
+        pos = pd_append_char(buf, buf_size, pos, 'a');
+        pos = pd_append_char(buf, buf_size, pos, 'p');
+        pos = pd_append_char(buf, buf_size, pos, ')');
+    }
+
+    if (buf) {
+        if (pos < buf_size) {
+            buf[pos] = '\0';
+        } else {
+            buf[buf_size - 1] = '\0';
+        }
+    }
+
+    return pos;
+}
+
 // Puzzle 0: classic_depth3_1
 static const uint8_t puzzle_0_pieces[] = {
     7, 0x0E,
@@ -473,39 +518,21 @@ void display_puzzle_solution(const puzzle_t *puzzle) {
         char buf[26]; // 25 chars + null terminator
         uint8_t len;
         
-        if (move_type == 0) { // swap
-            uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
-            uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
-            
-            uint8_t from_row = POS_UNPACK_ROW(from_pos);
-            uint8_t from_col = POS_UNPACK_COL(from_pos);
-            uint8_t to_row = POS_UNPACK_ROW(to_pos);
-            uint8_t to_col = POS_UNPACK_COL(to_pos);
-            
-            // Convert internal row (0-7, 0=top) back to chess notation (1-8, 1=bottom)
-            uint8_t chess_from_row = 8 - from_row;
-            uint8_t chess_to_row = 8 - to_row;
-            
-            len = sprintf(buf, "%c: %c%d->%c%d(swap)", 
-                         player == PLAYER_WHITE ? 'W' : 'B',
-                         'A' + from_col, chess_from_row, 'A' + to_col, chess_to_row);
-        } else { // empty move
-            uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
-            uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
-            
-            uint8_t from_row = POS_UNPACK_ROW(from_pos);
-            uint8_t from_col = POS_UNPACK_COL(from_pos);
-            uint8_t to_row = POS_UNPACK_ROW(to_pos);
-            uint8_t to_col = POS_UNPACK_COL(to_pos);
-            
-            // Convert internal row (0-7, 0=top) back to chess notation (1-8, 1=bottom)
-            uint8_t chess_from_row = 8 - from_row;
-            uint8_t chess_to_row = 8 - to_row;
-            
-            len = sprintf(buf, "%c: %c%d->%c%d", 
-                         player == PLAYER_WHITE ? 'W' : 'B',
-                         'A' + from_col, chess_from_row, 'A' + to_col, chess_to_row);
-        }
+        uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
+        uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
+
+        uint8_t from_row = POS_UNPACK_ROW(from_pos);
+        uint8_t from_col = POS_UNPACK_COL(from_pos);
+        uint8_t to_row = POS_UNPACK_ROW(to_pos);
+        uint8_t to_col = POS_UNPACK_COL(to_pos);
+
+        uint8_t chess_from_row = (uint8_t)(8u - from_row);
+        uint8_t chess_to_row = (uint8_t)(8u - to_row);
+
+        len = pd_format_move(buf, sizeof(buf), player,
+                             from_col, chess_from_row,
+                             to_col, chess_to_row,
+                             move_type == 0);
         
         // Right-fill with spaces to exactly 25 characters
         while (len < 25) {

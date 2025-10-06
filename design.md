@@ -210,24 +210,98 @@ minimize runtime branching.
 
 ## AI Design
 
-- Employ iterative deepening with depth-limited minimax and alpha-beta pruning.
-- Implement four difficulty levels with distinct characteristics:
-  - **Learning**: Depth 1, 15% chance of suboptimal moves, simplified heuristics
-  - **Easy**: Depth 2, basic heuristics, no opening book
-  - **Standard**: Depth 3 with alpha-beta pruning, full heuristics
-  - **Expert**: Depth 4, opening book, transposition tables, quiescence search
-- Heuristic function aggregates:
-  - Row coverage between rows 2 and 7
-  - Connected component bonuses weighted by size
-  - Swapped piece count penalties or rewards depending on mobility
-  - Opponent threat detection via lookahead for immediate wins
-  - Advanced loss avoidance by flagging forced responses from opponent moves
-- Maintain a small opening book (3-4 moves deep) with 5-8 good opening patterns
-  to provide variety and avoid early blunders.
-- Implement progressive disclosure: show "thinking" indicator after 100ms,
-  display intermediate best move after 250ms if search continues.
-- Store move explanations for display: "Blocked opponent", "Advanced goal",
-  "Created threat", "Defensive move", etc.
+### Architecture Overview
+
+- Deterministic negamax core with alpha-beta pruning and aspiration windows.
+- Iterative deepening driver honours difficulty profiles while guaranteeing a
+  minimum four-ply search in Standard and Expert modes.
+- Search context tracks node budgets, elapsed milliseconds, and principal
+  variations so the engine can return the deepest completed iteration when
+  resources expire.
+- Optional transposition cache (64 entries) uses 32-bit Zobrist hashes to store
+  exact scores, bounds, and killer moves for quick reuse on subsequent visits.
+
+### State Representation
+
+- Board snapshots are copied into stack-local `board_t` instances for look
+  ahead; each snapshot maintains piece ownership, swapped flags, and move
+  counters.
+- Connectivity caches supply row reachability bitsets (`reach_top`,
+  `reach_bottom`) so evaluation can reward partial chains that approach the
+  goal rows.
+- A three-bit move signature encodes move class (win, swap threat, central,
+  fallback) for use in the history heuristic and killer lists.
+
+### Move Generation and Ordering
+
+- Legal move enumeration delegates to `board_get_legal_moves`, capturing the
+  move type, player, and swapped status impact.
+- Ordering heuristics apply the following priority tiers:
+  1. Immediate wins and blocks (detected via shallow probes)
+  2. Swap moves that create dual threats or clear large clusters under the
+     active swap rule
+  3. Central file advances (columns B and C) that progress toward the target
+     row band
+  4. Defensive interpositions that touch opponent frontier cells
+  5. Remaining mobility options sorted by static evaluation delta
+- Killer move tables retain the top two cut-inducing moves per depth to bias
+  future ordering.
+
+### Evaluation Function
+
+- Feature vector computed for each side:
+  - **Connection Progress**: Weighted sum of reachability from rows 1/6 to the
+    target bands using breadth-first search along eight-way adjacency.
+  - **Bridge Potential**: Count of friendly pairs separated by one empty cell
+    with available linking moves.
+  - **Swap Pressure**: Bonus for swapped pieces threatening opponent clusters
+    (rule-aware) and penalties for isolated swapped pieces.
+  - **Blocking Coverage**: Coverage score for occupying opponent frontier cells
+    and attacking their shortest connection paths.
+  - **Mobility**: Difference in legal move count emphasising forward and
+    diagonal advances into the central files.
+- Scores normalise to signed 16-bit values using rule-specific weight tables
+  stored in ROM so the engine remains 8-bit friendly.
+
+### Difficulty Profiles
+
+- **Learning**: Depth 1 with feature scaling at 40%, node limit 512, cache off.
+- **Easy**: Depth 2, reduced mobility weight, node limit 2k, cache off.
+- **Standard**: Depth 4 minimum, node limit 8k, transposition cache on, killer
+  moves enabled.
+- **Expert**: Depth 4 baseline with extension to 6 on tactical triggers,
+  aspiration search, transposition cache and iterative deepening enabled.
+
+### Time and Node Management
+
+- Configurable per-move budgets: fixed node cap plus optional millisecond
+  target derived from hardware clock when available.
+- The search aborts gracefully when the node or time budget is exceeded,
+  returning the best move from the deepest completed iteration and setting the
+  fallback flag for diagnostics.
+
+### Diagnostics and Tuning
+
+- Engine can emit per-feature contributions and search statistics when built
+  with `AI_AGENT_DIAGNOSTIC` to aid in weight tuning.
+- `docs/heuristic_tuning.md` captures guidance for adjusting weights per swap
+  rule and interpreting diagnostics without modifying engine code.
+
+### AI Overlay Execution
+
+- The negamax search core, move ordering, evaluation pipeline, and diagnostics
+  helpers live in an overlay section (`.ai_overlay`) that links against Foenix
+  block 8. The runtime copies the overlay image from far memory into the
+  reserved 0xA000 window the first time the agent is invoked.
+- A lightweight guard in `ai_agent_find_best_move` ensures the overlay is
+  resident before delegating to the heavy search routines, avoiding duplicate
+  copies on later calls.
+- Overlay transfers rely on `FAR_PEEK`/`POKE` primitives from `f256lib` to
+  stream bytes from the pgZ image into the execution window without borrowing
+  additional buffers.
+- Host-side tests build without overlay indirection, keeping the same source
+  but bypassing the copy guard so regression harnesses continue to run under
+  desktop compilers.
 
 ## Menu and Overlay Implementation
 
@@ -272,6 +346,9 @@ llvm-mos/f256dev/f256build.sh ../f256_switch
 - Zero page reserved for hot data: current selection, hover indices, AI timers.
 - Main RAM bank maps board state, move buffers, menu enable flags, session
   scoreboard, and AI workspace (~8 KB).
+- Overlay workspace at 0xA000 stores the copied AI search code. The loader
+  asserts that `.data + .bss` finish below 0xA000 so the overlay never tramples
+  persistent globals or the software stack.
 - Sprite attribute memory configured per `f256jr_ref.pdf` table 5-2; double
   buffers allocate contiguous 1 KB blocks.
 - Audio cue tables reside in high RAM or ROM banks with pointers cached during
