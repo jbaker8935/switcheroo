@@ -99,8 +99,8 @@ if len(MODERN_COLOR_PALETTE) <= CLUT_FOCUS:
 BOARD_COLUMNS = 4
 BOARD_ROWS = 8
 CELL_SIZE = 28
-BOARD_WIDTH = BOARD_COLUMNS * CELL_SIZE
-BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE
+BOARD_WIDTH = BOARD_COLUMNS * CELL_SIZE + 8 + 3
+BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE + 8 + 7
 
 # Screen configuration
 SCREEN_WIDTH = 320
@@ -139,21 +139,21 @@ def generate_board_bitmap() -> bytes:
             
             # Check if we're in the board area (including border)
             in_board_area = (
-                x >= board_x - board_margin and 
-                x < board_x + BOARD_WIDTH + board_margin and
-                y >= board_y - board_margin and 
-                y < board_y + BOARD_HEIGHT + board_margin
+                x >= board_x  and 
+                x < board_x + BOARD_WIDTH  and
+                y >= board_y  and 
+                y < board_y + BOARD_HEIGHT 
             )
             
             if not in_board_area:
                 # Outside board area - use first board cell color as background
                 buffer[idx] = CLUT_BOARD_CELLS[0]
                 continue
-            
+            # in Board Area
             # Check if we're in the border area
             in_border = (
-                x < board_x or x >= board_x + BOARD_WIDTH or
-                y < board_y or y >= board_y + BOARD_HEIGHT
+                x < board_x + 4 or x >= board_x + BOARD_WIDTH - 4 or
+                y < board_y + 4 or y >= board_y + BOARD_HEIGHT - 4
             )
             
             if in_border:
@@ -161,14 +161,14 @@ def generate_board_bitmap() -> bytes:
                 continue
             
             # We're inside the board - calculate cell
-            cell_x = (x - board_x) // CELL_SIZE
-            cell_y = (y - board_y) // CELL_SIZE
-            
+            cell_x = (x - board_x - 4) // (CELL_SIZE + 1)
+            cell_y = (y - board_y - 4) // (CELL_SIZE + 1)
+
             # Check for single-pixel borders between cells
-            local_x = (x - board_x) % CELL_SIZE
-            local_y = (y - board_y) % CELL_SIZE
-            
-            if local_x == CELL_SIZE - 1 or local_y == CELL_SIZE - 1:
+            local_x = (x - board_x - 4) % (CELL_SIZE+1)
+            local_y = (y - board_y - 4) % (CELL_SIZE+1)
+
+            if local_x == CELL_SIZE  or local_y == CELL_SIZE :
                 buffer[idx] = CLUT_BOARD_BORDER
             else:
                 # Calculate which board cell (0-31)
@@ -177,191 +177,6 @@ def generate_board_bitmap() -> bytes:
     
     return bytes(buffer)
 
-
-def generate_piece_sprite_normal_a() -> bytes:
-    """Generate 24x24 normal piece sprite for Player A."""
-    size = PIECE_SIZE
-    center = size / 2.0
-    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-    
-    for y in range(size):
-        for x in range(size):
-            # 1-pixel transparent border requirement
-            if x == 0 or x == size-1 or y == 0 or y == size-1:
-                continue
-            
-            dx = x - center
-            dy = y - center
-            dist = math.sqrt(dx * dx + dy * dy)
-            idx = y * size + x
-            
-            # 2-pixel edge border, then fill
-            if dist <= 8.0:
-                buffer[idx] = CLUT_PLAYER_A_FILL_1
-            elif dist <= 10.0:
-                buffer[idx] = CLUT_PLAYER_A_EDGE_1
-    
-    return bytes(buffer)
-
-
-def generate_piece_sprite_swapped_a() -> bytes:
-    """Generate 24x24 swapped piece sprite for Player A with inset star."""
-    size = PIECE_SIZE
-    center = size / 2.0
-    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-    
-    for y in range(size):
-        for x in range(size):
-            # 1-pixel transparent border requirement
-            if x == 0 or x == size-1 or y == 0 or y == size-1:
-                continue
-            
-            dx = x - center
-            dy = y - center
-            dist = math.sqrt(dx * dx + dy * dy)
-            idx = y * size + x
-            
-            # Base circle with 2-pixel edge border
-            if dist <= 8.0:
-                buffer[idx] = CLUT_PLAYER_A_FILL_1
-            elif dist <= 10.0:
-                buffer[idx] = CLUT_PLAYER_A_EDGE_1
-            
-            # Add star symbol in center
-            if dist <= 6.0:
-                angle = math.atan2(dy, dx)
-                # Create 5-pointed star pattern
-                star_radius = 3.0 + 1.5 * math.cos(5 * angle)
-                if dist >= star_radius:
-                    buffer[idx] = CLUT_PLAYER_A_SWAPPED_1
-    
-    return bytes(buffer)
-
-
-def generate_piece_sprite_normal_b() -> bytes:
-    """Generate 24x24 normal piece sprite for Player B."""
-    size = PIECE_SIZE
-    center = size / 2.0
-    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-    
-    for y in range(size):
-        for x in range(size):
-            # 1-pixel transparent border requirement
-            if x == 0 or x == size-1 or y == 0 or y == size-1:
-                continue
-            
-            dx = x - center
-            dy = y - center
-            dist = math.sqrt(dx * dx + dy * dy)
-            idx = y * size + x
-            
-            # Square shape for Player B
-            if abs(dx) <= 8.0 and abs(dy) <= 8.0:
-                if abs(dx) <= 6.0 and abs(dy) <= 6.0:
-                    buffer[idx] = CLUT_PLAYER_B_FILL_1
-                else:
-                    buffer[idx] = CLUT_PLAYER_B_EDGE_1
-    
-    return bytes(buffer)
-
-
-def generate_piece_sprite_swapped_b() -> bytes:
-    """Generate 24x24 swapped piece sprite for Player B with inset diamond."""
-    size = PIECE_SIZE
-    center = size / 2.0
-    buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-    
-    for y in range(size):
-        for x in range(size):
-            # 1-pixel transparent border requirement
-            if x == 0 or x == size-1 or y == 0 or y == size-1:
-                continue
-            
-            dx = x - center
-            dy = y - center
-            idx = y * size + x
-            
-            # Square shape for Player B
-            if abs(dx) <= 8.0 and abs(dy) <= 8.0:
-                if abs(dx) <= 6.0 and abs(dy) <= 6.0:
-                    buffer[idx] = CLUT_PLAYER_B_FILL_1
-                else:
-                    buffer[idx] = CLUT_PLAYER_B_EDGE_1
-                
-                # Add diamond symbol in center
-                diamond_dist = abs(dx) + abs(dy)
-                if diamond_dist <= 4.0 and diamond_dist >= 2.0:
-                    buffer[idx] = CLUT_PLAYER_B_SWAPPED_1
-    
-    return bytes(buffer)
-
-
-def generate_icon_sprite(icon_type: str) -> bytes:
-    """Generate 16x16 icon sprite with 2-pixel border."""
-    size = ICON_SIZE
-    buffer = bytearray([CLUT_ICON_FILL_1] * size * size)
-    
-    # 2-pixel border
-    for i in range(size):
-        for j in range(2):
-            buffer[j * size + i] = CLUT_ICON_EDGE_1  # Top
-            buffer[(size-1-j) * size + i] = CLUT_ICON_EDGE_1  # Bottom
-            buffer[i * size + j] = CLUT_ICON_EDGE_1  # Left
-            buffer[i * size + (size-1-j)] = CLUT_ICON_EDGE_1  # Right
-    
-    center = size // 2
-    
-    # Icon-specific symbols
-    if icon_type == "reset":
-        # Circular arrow
-        for y in range(4, 12):
-            for x in range(4, 12):
-                dx = x - center
-                dy = y - center
-                dist = math.sqrt(dx * dx + dy * dy)
-                if 2.5 <= dist <= 3.5:
-                    buffer[y * size + x] = CLUT_ICON_SYMBOL_1
-        # Arrow tip
-        buffer[5 * size + 10] = CLUT_ICON_SYMBOL_1
-        buffer[6 * size + 11] = CLUT_ICON_SYMBOL_1
-    
-    elif icon_type == "info":
-        # "i" symbol
-        buffer[5 * size + center] = CLUT_ICON_SYMBOL_1  # dot
-        for y in range(7, 12):
-            buffer[y * size + center] = CLUT_ICON_SYMBOL_1  # stem
-    
-    elif icon_type == "difficulty":
-        # Three bars of increasing height
-        for i in range(3):
-            height = 2 + i * 2
-            start_y = 12 - height
-            x = 5 + i * 2
-            for y in range(start_y, 12):
-                buffer[y * size + x] = CLUT_ICON_SYMBOL_1
-    
-    elif icon_type == "starting_board":
-        # Mini checkerboard
-        for y in range(6, 10):
-            for x in range(6, 10):
-                if (x + y) % 2 == 0:
-                    buffer[y * size + x] = CLUT_ICON_SYMBOL_1
-                else:
-                    buffer[y * size + x] = CLUT_ICON_SYMBOL_2
-    
-    elif icon_type == "history":
-        # List lines
-        for y in range(5, 11):
-            buffer[y * size + 5] = CLUT_ICON_SYMBOL_1
-            buffer[y * size + 10] = CLUT_ICON_SYMBOL_1
-    
-    elif icon_type == "exit":
-        # X mark
-        for i in range(5, 11):
-            buffer[i * size + i] = CLUT_ICON_SYMBOL_1
-            buffer[i * size + (15 - i)] = CLUT_ICON_SYMBOL_1
-    
-    return bytes(buffer)
 
 
 def create_png_from_clut_data(data: bytes, width: int, height: int, filename: Path) -> None:
@@ -398,50 +213,6 @@ def generate_png_assets(output_dir: Path, binary_assets: dict[str, bytes]) -> No
     create_png_from_clut_data(board_data, SCREEN_WIDTH, SCREEN_HEIGHT, 
                             png_dir / "board_bitmap.png")
     
-    # Piece sprites
-    piece_files = [
-        ("piece_bitmap_a_normal.bin", "piece_a_normal.png"),
-        ("piece_bitmap_a_swapped.bin", "piece_a_swapped.png"),
-        ("piece_bitmap_b_normal.bin", "piece_b_normal.png"),
-        ("piece_bitmap_b_swapped.bin", "piece_b_swapped.png"),
-    ]
-    
-    for bin_file, png_file in piece_files:
-        if bin_file in binary_assets:
-            piece_data = binary_assets[bin_file]
-            create_png_from_clut_data(piece_data, PIECE_SIZE, PIECE_SIZE,
-                                    png_dir / png_file)
-    
-    # Icon sprites
-    icon_types = ["reset", "info", "difficulty", "starting_board", "history", "exit"]
-    for icon_type in icon_types:
-        bin_file = f"icon_{icon_type}.bin"
-        png_file = f"icon_{icon_type}.png"
-        if bin_file in binary_assets:
-            icon_data = binary_assets[bin_file]
-            create_png_from_clut_data(icon_data, ICON_SIZE, ICON_SIZE,
-                                    png_dir / png_file)
-
-    # Highlight sprite PNGs (empty and occupied)
-    if "highlight_empty_bitmap.bin" in binary_assets:
-        highlight_data = binary_assets["highlight_empty_bitmap.bin"]
-        create_png_from_clut_data(highlight_data, PIECE_SIZE, PIECE_SIZE,
-                                png_dir / "highlight_empty_bitmap.png")
-    if "highlight_occupied_bitmap.bin" in binary_assets:
-        highlight_data = binary_assets["highlight_occupied_bitmap.bin"]
-        create_png_from_clut_data(highlight_data, PIECE_SIZE, PIECE_SIZE,
-                                png_dir / "highlight_occupied_bitmap.png")
-
-    # Focus sprite PNGs
-    if "focus_piece_bitmap.bin" in binary_assets:
-        focus_data = binary_assets["focus_piece_bitmap.bin"]
-        create_png_from_clut_data(focus_data, PIECE_SIZE, PIECE_SIZE,
-                                png_dir / "focus_piece_bitmap.png")
-    if "focus_icon_bitmap.bin" in binary_assets:
-        focus_data = binary_assets["focus_icon_bitmap.bin"]
-        create_png_from_clut_data(focus_data, ICON_SIZE, ICON_SIZE,
-                                png_dir / "focus_icon_bitmap.png")
-
 
 def generate_assets(output_dir: Path) -> dict[str, bytes]:
     """Generate all game assets."""
@@ -450,84 +221,7 @@ def generate_assets(output_dir: Path) -> dict[str, bytes]:
     # Board bitmap
     assets["board_bitmap.bin"] = generate_board_bitmap()
     
-    # Piece bitmaps (only 4 total - 2 per player)
-    assets["piece_bitmap_a_normal.bin"] = generate_piece_sprite_normal_a()
-    assets["piece_bitmap_a_swapped.bin"] = generate_piece_sprite_swapped_a()
-    assets["piece_bitmap_b_normal.bin"] = generate_piece_sprite_normal_b()
-    assets["piece_bitmap_b_swapped.bin"] = generate_piece_sprite_swapped_b()
-    
-    # Icon sprites
-    icon_types = ["reset", "info", "difficulty", "starting_board", "history", "exit"]
-    for icon_type in icon_types:
-        assets[f"icon_{icon_type}.bin"] = generate_icon_sprite(icon_type)
-
-    # Highlight sprites (24x24) - generate two bitmaps: empty and occupied
-    def generate_highlight_empty() -> bytes:
-        size = PIECE_SIZE
-        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-        inner_start = 8
-        inner_end = size - inner_start - 1  # 15
-        for y in range(size):
-            for x in range(size):
-                idx = y * size + x
-                if x < inner_start or x > inner_end or y < inner_start or y > inner_end:
-                    continue
-                # Edge uses empty-outline CLUT (85), fill uses empty-fill CLUT (86)
-                if x == inner_start or x == inner_end or y == inner_start or y == inner_end:
-                    buffer[idx] = 85
-                else:
-                    buffer[idx] = 86
-        return bytes(buffer)
-
-    def generate_highlight_occupied() -> bytes:
-        size = PIECE_SIZE
-        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-        inner_start = 8
-        inner_end = size - inner_start - 1  # 15
-        for y in range(size):
-            for x in range(size):
-                idx = y * size + x
-                if x < inner_start or x > inner_end or y < inner_start or y > inner_end:
-                    continue
-                # Edge uses occupied-outline CLUT (87), fill uses occupied-fill CLUT (88)
-                if x == inner_start or x == inner_end or y == inner_start or y == inner_end:
-                    buffer[idx] = 87
-                else:
-                    buffer[idx] = 88
-        return bytes(buffer)
-
-    assets["highlight_empty_bitmap.bin"] = generate_highlight_empty()
-    assets["highlight_occupied_bitmap.bin"] = generate_highlight_occupied()
-
-    # Focus sprites
-    def generate_focus_piece() -> bytes:
-        size = PIECE_SIZE
-        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-        # 1-pixel dashed border using focus CLUT (CLUT_FOCUS)
-        for x in range(size):
-            for y in range(size):
-                idx = y * size + x
-                if x == 0 or x == size - 1 or y == 0 or y == size - 1:
-                    # dashed: draw every other pixel along border
-                    if ((x + y) & 1) == 0:
-                        buffer[idx] = CLUT_FOCUS
-        return bytes(buffer)
-
-    def generate_focus_icon() -> bytes:
-        size = ICON_SIZE
-        buffer = bytearray([CLUT_TRANSPARENT] * size * size)
-        # 1-pixel dashed border using focus CLUT (CLUT_FOCUS)
-        for x in range(size):
-            for y in range(size):
-                idx = y * size + x
-                if x == 0 or x == size - 1 or y == 0 or y == size - 1:
-                    if ((x + y) & 1) == 0:
-                        buffer[idx] = CLUT_FOCUS
-        return bytes(buffer)
-
-    assets["focus_piece_bitmap.bin"] = generate_focus_piece()
-    assets["focus_icon_bitmap.bin"] = generate_focus_icon()
-    
+       
     # Write all binary assets to files
     for filename, data in assets.items():
         write_binary(output_dir / filename, data)

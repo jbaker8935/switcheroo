@@ -44,6 +44,10 @@ void render_update_score(const session_stats_t *stats);
 // Helper: Get screen coordinates for board cell
 void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y);
 
+// Invalidate internal render cache forcing a full sprite redefinition
+// on next render_update_pieces() call.
+void render_invalidate_cache(void);
+
 // Helper: Get board cell from screen coordinates
 bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col);
 

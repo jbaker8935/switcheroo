@@ -4,7 +4,27 @@
  */
 
 #include "../src/game_state.h"
+#include "../src/puzzle_data.h"
 #include <string.h>
+
+// Helper function to format strings to exactly 25 characters with right-padding
+void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
+    char buf[26]; // 25 chars + null terminator
+    uint8_t len = strlen(text);
+    if (len > 25) len = 25; // Truncate if too long
+    
+    // Copy the text
+    memcpy(buf, text, len);
+    
+    // Right-fill with spaces
+    while (len < 25) {
+        buf[len++] = ' ';
+    }
+    buf[25] = '\0';
+    
+    textGotoXY(x, y);
+    textPrint(buf);
+}
 
 void game_state_init(game_state_t *state) {
     memset(state, 0, sizeof(game_state_t));
@@ -14,13 +34,15 @@ void game_state_init(game_state_t *state) {
     
     // Set default preferences
     state->prefs.difficulty_level = 2;  // Standard
+    state->prefs.swap_rule = SWAP_RULE_CLASSIC;
+    state->prefs.current_puzzle_index = 0;
     state->prefs.color_scheme = 0;      // Default theme
     state->prefs.ai_explanations_enabled = false;
     state->prefs.audio_enabled = true;
     state->prefs.volume_level = 7;
     
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
-    ai_agent_init(&state->ai_config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_STANDARD, PLAYER_BLACK);
+    ai_agent_init(&state->ai_config, state->prefs.swap_rule, AI_DIFFICULTY_STANDARD, PLAYER_BLACK);
     
     // Initialize menu state
     game_state_update_menu_enables(state);
@@ -40,11 +62,53 @@ game_phase_t game_state_get_phase(const game_state_t *state) {
 }
 
 void game_state_reset_board(game_state_t *state) {
-    board_reset(&state->board);
+    /* If there have been moves played, reset back to the currently selected
+       puzzle starting position so the user can retry the puzzle. If no moves
+       have been made, reset to the normal gameplay starting position. */
+    if (state->board.move_count > 0) {
+        const puzzle_collection_t *collection = get_puzzle_collection();
+        const puzzle_t *puzzle = NULL;
+        if (collection && state->prefs.current_puzzle_index < collection->count) {
+            puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+        }
+
+        if (puzzle) {
+            // Apply the puzzle position and ensure AI/swap rule are in sync
+            apply_puzzle_position(&state->board, puzzle);
+            // Ensure the player to move is set back to Player A (WHITE)
+            state->board.current_player = PLAYER_WHITE;
+            // Ensure move/history counters are reset so menu icons update
+            state->board.move_count = 0;
+            state->board.history_count = 0;
+            state->prefs.swap_rule = puzzle->swap_rule;
+            state->ai_config.swap_rule = puzzle->swap_rule;
+            ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+        } else {
+            // Fallback to normal reset
+            board_reset(&state->board);
+            // Ensure no swapped flags remain
+            board_clear_all_swapped(&state->board);
+            // Clear any puzzle debug text lines (id, rule, difficulty, hint)
+            print_formatted_text(0, 18, "");
+            print_formatted_text(0, 19, "");
+            print_formatted_text(0, 20, "");
+            print_formatted_text(0, 21, "");
+        }
+    } else {
+        // No moves played: normal gameplay reset
+        board_reset(&state->board);
+        board_clear_all_swapped(&state->board);
+        // Clear any puzzle debug text lines
+        print_formatted_text(0, 18, "");
+        print_formatted_text(0, 19, "");
+        print_formatted_text(0, 20, "");
+        print_formatted_text(0, 21, "");
+    }
+
     game_state_deselect_piece(state);
     game_state_update_menu_enables(state);
     state->win_path.has_path = false;
-    
+
     // Reset board cell colors to original checkerboard pattern
     extern void video_reset_all_board_cell_colors(void);
     video_reset_all_board_cell_colors();
@@ -97,7 +161,7 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index) {
     
     move_t *move = &state->selection.legal_moves[move_index];
     
-    if (board_execute_move(&state->board, move)) {
+    if (board_execute_move(&state->board, move, state->prefs.swap_rule)) {
         game_state_deselect_piece(state);
         
         // Check for win
@@ -152,9 +216,22 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
             state->phase = GAME_PHASE_PLAYING;
             break;
             
-        case MENU_ICON_INFO:
-            state->phase = GAME_PHASE_MENU_OVERLAY;
-            break;
+        case MENU_ICON_INFO: {
+            // Display the first solution move for the currently selected puzzle (hint)
+            const puzzle_collection_t *collection = get_puzzle_collection();
+            const puzzle_t *puzzle = NULL;
+            if (collection && state->prefs.current_puzzle_index < collection->count) {
+                puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+            }
+
+            if (puzzle && puzzle->solution_length > 0) {
+                display_puzzle_solution(puzzle);
+            } else {
+                print_formatted_text(0, 20, "NO SOLUTION          ");
+            }
+
+            state->phase = GAME_PHASE_PLAYING;
+        } break;
             
         case MENU_ICON_DIFFICULTY:
             // Cycle difficulty
@@ -164,7 +241,34 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
             break;
             
         case MENU_ICON_STARTING_BOARD:
-            // TODO: Implement starting board selection
+            // Cycle through puzzles
+            const puzzle_collection_t *collection = get_puzzle_collection();
+            state->prefs.current_puzzle_index = (state->prefs.current_puzzle_index + 1) % collection->count;
+            const puzzle_t *puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+            if (puzzle) {
+                // Apply puzzle position
+                apply_puzzle_position(&state->board, puzzle);
+                // Set swap rule from puzzle
+                state->prefs.swap_rule = puzzle->swap_rule;
+                state->ai_config.swap_rule = puzzle->swap_rule;
+                // Reinitialize AI with new swap rule
+                ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+                // Reset game state
+                game_state_deselect_piece(state);
+                state->phase = GAME_PHASE_PLAYING;
+                // Display debugging info: id, swap rule, and difficulty (WIN IN <n>)
+                char id_msg[32];
+                snprintf(id_msg, sizeof(id_msg), "%s", puzzle->id);
+                print_formatted_text(0, 18, id_msg);
+
+                char rule_msg[32];
+                snprintf(rule_msg, sizeof(rule_msg), "%s", swap_rule_to_string(puzzle->swap_rule));
+                print_formatted_text(0, 19, rule_msg);
+
+                char diff_msg[32];
+                snprintf(diff_msg, sizeof(diff_msg), "WIN IN %u", (unsigned)puzzle->difficulty);
+                print_formatted_text(0, 20, diff_msg);
+            }
             break;
             
         case MENU_ICON_HISTORY:
@@ -248,7 +352,7 @@ void game_state_update(game_state_t *state, float delta_time) {
                     printf("From:%s To:%s", from_name, to_name);
                     
                     // Execute AI move
-                    if (board_execute_move(&state->board, &ai_move)) {
+                    if (board_execute_move(&state->board, &ai_move, state->ai_config.swap_rule)) {
                         // Check for win
                         if (game_state_check_win_condition(state)) {
                             state->phase = GAME_PHASE_GAME_OVER;

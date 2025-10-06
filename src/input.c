@@ -54,36 +54,11 @@ bool input_translate_event(input_event_t *event) {
     // Debug: log the kernel event type we're processing
     static uint8_t last_type = 0;
     if (kernelEventData.type != last_type) {
-        textGotoXY(0, 3);
-        printf("Translating event type: 0x%02X     ", kernelEventData.type);
+
         last_type = kernelEventData.type;
     }
 
-    // Debug: show if we have a valid event
-    textGotoXY(0, 7);
-    printf("Translate called, type=0x%02X     ", kernelEventData.type);
 
-    // If this is a keyboard event, print raw/ascii/flags for diagnosis
-    if (kernelEventData.type == kernelEvent(key.PRESSED) || kernelEventData.type == kernelEvent(key.RELEASED)) {
-        textGotoXY(0, 12);
-        printf("KBD raw=0x%02X ascii=0x%02X flags=0x%02X     ", (unsigned)kernelEventData.key.raw, (unsigned)kernelEventData.key.ascii, (unsigned)kernelEventData.key.flags);
-        // Follow getchar() behavior: ignore meta keys (flags non-zero)
-        if (kernelEventData.key.flags) {
-            textGotoXY(0, 8);
-            printf("Translate ignoring key event due to flags=0x%02X     ", (unsigned)kernelEventData.key.flags);
-            return false;
-        }
-    }
-
-    // If this is a mouse event, print delta/clicks for diagnosis
-    if (kernelEventData.type == kernelEvent(mouse.DELTA)) {
-        textGotoXY(0, 13);
-        printf("MOUSE dX=%d dY=%d buttons=0x%02X     ", (int8_t)kernelEventData.mouse.delta.x, (int8_t)kernelEventData.mouse.delta.y, (unsigned)kernelEventData.mouse.delta.buttons);
-    } else if (kernelEventData.type == kernelEvent(mouse.CLICKS)) {
-        textGotoXY(0, 13);
-        printf("MOUSE clicks inner=%d outer=%d middle=%d     ", kernelEventData.mouse.clicks.inner, kernelEventData.mouse.clicks.outer, kernelEventData.mouse.clicks.middle);
-    }
-    
     if (kernelEventData.type == 0) {
         // No event
         if (event) {
@@ -102,11 +77,7 @@ bool input_translate_event(input_event_t *event) {
             event->data.key.ascii = kernelEventData.key.ascii;
             event->data.key.is_repeat = false;
             s_input_state.keyboard_mode = true;
-            
-            // Debug: show successful translation
-            textGotoXY(0, 8);
-            printf("Translate returning: true (KEY_DOWN)     ");
-            
+
             return true;
         }
     }
@@ -119,11 +90,7 @@ bool input_translate_event(input_event_t *event) {
             event->data.key.code = key;
             event->data.key.ascii = kernelEventData.key.ascii;
             event->data.key.is_repeat = false;
-            
-            // Debug: show successful translation
-            textGotoXY(0, 8);
-            printf("Translate returning: true (KEY_UP)     ");
-            
+
             return true;
         }
     }
@@ -195,10 +162,7 @@ bool input_translate_event(input_event_t *event) {
         }
         
         s_input_state.mouse_buttons_prev = new_buttons;
-        
-        // Debug: show successful mouse translation
-        textGotoXY(0, 8);
-        printf("Translate returning: true (MOUSE)     ");
+
         
         return true;
     }
@@ -214,10 +178,7 @@ bool input_translate_event(input_event_t *event) {
     if (event) {
         event->type = INPUT_EVENT_NONE;
     }
-    
-    // Debug: show return value
-    textGotoXY(0, 8);
-    printf("Translate returning: false (no event)     ");
+
     
     return false;
 }

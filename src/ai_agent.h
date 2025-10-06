@@ -12,14 +12,6 @@
 #include "../src/board.h"
 #include <stdint.h>
 
-// Swap rule modes
-typedef enum {
-    SWAP_RULE_CLASSIC = 0,           // Empty move clears all swapped
-    SWAP_RULE_CLEARS_OWN = 1,        // Empty move clears player's swapped
-    SWAP_RULE_SWAPPED_CLEARS = 2,    // Swapped piece to empty clears all
-    SWAP_RULE_SWAPPED_CLEARS_OWN = 3 // Swapped piece to empty clears own
-} swap_rule_t;
-
 // Difficulty levels
 typedef enum {
     AI_DIFFICULTY_LEARNING = 0,  // Random moves

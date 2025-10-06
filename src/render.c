@@ -85,6 +85,9 @@ static uint8_t s_cache_selected_col_val = 0xFF;
 static uint8_t s_cache_legal_move_count = 0;
 static move_t s_cache_legal_moves[8];
 
+// Track whether a winning-path CLUT has been applied (avoids repeated CLUT writes)
+static bool s_win_path_applied = false;
+
 // Focus sprite IDs
 #define VIDEO_SPRITE_FOCUS_PIECE (VIDEO_SPRITE_HIGHLIGHT_BASE + 16)
 #define VIDEO_SPRITE_FOCUS_ICON  (VIDEO_SPRITE_HIGHLIGHT_BASE + 17)
@@ -105,6 +108,8 @@ void render_init(void) {
     
     s_board_x = (VIDEO_SCREEN_WIDTH - board_width) / 2;
     s_board_y = (VIDEO_SCREEN_HEIGHT - board_height) / 2;
+
+    // (no diagnostic output)
     
     // Icon panel position
     s_icon_x = s_board_x + board_width + 16;
@@ -149,16 +154,25 @@ void render_init(void) {
     s_cache_initialized = true;
 }
 
+// Force the render cache to be invalidated so next update will re-snapshot
+void render_invalidate_cache(void) {
+    s_cache_initialized = false;
+    s_win_path_applied = false;
+}
+
 void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y) {
     const int16_t first_cell_x = s_board_x + 4;
     const int16_t first_cell_y = s_board_y + 4;
-    const uint16_t cell_offset = (VIDEO_BOARD_CELL_SIZE - VIDEO_PIECE_SPRITE_SIZE) / 2;
-    
-    uint16_t cell_x = (uint16_t)(first_cell_x + (col * (VIDEO_BOARD_CELL_SIZE + 1)));
-    uint16_t cell_y = (uint16_t)(first_cell_y + (row * (VIDEO_BOARD_CELL_SIZE + 1)));
-    
-    if (x) *x = cell_x + cell_offset;
-    if (y) *y = cell_y + cell_offset;
+
+    // Use the board definition: first cell is at (s_board_x + 4, s_board_y + 4).
+    // Each cell is VIDEO_BOARD_CELL_SIZE pixels with a 1px separator, so
+    // stride = VIDEO_BOARD_CELL_SIZE + 1. Pieces must be inset 2px from the
+    // cell origin to leave a 2px margin around a 24x24 sprite in a 28x28 cell.
+    const int16_t cell_x = first_cell_x + (col * (VIDEO_BOARD_CELL_SIZE + 1)) + 2;
+    const int16_t cell_y = first_cell_y + (row * (VIDEO_BOARD_CELL_SIZE + 1)) + 2;
+
+    if (x) *x = (uint16_t)cell_x;
+    if (y) *y = (uint16_t)cell_y;
 }
 
 bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col) {
@@ -222,9 +236,13 @@ void render_update_pieces(const board_t *board) {
     uint8_t unswap_count = 0;  // Track how many pieces changed from swapped to normal
 
     // If cache not initialized, snapshot board and mark all for update
+    bool force_full_update = false;
+    // If cache not initialized, snapshot board and force full update so sprites
+    // are redefined to match the current board state.
     if (!s_cache_initialized) {
         cache_board_snapshot(board);
         s_cache_initialized = true;
+        force_full_update = true;
     }
     
     // Scan board and assign sprites to pieces
@@ -276,11 +294,12 @@ void render_update_pieces(const board_t *board) {
                 // Always position the sprite when assigned to a piece
                 uint16_t x, y;
                 render_cell_to_screen(row, col, &x, &y);
+                // (no diagnostic output)
                 spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
                 
                 // If piece type changed (especially NORMAL<->SWAPPED), redefine sprite with new bitmap
                 uint8_t prev_piece = s_cache_board_snapshot[row][col];
-                if (prev_piece != (uint8_t)piece) {
+                if (force_full_update || prev_piece != (uint8_t)piece) {
                     spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
                     
                     // Count swapped->normal transitions
@@ -459,20 +478,26 @@ static void render_update_focus(void) {
 }
 
 void render_update_win_path(const win_path_t *path) {
-    // Clear any existing win highlights by resetting all board cell colors
-    video_reset_all_board_cell_colors();
-    
-    // If there's a winning path, highlight the cells
-    if (path && path->has_path) {
-        for (uint8_t i = 0; i < path->path_length; ++i) {
-            uint8_t cell_index = path->path_cells[i];
-            uint8_t row = cell_index / BOARD_COLS;
-            uint8_t col = cell_index % BOARD_COLS;
-            
-            // Set the cell color to the win highlight color for the winner
-            video_set_board_cell_win_color(row, col, path->winner);
+    // If there's no path, ensure board colors are normal and clear the applied flag
+    if (!path || !path->has_path) {
+        if (s_win_path_applied) {
+            video_reset_all_board_cell_colors();
+            s_win_path_applied = false;
         }
+        return;
     }
+
+    // If we've already applied the win path previously, do nothing to avoid repeated CLUT writes
+    if (s_win_path_applied) return;
+
+    // Apply win highlight colors once
+    for (uint8_t i = 0; i < path->path_length; ++i) {
+        uint8_t cell_index = path->path_cells[i];
+        uint8_t row = cell_index / BOARD_COLS;
+        uint8_t col = cell_index % BOARD_COLS;
+        video_set_board_cell_win_color(row, col, path->winner);
+    }
+    s_win_path_applied = true;
 }
 
 void render_update_menu(const menu_state_t *menu) {
@@ -488,13 +513,13 @@ void render_update_menu(const menu_state_t *menu) {
         
         // Show all icons, but use different CLUT for disabled vs enabled
         uint8_t clut_index = VIDEO_PRIMARY_CLUT;
-        if (!menu->enabled[i]) {
-            // Use dimmed CLUT for disabled icons
-            clut_index = VIDEO_PRIMARY_CLUT + 5;  // Dedicated disabled icon CLUT
-        } else if (menu->selected_icon == (int8_t)i) {
-            // Highlight selected/hovered icon
-            clut_index = VIDEO_PRIMARY_CLUT + 6;  // Highlight CLUT
-        }
+        // if (!menu->enabled[i]) {
+        //     // Use dimmed CLUT for disabled icons
+        //     clut_index = VIDEO_PRIMARY_CLUT + 5;  // Dedicated disabled icon CLUT
+        // } else if (menu->selected_icon == (int8_t)i) {
+        //     // Highlight selected/hovered icon
+        //     clut_index = VIDEO_PRIMARY_CLUT + 6;  // Highlight CLUT
+        // }
         
         // Update sprite with appropriate appearance
         uint32_t bitmap_addr = s_icon_bitmap_addrs[i];

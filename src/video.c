@@ -196,10 +196,10 @@ static const video_palette_t kThemePalettes[VIDEO_THEME_COUNT] = {
         .ui_panel = { .r = 0x22, .g = 0x28, .b = 0x36 },
         .highlight_primary = { .r = 0xF4, .g = 0xC2, .b = 0x44 },
         .highlight_secondary = { .r = 0xF0, .g = 0x7C, .b = 0x40 },
-        .highlight_sprite_empty_primary = { .r = 0xFF, .g = 0xF1, .b = 0xC4 },
-        .highlight_sprite_empty_secondary = { .r = 0xFF, .g = 0xD9, .b = 0x94 },
-        .highlight_sprite_occupied_primary = { .r = 0xF4, .g = 0xC2, .b = 0x44 },
-        .highlight_sprite_occupied_secondary = { .r = 0xF0, .g = 0x7C, .b = 0x40 },
+        .highlight_sprite_empty_primary = { .r = 0x38, .g = 0xb0, .b = 0x58 },
+        .highlight_sprite_empty_secondary = { .r = 0x63, .g = 0xf6, .b = 0x51 },
+        .highlight_sprite_occupied_primary = { .r = 0x5c, .g = 0x46, .b = 0x0b },
+        .highlight_sprite_occupied_secondary = { .r = 0xab, .g = 0x7f, .b = 0x0a },
         .text_primary = { .r = 0xF4, .g = 0xF4, .b = 0xFA },
     },
     [VIDEO_THEME_HIGH_CONTRAST] = {
@@ -351,16 +351,16 @@ static void video_setup_clut(const video_palette_t *palette) {
     // Player A colors - Blue theme
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_EDGE_1, 0x4A, 0x90, 0xE2);  // Light blue edge
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_EDGE_2, 0x21, 0x71, 0xB5);  // Dark blue edge
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_FILL_1, 0x34, 0x98, 0xDB);  // Blue fill 1
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_FILL_1, 0x6e, 0xc5, 0xff);  // Blue fill 1
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_FILL_2, 0x29, 0x80, 0xB9);  // Blue fill 2
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_SWAPPED_1, 0xFF, 0xFF, 0xFF);  // White star
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_SWAPPED_2, 0xF0, 0xF0, 0xF0);  // Light gray star
     
     // Player B colors - Purple theme
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_EDGE_1, 0x9B, 0x59, 0xB6);  // Light purple edge
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_EDGE_1, 0xA4, 0x58, 0xC3);  // Light purple edge
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_EDGE_2, 0x8E, 0x44, 0xAD);  // Dark purple edge
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_FILL_1, 0x7D, 0x3C, 0x98);  // Purple fill 1
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_FILL_2, 0x6C, 0x34, 0x83);  // Purple fill 2
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_FILL_2, 0xc3, 0x97, 0xd4);  // Purple fill 2
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_SWAPPED_1, 0xFF, 0xFF, 0xFF);  // White diamond
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_SWAPPED_2, 0xF0, 0xF0, 0xF0);  // Light gray diamond
     
@@ -390,6 +390,7 @@ static void video_setup_clut(const video_palette_t *palette) {
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY,
                        palette->highlight_sprite_occupied_secondary.r, palette->highlight_sprite_occupied_secondary.g, palette->highlight_sprite_occupied_secondary.b);
     
+
 }
 
 static void video_position_sprites(void) {
