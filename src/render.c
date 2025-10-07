@@ -6,6 +6,7 @@
 #include "../src/render.h"
 #include "../src/input.h"
 #include "../src/board.h"
+#include "../src/text_display.h"
 #include <string.h>
 
 // External functions from video.c
@@ -152,6 +153,7 @@ void render_init(void) {
 
     // Mark cache initialized
     s_cache_initialized = true;
+
 }
 
 // Force the render cache to be invalidated so next update will re-snapshot
@@ -523,28 +525,13 @@ void render_update_menu(const menu_state_t *menu) {
 }
 
 void render_update_score(const session_stats_t *stats) {
-    // TODO: Implement score display
-    // 
-    // Requirements:
-    // - Display format: "W: XX  B: XX" (White vs Black)
-    // - Position: Below menu icons in right margin
-    // - Options for implementation:
-    //   1. Use F256K2 text mode overlay (if available)
-    //   2. Create bitmap font sprites for numbers
-    //   3. Use tilemap for text rendering
-    //   4. Pre-rendered score bitmaps (0-99 combinations)
-    //
-    // Current stats available:
-    // - stats->white_wins (uint8_t)
-    // - stats->black_wins (uint8_t)
-    //
-    // For now, this is a placeholder - scores tracked but not displayed
-    (void)stats;  // Suppress unused warning until text rendering implemented
+
+    print_win_loss(stats->white_wins, stats->black_wins);
 }
 
 void render_update(const game_state_t *state) {
     // Wait for vertical blank to avoid tearing
-	while (PEEKW(RAST_ROW_L) < 482u)
+	while (PEEKW(RAST_ROW_L) < 482)
 		// Spin our wheels.
 		;
     
@@ -568,4 +555,7 @@ void render_update(const game_state_t *state) {
     
     // Update score display
     render_update_score(&state->stats);
+
+
+
 }

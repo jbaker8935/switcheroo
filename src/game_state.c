@@ -6,6 +6,7 @@
 #include "../src/game_state.h"
 #include "../src/puzzle_data.h"
 #include <string.h>
+#include "../src/text_display.h"
 
 static void gs_copy_text(char *dest, size_t dest_size, const char *src) {
     if (!dest || dest_size == 0) {
@@ -46,24 +47,7 @@ static void gs_format_win_in(char *dest, size_t dest_size, unsigned value) {
     dest[len] = '\0';
 }
 
-// Helper function to format strings to exactly 25 characters with right-padding
-void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
-    char buf[26]; // 25 chars + null terminator
-    uint8_t len = strlen(text);
-    if (len > 25) len = 25; // Truncate if too long
-    
-    // Copy the text
-    memcpy(buf, text, len);
-    
-    // Right-fill with spaces
-    while (len < 25) {
-        buf[len++] = ' ';
-    }
-    buf[25] = '\0';
-    
-    textGotoXY(x, y);
-    textPrint(buf);
-}
+
 
 void game_state_init(game_state_t *state) {
     memset(state, 0, sizeof(game_state_t));
@@ -266,7 +250,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
             if (puzzle && puzzle->solution_length > 0) {
                 display_puzzle_solution(puzzle);
             } else {
-                print_formatted_text(0, 20, "NO SOLUTION          ");
+                print_formatted_text(40, 0, "NO SOLUTION          ");
             }
 
             state->phase = GAME_PHASE_PLAYING;
