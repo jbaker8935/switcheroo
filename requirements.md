@@ -155,6 +155,12 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the active player has eighteen or more legal moves available, THE SYSTEM
   SHALL select a move using single-ply heuristics without invoking recursive
   search.
+- WHEN evaluating a board position, THE SYSTEM SHALL treat positions where the
+  current player can win in one move as winning for that player, ensuring the
+  AI avoids moves that allow opponent immediate wins unless all legal moves
+  permit such wins.
+- WHEN selecting moves via heuristic evaluation, THE SYSTEM SHALL filter out
+  AI moves that result in an immediate win for the opponent.
 
 ### Audio Feedback
 

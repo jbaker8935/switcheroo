@@ -43,6 +43,8 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T14 | Error Handling | Implement comprehensive error recovery, graceful degradation, and diagnostic logging across all subsystems. | Error handling framework, recovery tests. | T1-T12 | Not Started |
 | T17 | AI Search Phase Gating | Implement goal-band occupancy gating so deep search activates only when 4+ rows are occupied and full depth is limited to 5+ rows. | Updated `ai_agent.c`, performance benchmarks, doc updates. | T8 | Done |
 | T18 | AI Timer Diagnostics | Integrate timer0 instrumentation and on-screen diagnostics for AI node counts and elapsed ticks. | Profiling helpers in `ai_agent.c`, documentation refresh. | T8 | Done |
+| T19 | AI Immediate Threat Avoidance | Enhance evaluation to detect and avoid moves allowing opponent instant wins, ensuring AI only chooses such moves when all options permit them. | Updated `ai_agent_evaluate_internal`, regression tests pass. | T8 | Done |
+| T20 | AI Swap Move Safety Filter | Filter out swapping moves that result in immediate opponent wins during heuristic selection. | Updated `ai_select_move_heuristic`, build succeeds. | T8 | Done |
 
 ## Milestones
 

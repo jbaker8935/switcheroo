@@ -776,6 +776,15 @@ static int16_t AI_OVERLAY_SECTION ai_agent_evaluate_internal(const board_t *boar
         return AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
     }
 
+    if (ai_immediate_win_available(board, board->current_player, config->swap_rule)) {
+        player_t winner = board->current_player;
+        if (winner == perspective) {
+            return AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
+        } else {
+            return AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
+        }
+    }
+
     ai_connection_metrics_t conn_me;
     ai_connection_metrics_t conn_op;
     ai_compute_connection_metrics(board, perspective, &conn_me);
@@ -842,6 +851,7 @@ static bool AI_OVERLAY_SECTION ai_select_move_heuristic(board_t *root,
         return false;
     }
 
+    player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
     int16_t best_score = AI_SCORE_LOSS;
     move_t best_move = moves[0].move;
     bool has_move = false;
@@ -851,6 +861,11 @@ static bool AI_OVERLAY_SECTION ai_select_move_heuristic(board_t *root,
         board_t child;
         ai_board_copy(&child, root);
         if (!board_execute_move(&child, &moves[i].move, config->swap_rule)) {
+            continue;
+        }
+
+        // Skip moves that allow opponent immediate win
+        if (board_check_win(&child, opponent, NULL)) {
             continue;
         }
 

@@ -246,6 +246,8 @@ minimize runtime branching.
   5. Remaining mobility options sorted by static evaluation delta
 - Killer move tables retain the top two cut-inducing moves per depth to bias
   future ordering.
+- Moves that would result in an immediate win for the opponent are filtered out
+  during heuristic selection to prevent blunders.
 
 ### Evaluation Function
 
@@ -260,6 +262,9 @@ minimize runtime branching.
     and attacking their shortest connection paths.
   - **Mobility**: Difference in legal move count emphasising forward and
     diagonal advances into the central files.
+- Immediate win detection: If the current player can achieve a winning position
+  in one move, the evaluation treats the position as a win for that player,
+  ensuring the AI avoids blunders that allow opponent instant wins.
 - Scores normalise to signed 16-bit values using rule-specific weight tables
   stored in ROM so the engine remains 8-bit friendly.
 
