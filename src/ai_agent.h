@@ -65,6 +65,7 @@ typedef struct {
     ai_eval_weights_t weights;
     ai_search_settings_t search;
     bool diagnostics_enabled;
+    bool enable_forcing_check;
 } ai_config_t;
 
 // Initialize AI agent

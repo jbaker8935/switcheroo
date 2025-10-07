@@ -265,6 +265,10 @@ minimize runtime branching.
 - Immediate win detection: If the current player can achieve a winning position
   in one move, the evaluation treats the position as a win for that player,
   ensuring the AI avoids blunders that allow opponent instant wins.
+- Forcing move detection: In Expert difficulty, the evaluation checks if the
+  opponent has a move that leaves the AI with no safe response (all AI moves
+  lead to immediate opponent win). Such positions receive a heavy penalty to
+  discourage entering forcing sequences.
 - Scores normalise to signed 16-bit values using rule-specific weight tables
   stored in ROM so the engine remains 8-bit friendly.
 
@@ -275,7 +279,8 @@ minimize runtime branching.
 - **Standard**: Depth 4 minimum, node limit 8k, transposition cache on, killer
   moves enabled.
 - **Expert**: Depth 4 baseline with extension to 6 on tactical triggers,
-  aspiration search, transposition cache and iterative deepening enabled.
+  aspiration search, transposition cache and iterative deepening enabled,
+  forcing move detection in evaluation.
 
 ### Time and Node Management
 

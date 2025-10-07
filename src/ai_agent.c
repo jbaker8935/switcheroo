@@ -131,7 +131,7 @@ static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
 #define AI_SCORE_LOSS (-AI_SCORE_WIN)
 #define AI_SCORE_MAX 32000
 #define AI_NODE_LIMIT_FALLBACK 16000U
-#define AI_MAX_ORDERED_MOVES 64
+#define AI_MAX_ORDERED_MOVES 32
 #define AI_MAX_DEPTH 8
 #define AI_KILLER_PER_PLY 2
 #define AI_TRANSPOSITION_SIZE 16
@@ -684,6 +684,75 @@ static bool AI_OVERLAY_SECTION ai_immediate_win_available(const board_t *board, 
     return false;
 }
 
+static bool AI_OVERLAY_SECTION ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
+    board_t scratch;
+    ai_board_copy(&scratch, board);
+    scratch.current_player = player;
+
+    move_t opp_moves[AI_MAX_ORDERED_MOVES];
+    uint8_t opp_count = 0;
+
+    // Get all opponent moves
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(&scratch, row, col);
+            if (board_get_piece_owner(piece) != player) {
+                continue;
+            }
+            opp_count += board_get_legal_moves(&scratch, row, col, &opp_moves[opp_count], (uint8_t)(AI_MAX_ORDERED_MOVES - opp_count));
+        }
+    }
+
+    // For each opponent move, check if AI has no safe response
+    for (uint8_t i = 0; i < opp_count; ++i) {
+        // Execute opponent move
+        if (!board_execute_move(&scratch, &opp_moves[i], rule)) {
+            continue;
+        }
+
+        // Now check if AI has any move that doesn't lead to immediate loss
+        player_t ai_player = (player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+        scratch.current_player = ai_player;
+
+        move_t ai_moves[AI_MAX_ORDERED_MOVES];
+        uint8_t ai_count = 0;
+        for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+            for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+                piece_type_t piece = board_get_piece(&scratch, row, col);
+                if (board_get_piece_owner(piece) != ai_player) {
+                    continue;
+                }
+                ai_count += board_get_legal_moves(&scratch, row, col, &ai_moves[ai_count], (uint8_t)(AI_MAX_ORDERED_MOVES - ai_count));
+            }
+        }
+
+        bool has_safe_move = false;
+        for (uint8_t j = 0; j < ai_count; ++j) {
+            // Execute AI move
+            if (!board_execute_move(&scratch, &ai_moves[j], rule)) {
+                continue;
+            }
+            if (!board_check_win(&scratch, player, NULL)) {
+                has_safe_move = true;
+            }
+            // Undo AI move
+            board_undo_last_move(&scratch);
+            if (has_safe_move) {
+                break;
+            }
+        }
+
+        // Undo opponent move
+        board_undo_last_move(&scratch);
+
+        if (!has_safe_move) {
+            return true; // Opponent has a forcing move
+        }
+    }
+
+    return false;
+}
+
 static bool AI_OVERLAY_SECTION ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
     player_t to_move = board->current_player;
     player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
@@ -783,6 +852,12 @@ static int16_t AI_OVERLAY_SECTION ai_agent_evaluate_internal(const board_t *boar
         } else {
             return AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
         }
+    }
+
+    // Check for forcing moves if enabled
+    if (config->enable_forcing_check && ai_forcing_move_available(board, opponent, config->swap_rule)) {
+        // Opponent has a forcing move, very bad for us
+        return AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF) + 1000; // Heavy penalty
     }
 
     ai_connection_metrics_t conn_me;

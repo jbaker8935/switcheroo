@@ -45,6 +45,7 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T18 | AI Timer Diagnostics | Integrate timer0 instrumentation and on-screen diagnostics for AI node counts and elapsed ticks. | Profiling helpers in `ai_agent.c`, documentation refresh. | T8 | Done |
 | T19 | AI Immediate Threat Avoidance | Enhance evaluation to detect and avoid moves allowing opponent instant wins, ensuring AI only chooses such moves when all options permit them. | Updated `ai_agent_evaluate_internal`, regression tests pass. | T8 | Done |
 | T20 | AI Swap Move Safety Filter | Filter out swapping moves that result in immediate opponent wins during heuristic selection. | Updated `ai_select_move_heuristic`, build succeeds. | T8 | Done |
+| T21 | AI Forcing Move Detection | Implement tunable forcing move checks in deeper evaluation to avoid positions where opponent can force a win on next turn, enabled only for Expert difficulty. | Updated `ai_agent_evaluate_internal`, `ai_forcing_move_available` function, build succeeds. | T8 | Done |
 
 ## Milestones
 
