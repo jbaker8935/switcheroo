@@ -9,8 +9,16 @@
 #ifndef GAME_BOARD_H
 #define GAME_BOARD_H
 
-#include "f256lib.h"
 #include <stdint.h>
+#ifdef AI_AGENT_HOST_TEST
+#include <stdbool.h>
+#endif
+
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
+#include "f256lib.h"
+#endif
 
 // Swap rule modes
 typedef enum {

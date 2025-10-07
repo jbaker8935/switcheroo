@@ -12,6 +12,10 @@
 #include <time.h>
 #endif
 
+#if defined(__llvm_mos__) && !defined(AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS)
+#define AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
+#endif
+
 #if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
 #include "../include/f256lib.h"
 
@@ -46,6 +50,80 @@ static void __attribute__((used)) ai_overlay_ensure_loaded(void) {
 #define AI_OVERLAY_SECTION
 static void ai_overlay_ensure_loaded(void) {
     /* Host builds run without overlay indirection. */
+}
+#endif
+
+#ifdef AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
+extern void print_formatted_text(uint8_t x, uint8_t y, const char *text);
+
+static void ai_timer0_reset(void) {
+    POKE(T0_CTR, CTR_CLEAR);
+    POKE(T0_CTR, CTR_UPDOWN | CTR_ENABLE);
+    POKE(T0_PEND, 0x10);
+    POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR);
+    POKE(T0_CMP_L, 0xFF);
+    POKE(T0_CMP_M, 0xFF);
+    POKE(T0_CMP_H, 0xFF);
+}
+
+static uint32_t ai_timer0_read(void) {
+    uint32_t value_h = (uint32_t)PEEK(T0_VAL_H) << 16;
+    uint32_t value_m = (uint32_t)PEEK(T0_VAL_M) << 8;
+    uint32_t value_l = (uint32_t)PEEK(T0_VAL_L);
+    return value_h | value_m | value_l;
+}
+
+static void ai_format_diag(char *dest, const char *label, uint32_t value) {
+    uint8_t i = 0;
+    while (label[i] != '\0' && i < 23) {
+        dest[i] = label[i];
+        ++i;
+    }
+    if (i < 23) {
+        dest[i++] = ' ';
+    }
+    if (value == 0u) {
+        dest[i++] = '0';
+    } else {
+        char digits[10];
+        uint8_t count = 0;
+        while (value != 0u && count < sizeof(digits)) {
+            digits[count++] = (char)('0' + (value % 10u));
+            value /= 10u;
+        }
+        while (count > 0 && i < 25) {
+            dest[i++] = digits[--count];
+        }
+    }
+    dest[i] = '\0';
+}
+
+static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
+    if (!enabled) {
+        print_formatted_text(0, 18, "");
+        print_formatted_text(0, 19, "");
+        return;
+    }
+
+    char buf_nodes[26];
+    char buf_ticks[26];
+    ai_format_diag(buf_nodes, "AI NODES:", nodes);
+    ai_format_diag(buf_ticks, "AI TICKS:", ticks);
+    print_formatted_text(0, 18, buf_nodes);
+    print_formatted_text(0, 19, buf_ticks);
+}
+#else
+static void ai_timer0_reset(void) {
+}
+
+static uint32_t ai_timer0_read(void) {
+    return 0u;
+}
+
+static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
+    (void)nodes;
+    (void)ticks;
+    (void)enabled;
 }
 #endif
 
@@ -220,6 +298,79 @@ static void ai_tt_store(uint32_t key, uint8_t depth, ai_tt_flag_t flag,
 #if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
 #pragma clang section text=".block8.ai"
 #endif
+
+static uint8_t AI_OVERLAY_SECTION ai_count_goal_rows_for_player(const board_t *board,
+                                                                player_t player) {
+    uint8_t rows = 0;
+    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
+        bool has_piece = false;
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(board, row, col);
+            if (board_get_piece_owner(piece) == player) {
+                has_piece = true;
+                break;
+            }
+        }
+        if (has_piece) {
+            ++rows;
+        }
+    }
+    return rows;
+}
+
+static uint8_t AI_OVERLAY_SECTION ai_goal_row_pressure(const board_t *board) {
+    uint8_t white_rows = ai_count_goal_rows_for_player(board, PLAYER_WHITE);
+    uint8_t black_rows = ai_count_goal_rows_for_player(board, PLAYER_BLACK);
+    return (white_rows > black_rows) ? white_rows : black_rows;
+}
+
+static uint8_t AI_OVERLAY_SECTION ai_count_move_volume(const board_t *board, player_t player) {
+    board_t scratch;
+    ai_board_copy(&scratch, board);
+    scratch.current_player = player;
+
+    uint8_t total = 0u;
+    move_t buffer[8];
+    const uint8_t buffer_capacity = (uint8_t)(sizeof(buffer) / sizeof(buffer[0]));
+
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(&scratch, row, col);
+            if (board_get_piece_owner(piece) != player) {
+                continue;
+            }
+
+            total += board_get_legal_moves(&scratch, row, col, buffer, buffer_capacity);
+            if (total >= AI_MAX_ORDERED_MOVES) {
+                return AI_MAX_ORDERED_MOVES;
+            }
+        }
+    }
+
+    return total;
+}
+
+static uint8_t AI_OVERLAY_SECTION ai_select_dynamic_depth(const ai_config_t *config,
+                                                          uint8_t pressure) {
+    if (pressure <= 3u) {
+        return 0u;
+    }
+    if (pressure == 4u) {
+        uint8_t cap = (config->search.base_depth < 2u) ? config->search.base_depth : 2u;
+        return (cap == 0u) ? 1u : cap;
+    }
+    return config->search.max_depth;
+}
+
+static uint32_t AI_OVERLAY_SECTION ai_select_node_cap(const ai_config_t *config,
+                                                      uint8_t pressure) {
+    uint32_t limit = config->search.node_limit ? config->search.node_limit
+                                               : AI_NODE_LIMIT_FALLBACK;
+    if (pressure == 4u && limit > 4000u) {
+        return 4000u;
+    }
+    return limit;
+}
 
 static void AI_OVERLAY_SECTION ai_store_killer(ai_search_context_t *ctx, uint8_t ply, const move_t *move) {
     if (!ctx->config->search.use_killer_moves || ply >= AI_MAX_DEPTH) {
@@ -674,6 +825,68 @@ static int16_t AI_OVERLAY_SECTION ai_agent_evaluate_internal(const board_t *boar
     return ai_clamp_score(total);
 }
 
+static bool AI_OVERLAY_SECTION ai_select_move_heuristic(board_t *root,
+                                                        const ai_config_t *config,
+                                                        move_t *out_move,
+                                                        uint32_t *out_nodes) {
+    ai_ordered_move_t moves[AI_MAX_ORDERED_MOVES];
+    ai_search_context_t stub;
+    memset(&stub, 0, sizeof(stub));
+    stub.config = config;
+
+    uint8_t count = ai_generate_moves(root, &stub, moves, 0);
+    if (count == 0u) {
+        if (out_nodes) {
+            *out_nodes = 0u;
+        }
+        return false;
+    }
+
+    int16_t best_score = AI_SCORE_LOSS;
+    move_t best_move = moves[0].move;
+    bool has_move = false;
+    uint32_t nodes = 0u;
+
+    for (uint8_t i = 0; i < count; ++i) {
+        board_t child;
+        ai_board_copy(&child, root);
+        if (!board_execute_move(&child, &moves[i].move, config->swap_rule)) {
+            continue;
+        }
+
+        ++nodes;
+
+        if (board_check_win(&child, config->ai_player, NULL)) {
+            if (out_nodes) {
+                *out_nodes = nodes;
+            }
+            *out_move = moves[i].move;
+            return true;
+        }
+
+        board_switch_turn(&child);
+        int16_t score = ai_agent_evaluate_internal(&child, config->ai_player, config, NULL);
+        if (!has_move || score > best_score) {
+            best_score = score;
+            best_move = moves[i].move;
+            has_move = true;
+        }
+    }
+
+    if (!has_move) {
+        if (out_nodes) {
+            *out_nodes = nodes;
+        }
+        return false;
+    }
+
+    if (out_nodes) {
+        *out_nodes = nodes;
+    }
+    *out_move = best_move;
+    return true;
+}
+
 static bool ai_search_should_abort(ai_search_context_t *ctx) {
     if (ctx->nodes >= ctx->node_limit) {
         ctx->abort = true;
@@ -895,70 +1108,131 @@ void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
 
 static bool AI_OVERLAY_SECTION ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
                                                             move_t *out_move) {
-
     board_t root;
-    ai_board_copy(&root, board);
-    root.current_player = config->ai_player;
+    player_t to_move;
 
-    if (!board_has_legal_moves(&root, root.current_player)) {
+    ai_board_copy(&root, board);
+    to_move = board->current_player;
+    root.current_player = to_move;
+
+    ai_timer0_reset();
+
+    if (!board_has_legal_moves(&root, to_move)) {
+        uint32_t ticks = ai_timer0_read();
+        ai_print_diagnostics(0u, ticks, config->diagnostics_enabled);
+        s_last_breakdown = (ai_eval_breakdown_t){ 0 };
         return false;
     }
 
-    ai_search_context_t ctx;
-    memset(&ctx, 0, sizeof(ctx));
-    ctx.config = config;
-    ctx.node_limit = config->search.node_limit ? config->search.node_limit : AI_NODE_LIMIT_FALLBACK;
-#ifdef AI_AGENT_ENABLE_TIMER
-    if (config->search.time_limit_ms) {
-        ctx.deadline = clock() + (clock_t)((config->search.time_limit_ms * CLOCKS_PER_SEC) / 1000u);
+    ai_config_t tuned = *config;
+    tuned.ai_player = to_move;
+    uint8_t pressure = ai_goal_row_pressure(&root);
+    uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
+    uint8_t move_volume = ai_count_move_volume(&root, to_move);
+
+    if (dynamic_depth > 0u) {
+        if (move_volume >= 18u) {
+            dynamic_depth = 0u;
+        } else if (move_volume >= 12u && dynamic_depth > 2u) {
+            dynamic_depth = 2u;
+        } else if (move_volume >= 9u && dynamic_depth > 3u) {
+            dynamic_depth = 3u;
+        }
     }
+
+    uint32_t node_cap = ai_select_node_cap(config, pressure);
+    if (move_volume >= 18u && node_cap > 3000u) {
+        node_cap = 3000u;
+    } else if (move_volume >= 12u && node_cap > 5000u) {
+        node_cap = 5000u;
+    }
+
+    move_t best_move = (move_t){ 0 };
+    bool move_found = false;
+    uint32_t nodes_recorded = 0u;
+    int16_t best_score = AI_SCORE_LOSS;
+
+    if (dynamic_depth == 0u) {
+        move_found = ai_select_move_heuristic(&root, &tuned, &best_move, &nodes_recorded);
+    } else {
+        if (pressure == 4u) {
+            tuned.search.base_depth = dynamic_depth;
+            tuned.search.max_depth = dynamic_depth;
+            tuned.search.use_iterative_deepening = false;
+            tuned.search.use_transposition = false;
+        } else {
+            tuned.search.max_depth = dynamic_depth;
+            if (tuned.search.base_depth > tuned.search.max_depth) {
+                tuned.search.base_depth = tuned.search.max_depth;
+            }
+            if (dynamic_depth <= 2u) {
+                tuned.search.use_iterative_deepening = false;
+                tuned.search.use_transposition = false;
+            } else {
+                tuned.search.use_iterative_deepening = config->search.use_iterative_deepening;
+                tuned.search.use_transposition = config->search.use_transposition;
+            }
+        }
+        tuned.search.node_limit = node_cap;
+
+        ai_search_context_t ctx;
+        memset(&ctx, 0, sizeof(ctx));
+        ctx.config = &tuned;
+        ctx.node_limit = tuned.search.node_limit ? tuned.search.node_limit : AI_NODE_LIMIT_FALLBACK;
+#ifdef AI_AGENT_ENABLE_TIMER
+        if (tuned.search.time_limit_ms) {
+            ctx.deadline = clock() + (clock_t)((tuned.search.time_limit_ms * CLOCKS_PER_SEC) / 1000u);
+        }
 #endif
 
-    int16_t best_score = AI_SCORE_LOSS;
-    move_t best_move = { 0 };
-    bool has_completed_iteration = false;
-
-    uint8_t target_depth = config->search.use_iterative_deepening ? config->search.max_depth : config->search.base_depth;
-    uint8_t min_depth = config->search.base_depth ? config->search.base_depth : 1;
-
-    for (uint8_t depth = 1; depth <= target_depth; ++depth) {
-        if (!config->search.use_iterative_deepening && depth != min_depth) {
-            continue;
+        uint8_t target_depth = tuned.search.use_iterative_deepening ? tuned.search.max_depth
+                                                                    : tuned.search.base_depth;
+        if (target_depth == 0u) {
+            target_depth = 1u;
         }
-        if (depth < min_depth) {
-            continue;
+        uint8_t min_depth = tuned.search.base_depth ? tuned.search.base_depth : 1u;
+
+        uint8_t start_depth = tuned.search.use_iterative_deepening ? 1u : min_depth;
+        for (uint8_t depth = start_depth; depth <= target_depth; ++depth) {
+            if (!tuned.search.use_iterative_deepening && depth != min_depth) {
+                continue;
+            }
+            if (depth < min_depth) {
+                continue;
+            }
+
+            move_t iteration_best = (move_t){ 0 };
+            int16_t score = ai_negamax(&root, &ctx, depth, 0, 0, AI_SCORE_LOSS, AI_SCORE_WIN,
+                                       &iteration_best);
+            if (ctx.abort) {
+                break;
+            }
+
+            best_score = score;
+            best_move = iteration_best;
+            move_found = true;
+
+            if (!tuned.search.use_iterative_deepening) {
+                break;
+            }
         }
 
-        move_t iteration_best = { 0 };
-        int16_t score = ai_negamax(&root, &ctx, depth, 0, 0, AI_SCORE_LOSS, AI_SCORE_WIN, &iteration_best);
+        nodes_recorded = ctx.nodes;
 
-        if (ctx.abort) {
-            break;
-        }
-
-        best_score = score;
-        best_move = iteration_best;
-        has_completed_iteration = true;
-
-        if (!config->search.use_iterative_deepening) {
-            break;
+        if (!move_found) {
+            uint32_t heuristic_nodes = 0u;
+            if (ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes)) {
+                move_found = true;
+                nodes_recorded += heuristic_nodes;
+            }
         }
     }
 
-    if (!has_completed_iteration) {
-        ai_ordered_move_t moves[AI_MAX_ORDERED_MOVES];
-        ai_search_context_t fallback_ctx;
-        memset(&fallback_ctx, 0, sizeof(fallback_ctx));
-        fallback_ctx.config = config;
-        uint8_t count = ai_generate_moves(&root, &fallback_ctx, moves, 0);
-        if (count == 0) {
-            return false;
-        }
-        best_move = moves[0].move;
-        has_completed_iteration = true;
-    }
+    uint32_t elapsed_ticks = ai_timer0_read();
+    ai_print_diagnostics(nodes_recorded, elapsed_ticks, config->diagnostics_enabled);
 
-    if (!has_completed_iteration) {
+    if (!move_found) {
+        s_last_breakdown = (ai_eval_breakdown_t){ 0 };
         return false;
     }
 
@@ -967,11 +1241,11 @@ static bool AI_OVERLAY_SECTION ai_agent_find_best_move_impl(const board_t *board
     if (config->diagnostics_enabled) {
         board_t analysed;
         ai_board_copy(&analysed, board);
-        analysed.current_player = config->ai_player;
-        if (board_execute_move(&analysed, out_move, config->swap_rule)) {
+        analysed.current_player = tuned.ai_player;
+        if (board_execute_move(&analysed, out_move, tuned.swap_rule)) {
             board_switch_turn(&analysed);
             ai_eval_breakdown_t breakdown;
-            ai_agent_evaluate_internal(&analysed, config->ai_player, config, &breakdown);
+            ai_agent_evaluate_internal(&analysed, tuned.ai_player, &tuned, &breakdown);
             s_last_breakdown = breakdown;
         } else {
             s_last_breakdown = (ai_eval_breakdown_t){ 0 };
@@ -980,7 +1254,7 @@ static bool AI_OVERLAY_SECTION ai_agent_find_best_move_impl(const board_t *board
         s_last_breakdown = (ai_eval_breakdown_t){ 0 };
     }
 
-    (void)best_score; // Reserved for future diagnostics
+    (void)best_score;
     return true;
 }
 

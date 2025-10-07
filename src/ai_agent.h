@@ -8,10 +8,18 @@
 #ifndef AI_AGENT_H
 #define AI_AGENT_H
 
-#include "f256lib.h"
-#include "../src/board.h"
+#ifdef AI_AGENT_HOST_TEST
 #include <stdbool.h>
+#endif
 #include <stdint.h>
+
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
+#include "f256lib.h"
+#endif
+
+#include "../src/board.h"
 
 // Difficulty levels
 typedef enum {

@@ -356,20 +356,30 @@ void game_state_update(game_state_t *state, float delta_time) {
             // Wait at least 30 frames (~0.5 seconds) before executing AI move
             if (state->ai_think_frames >= 30) {
                 move_t ai_move;
+                state->ai_config.swap_rule = state->prefs.swap_rule;
+                state->ai_config.ai_player = state->board.current_player;
+
+                bool ai_moved = false;
                 if (ai_agent_find_best_move(&state->board, &state->ai_config, &ai_move)) {
-                    // Execute AI move
                     if (board_execute_move(&state->board, &ai_move, state->ai_config.swap_rule)) {
-                        // Check for win
+                        ai_moved = true;
+                        print_formatted_text(0, 21, "                    ");
+
                         if (game_state_check_win_condition(state)) {
                             state->phase = GAME_PHASE_GAME_OVER;
                         } else {
-                            // Switch back to human player
                             board_switch_turn(&state->board);
                             state->phase = GAME_PHASE_PLAYING;
                         }
                     }
                 }
-                
+
+                if (!ai_moved) {
+                    print_formatted_text(0, 21, "AI HAS NO MOVES     ");
+                    board_switch_turn(&state->board);
+                    state->phase = GAME_PHASE_PLAYING;
+                }
+
                 state->ai_think_frames = 0;
                 game_state_update_menu_enables(state);
             }

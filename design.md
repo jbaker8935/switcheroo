@@ -280,6 +280,34 @@ minimize runtime branching.
   returning the best move from the deepest completed iteration and setting the
   fallback flag for diagnostics.
 
+### Search Phase Adaptation
+
+- The AI computes a goal-band pressure score equal to the greatest number of
+  rows between 2 and 7 (inclusive) occupied by either player in the current
+  position.
+- While pressure is at most three rows, the agent bypasses recursive search and
+  selects moves using single-ply heuristic evaluation to keep response time on
+  the 12 MHz 65C02 within a few hundred milliseconds.
+- When pressure reaches exactly four rows, the engine performs at most a
+  two-ply alpha-beta search with ordering but disables iterative deepening and
+  transposition lookups to limit node counts under heavy branching.
+- Once pressure is at least five rows, the engine re-enables the configured
+  deep-search limits (base depth four for Standard, extensions for Expert) and
+  reintroduces full win probing so endgame accuracy is preserved.
+- A move-volume guard counts the legal moves for the side to move; twelve or
+  more available moves clamp the search to two plies and shrink the node cap to
+  preserve responsiveness, while eighteen or more moves bypass recursive search
+  entirely and fall back to the single-ply heuristic selector.
+
+### Profiling and Diagnostics
+
+- Optional diagnostics reset hardware timer0 before search, capture the elapsed
+  ticks after move selection, and render node/timer metrics on the left HUD via
+  `print_formatted_text` for on-device profiling.
+- Diagnostics reuse the existing breakdown hook so tuning sessions can
+  correlate timing, node count, and feature contributions without recompiling
+  the overlay.
+
 ### Diagnostics and Tuning
 
 - Engine can emit per-feature contributions and search statistics when built

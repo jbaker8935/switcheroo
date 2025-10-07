@@ -138,6 +138,23 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN evaluation diagnostics are requested, THE SYSTEM SHALL produce a
   breakdown of feature contributions for the chosen move so tuning can be
   reviewed without altering search determinism.
+- WHEN fewer than four of the rows between 2 and 7 inclusive contain at least
+  one piece from either player, THE SYSTEM SHALL choose AI moves via
+  single-ply heuristic evaluation without invoking recursive search.
+- WHEN exactly four of the rows between 2 and 7 inclusive contain at least one
+  piece from either player, THE SYSTEM SHALL cap the AI search depth at two
+  plies and skip iterative deepening win probes.
+- WHEN five or more of the rows between 2 and 7 inclusive contain at least one
+  piece from either player, THE SYSTEM SHALL enable the configured deep-search
+  depth and win detection routines for the AI player.
+- WHEN AI diagnostics are enabled, THE SYSTEM SHALL reset hardware timer0
+  before AI move selection begins and display the elapsed timer ticks together
+  with node counts using `print_formatted_text` after the move is chosen.
+- WHEN the active player has twelve or more legal moves available, THE SYSTEM
+  SHALL cap the recursive search depth to at most two plies for that turn.
+- WHEN the active player has eighteen or more legal moves available, THE SYSTEM
+  SHALL select a move using single-ply heuristics without invoking recursive
+  search.
 
 ### Audio Feedback
 

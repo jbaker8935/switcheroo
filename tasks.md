@@ -41,6 +41,8 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T15 | AI Validation Suite | Deliver host-side AI regression tests and heuristic tuning documentation per agent specification. | `tests/ai_agent_tests.c`, `docs/heuristic_tuning.md`, test logs. | T8 | Not Started |
 | T16 | AI Overlay Integration | Move the AI search/evaluation core into a Foenix overlay and stream it into the 0xA000 workspace to resolve the RAM overflow. | Overlay linker script, runtime loader, successful `./build.sh` run. | T8 | In Progress |
 | T14 | Error Handling | Implement comprehensive error recovery, graceful degradation, and diagnostic logging across all subsystems. | Error handling framework, recovery tests. | T1-T12 | Not Started |
+| T17 | AI Search Phase Gating | Implement goal-band occupancy gating so deep search activates only when 4+ rows are occupied and full depth is limited to 5+ rows. | Updated `ai_agent.c`, performance benchmarks, doc updates. | T8 | Done |
+| T18 | AI Timer Diagnostics | Integrate timer0 instrumentation and on-screen diagnostics for AI node counts and elapsed ticks. | Profiling helpers in `ai_agent.c`, documentation refresh. | T8 | Done |
 
 ## Milestones
 
