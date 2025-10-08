@@ -270,6 +270,14 @@ void clear_text_matrix(void) {
     POKE(MMU_IO_CTRL, 0); // Restore i/o page to 0
 }
 
+void video_reset() {
+    // Reset video hardware to initial state
+    POKE(MMU_IO_CTRL, 0);
+    POKE(VKY_MSTR_CTRL_0, 1);
+    POKE(VKY_MSTR_CTRL_1, 0);
+    POKE(PS2_M_MODE_EN, 0x00);      // Enable mouse (bit0=enable, bit1=mode)
+}
+
 void video_init(const video_config_t *config) {
     // Set up configuration
     if (config != NULL) {

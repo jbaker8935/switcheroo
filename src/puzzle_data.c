@@ -5,429 +5,1234 @@
 #include "../src/board.h"
 #include <string.h>
 
-static uint8_t pd_append_char(char *buf, size_t buf_size, uint8_t pos, char ch) {
-    if (buf && pos + 1 < buf_size) {
-        buf[pos] = ch;
-    }
-    return (uint8_t)(pos + 1u);
-}
-
-static uint8_t pd_format_move(char *buf, size_t buf_size, player_t player,
-                              uint8_t from_col, uint8_t from_row,
-                              uint8_t to_col, uint8_t to_row, bool is_swap) {
-    uint8_t pos = 0;
-    if (buf_size == 0) {
-        return 0;
-    }
-
-    pos = pd_append_char(buf, buf_size, pos, (player == PLAYER_WHITE) ? 'W' : 'B');
-    pos = pd_append_char(buf, buf_size, pos, ':');
-    pos = pd_append_char(buf, buf_size, pos, ' ');
-    pos = pd_append_char(buf, buf_size, pos, (char)('A' + from_col));
-    pos = pd_append_char(buf, buf_size, pos, (char)('0' + from_row));
-    pos = pd_append_char(buf, buf_size, pos, '-');
-    pos = pd_append_char(buf, buf_size, pos, '>');
-    pos = pd_append_char(buf, buf_size, pos, (char)('A' + to_col));
-    pos = pd_append_char(buf, buf_size, pos, (char)('0' + to_row));
-
-    if (is_swap) {
-        pos = pd_append_char(buf, buf_size, pos, '(');
-        pos = pd_append_char(buf, buf_size, pos, 's');
-        pos = pd_append_char(buf, buf_size, pos, 'w');
-        pos = pd_append_char(buf, buf_size, pos, 'a');
-        pos = pd_append_char(buf, buf_size, pos, 'p');
-        pos = pd_append_char(buf, buf_size, pos, ')');
-    }
-
-    if (buf) {
-        if (pos < buf_size) {
-            buf[pos] = '\0';
-        } else {
-            buf[buf_size - 1] = '\0';
-        }
-    }
-
-    return pos;
-}
-
-// Puzzle 0: classic_depth3_1
+// Puzzle 0: classic_depth4_1
 static const uint8_t puzzle_0_pieces[] = {
     7, 0x0E,
-    7, 0x0F,
-    6, 0x04,
-    6, 0x0A,
-    6, 0x0B,
-    5, 0x04,
-    5, 0x05,
-    5, 0x0B,
-    4, 0x04,
-    4, 0x09,
-    4, 0x0E,
-    3, 0x09,
-    3, 0x03,
-    1, 0x00,
-    1, 0x05,
-    1, 0x02,
-};
-
-static const uint16_t puzzle_0_solution[] = {
-    0x0, 0xA489,
-    0x1, 0x848A,
-    0x0, 0x8922,
-    0x1, 0x6213,
-    0x0, 0x651B,
-};
-
-static const puzzle_t puzzle_0 = {
-    .id = "classic_depth3_1",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
-    .piece_count = 16,
-    .pieces = puzzle_0_pieces,
-    .solution_length = 5,
-    .solution = puzzle_0_solution
-};
-
-// Puzzle 1: classic_depth3_2
-static const uint8_t puzzle_1_pieces[] = {
+    6, 0x08,
     6, 0x09,
-    6, 0x06,
-    6, 0x03,
-    5, 0x0A,
-    4, 0x04,
-    4, 0x0D,
-    4, 0x0A,
-    3, 0x07,
-    2, 0x04,
-    2, 0x06,
-    2, 0x03,
-    1, 0x04,
-    1, 0x02,
-    1, 0x03,
-    0, 0x05,
-    0, 0x02,
-};
-
-static const uint16_t puzzle_1_solution[] = {
-    0x0, 0xA796,
-    0x1, 0x8302,
-    0x0, 0x850E,
-    0x1, 0x618F,
-    0x0, 0x6283,
-};
-
-static const puzzle_t puzzle_1 = {
-    .id = "classic_depth3_2",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
-    .piece_count = 16,
-    .pieces = puzzle_1_pieces,
-    .solution_length = 5,
-    .solution = puzzle_1_solution
-};
-
-// Puzzle 2: classic_depth3_3
-static const uint8_t puzzle_2_pieces[] = {
-    7, 0x00,
-    6, 0x04,
-    6, 0x06,
-    6, 0x03,
-    5, 0x04,
-    5, 0x0A,
-    4, 0x0F,
-    3, 0x00,
-    3, 0x05,
-    3, 0x0E,
-    3, 0x0B,
+    6, 0x0E,
+    6, 0x0F,
+    5, 0x0D,
+    4, 0x05,
+    4, 0x03,
+    3, 0x02,
     2, 0x00,
-    2, 0x06,
-    2, 0x0F,
-    1, 0x01,
-    1, 0x0B,
-};
-
-static const uint16_t puzzle_2_solution[] = {
-    0x0, 0xA698,
-    0x1, 0x8418,
-    0x0, 0x851E,
-    0x1, 0x6317,
-    0x0, 0x6899,
-};
-
-static const puzzle_t puzzle_2 = {
-    .id = "classic_depth3_3",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
-    .piece_count = 16,
-    .pieces = puzzle_2_pieces,
-    .solution_length = 5,
-    .solution = puzzle_2_solution
-};
-
-// Puzzle 3: classic_depth3_4
-static const uint8_t puzzle_3_pieces[] = {
-    7, 0x06,
-    6, 0x04,
-    6, 0x02,
-    5, 0x00,
-    5, 0x01,
-    5, 0x02,
-    4, 0x04,
-    3, 0x00,
-    3, 0x0E,
-    2, 0x0A,
-    1, 0x0C,
-    1, 0x09,
-    1, 0x03,
-    0, 0x0C,
-    0, 0x05,
-    0, 0x0E,
-};
-
-static const uint16_t puzzle_3_solution[] = {
-    0x0, 0xA8A9,
-    0x1, 0x8D3C,
-    0x0, 0x8CBD,
-    0x1, 0x6185,
-    0x0, 0x6699,
-};
-
-static const puzzle_t puzzle_3 = {
-    .id = "classic_depth3_4",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
-    .piece_count = 16,
-    .pieces = puzzle_3_pieces,
-    .solution_length = 5,
-    .solution = puzzle_3_solution
-};
-
-// Puzzle 4: classic_depth3_5
-static const uint8_t puzzle_4_pieces[] = {
-    7, 0x00,
-    7, 0x05,
-    6, 0x04,
-    6, 0x01,
-    5, 0x04,
-    5, 0x03,
-    4, 0x0A,
-    3, 0x04,
-    3, 0x09,
-    3, 0x0E,
-    3, 0x0B,
-    2, 0x0A,
-    2, 0x0F,
+    2, 0x01,
     1, 0x00,
-    1, 0x05,
+    1, 0x01,
+    1, 0x07,
+    0, 0x06,
     0, 0x07,
 };
 
+static const uint16_t puzzle_0_solution[] = {
+    0x0, 0xE927,
+    0x1, 0xCCBC,
+    0x0, 0xCD3C,
+    0x1, 0xA722,
+    0x0, 0xAAB0,
+    0x1, 0x8307,
+    0x0, 0x86A3,
+};
+
+static const puzzle_t puzzle_0 = {
+    .id = "classic_depth4_1",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_0_pieces,
+    .solution_length = 7,
+    .solution = puzzle_0_solution
+};
+
+// Puzzle 1: classic_depth4_2
+static const uint8_t puzzle_1_pieces[] = {
+    7, 0x04,
+    7, 0x0D,
+    7, 0x07,
+    6, 0x00,
+    6, 0x09,
+    6, 0x0A,
+    5, 0x00,
+    5, 0x0E,
+    4, 0x0E,
+    3, 0x01,
+    3, 0x06,
+    3, 0x07,
+    2, 0x01,
+    1, 0x01,
+    1, 0x03,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_1_solution[] = {
+    0x0, 0xEAB1,
+    0x1, 0xC49C,
+    0x0, 0xC8A9,
+    0x1, 0xAAA4,
+    0x0, 0xAB22,
+    0x1, 0x8107,
+    0x0, 0x849A,
+};
+
+static const puzzle_t puzzle_1 = {
+    .id = "classic_depth4_2",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_1_pieces,
+    .solution_length = 7,
+    .solution = puzzle_1_solution
+};
+
+// Puzzle 2: classic_depth4_3
+static const uint8_t puzzle_2_pieces[] = {
+    6, 0x04,
+    6, 0x01,
+    6, 0x03,
+    5, 0x0D,
+    5, 0x02,
+    5, 0x07,
+    4, 0x08,
+    4, 0x0D,
+    3, 0x09,
+    3, 0x07,
+    2, 0x0C,
+    2, 0x09,
+    2, 0x07,
+    1, 0x09,
+    1, 0x0E,
+    1, 0x03,
+};
+
+static const uint16_t puzzle_2_solution[] = {
+    0x0, 0xE58E,
+    0x1, 0xCCB0,
+    0x0, 0xCBB6,
+    0x1, 0xAB36,
+    0x0, 0xA796,
+    0x1, 0x818F,
+    0x0, 0x891F,
+};
+
+static const puzzle_t puzzle_2 = {
+    .id = "classic_depth4_3",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_2_pieces,
+    .solution_length = 7,
+    .solution = puzzle_2_solution
+};
+
+// Puzzle 3: classic_depth4_4
+static const uint8_t puzzle_3_pieces[] = {
+    7, 0x01,
+    7, 0x07,
+    6, 0x01,
+    5, 0x00,
+    5, 0x0D,
+    4, 0x0A,
+    4, 0x0F,
+    3, 0x0F,
+    2, 0x00,
+    2, 0x01,
+    2, 0x06,
+    2, 0x07,
+    1, 0x00,
+    1, 0x07,
+    0, 0x00,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_3_solution[] = {
+    0x0, 0xE8A5,
+    0x1, 0xC8AA,
+    0x0, 0xC829,
+    0x1, 0xAAA2,
+    0x0, 0xA613,
+    0x1, 0x8107,
+    0x0, 0x8A21,
+};
+
+static const puzzle_t puzzle_3 = {
+    .id = "classic_depth4_4",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_3_pieces,
+    .solution_length = 7,
+    .solution = puzzle_3_solution
+};
+
+// Puzzle 4: classic_depth4_5
+static const uint8_t puzzle_4_pieces[] = {
+    7, 0x01,
+    6, 0x00,
+    5, 0x00,
+    4, 0x05,
+    4, 0x07,
+    3, 0x05,
+    3, 0x02,
+    2, 0x00,
+    2, 0x05,
+    2, 0x0A,
+    2, 0x07,
+    1, 0x0C,
+    1, 0x0D,
+    1, 0x0E,
+    1, 0x03,
+    0, 0x08,
+};
+
 static const uint16_t puzzle_4_solution[] = {
-    0x0, 0xA288,
-    0x1, 0x8CA8,
-    0x0, 0x8EB8,
-    0x1, 0x6107,
-    0x0, 0x6D3B,
+    0x0, 0xE89C,
+    0x1, 0xC408,
+    0x0, 0xC488,
+    0x1, 0xA396,
+    0x0, 0xA692,
+    0x1, 0x818F,
+    0x0, 0x8316,
 };
 
 static const puzzle_t puzzle_4 = {
-    .id = "classic_depth3_5",
+    .id = "classic_depth4_5",
     .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
+    .difficulty = 4,
+    .is_solved = false,
     .piece_count = 16,
     .pieces = puzzle_4_pieces,
-    .solution_length = 5,
+    .solution_length = 7,
     .solution = puzzle_4_solution
 };
 
-// Puzzle 5: classic_depth3_6
+// Puzzle 5: classic_depth4_6
 static const uint8_t puzzle_5_pieces[] = {
     7, 0x06,
-    6, 0x0C,
-    6, 0x09,
-    6, 0x0A,
-    5, 0x0C,
+    7, 0x03,
+    6, 0x00,
+    6, 0x05,
+    5, 0x04,
     5, 0x09,
-    4, 0x01,
-    4, 0x02,
-    4, 0x03,
-    3, 0x04,
-    3, 0x03,
+    5, 0x0B,
+    4, 0x0A,
+    3, 0x0D,
+    3, 0x0B,
+    2, 0x08,
     2, 0x05,
     2, 0x06,
-    1, 0x05,
-    1, 0x02,
+    1, 0x00,
+    1, 0x07,
     0, 0x05,
 };
 
 static const uint16_t puzzle_5_solution[] = {
-    0x0, 0xA51E,
-    0x1, 0x8302,
-    0x0, 0x8282,
-    0x1, 0x6103,
-    0x0, 0x66A3,
+    0x0, 0xE490,
+    0x1, 0xC202,
+    0x0, 0xC512,
+    0x1, 0xAC28,
+    0x0, 0xACA8,
+    0x1, 0x818F,
+    0x0, 0x8283,
 };
 
 static const puzzle_t puzzle_5 = {
-    .id = "classic_depth3_6",
+    .id = "classic_depth4_6",
     .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
+    .difficulty = 4,
+    .is_solved = false,
     .piece_count = 16,
     .pieces = puzzle_5_pieces,
-    .solution_length = 5,
+    .solution_length = 7,
     .solution = puzzle_5_solution
 };
 
-// Puzzle 6: classic_depth3_7
+// Puzzle 6: classic_depth4_7
 static const uint8_t puzzle_6_pieces[] = {
-    7, 0x04,
+    7, 0x01,
     7, 0x07,
+    6, 0x01,
     6, 0x06,
-    6, 0x03,
-    5, 0x0D,
-    5, 0x0B,
-    4, 0x08,
-    4, 0x0A,
-    3, 0x08,
-    3, 0x06,
-    3, 0x0F,
-    2, 0x06,
-    2, 0x03,
-    1, 0x01,
-    1, 0x06,
-    0, 0x02,
+    6, 0x07,
+    5, 0x00,
+    5, 0x07,
+    4, 0x04,
+    4, 0x0E,
+    4, 0x0B,
+    3, 0x0B,
+    2, 0x0A,
+    2, 0x0F,
+    1, 0x04,
+    1, 0x0B,
+    0, 0x01,
 };
 
 static const uint16_t puzzle_6_solution[] = {
-    0x0, 0xA716,
-    0x1, 0x8DBE,
-    0x0, 0x8D3E,
-    0x1, 0x618D,
-    0x0, 0x6499,
+    0x0, 0xED3A,
+    0x1, 0xCCBA,
+    0x0, 0xCBB4,
+    0x1, 0xA088,
+    0x0, 0xA828,
+    0x1, 0x8103,
+    0x0, 0x8D3A,
 };
 
 static const puzzle_t puzzle_6 = {
-    .id = "classic_depth3_7",
+    .id = "classic_depth4_7",
     .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
+    .difficulty = 4,
+    .is_solved = false,
     .piece_count = 16,
     .pieces = puzzle_6_pieces,
-    .solution_length = 5,
+    .solution_length = 7,
     .solution = puzzle_6_solution
 };
 
-// Puzzle 7: classic_depth3_8
+// Puzzle 7: classic_depth4_8
 static const uint8_t puzzle_7_pieces[] = {
-    7, 0x0D,
-    6, 0x08,
-    6, 0x09,
+    7, 0x0E,
+    7, 0x0F,
     6, 0x0E,
     6, 0x0B,
-    5, 0x08,
-    5, 0x01,
-    4, 0x04,
-    4, 0x05,
+    5, 0x09,
+    5, 0x0E,
+    5, 0x07,
+    4, 0x08,
+    3, 0x02,
+    2, 0x00,
+    2, 0x05,
+    2, 0x02,
+    1, 0x04,
+    1, 0x01,
+    0, 0x02,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_7_solution[] = {
+    0x0, 0xE695,
+    0x1, 0xC408,
+    0x0, 0xCD36,
+    0x1, 0xA690,
+    0x0, 0xA490,
+    0x1, 0x8106,
+    0x0, 0x88A1,
+};
+
+static const puzzle_t puzzle_7 = {
+    .id = "classic_depth4_8",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_7_pieces,
+    .solution_length = 7,
+    .solution = puzzle_7_solution
+};
+
+// Puzzle 8: classic_depth4_9
+static const uint8_t puzzle_8_pieces[] = {
+    7, 0x03,
+    6, 0x04,
+    6, 0x09,
+    6, 0x0E,
+    5, 0x0D,
+    5, 0x02,
+    4, 0x0D,
+    4, 0x0A,
+    3, 0x09,
+    3, 0x0B,
+    2, 0x00,
+    2, 0x0E,
+    1, 0x06,
+    1, 0x03,
+    0, 0x05,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_8_solution[] = {
+    0x0, 0xE491,
+    0x1, 0xC92A,
+    0x0, 0xC8AC,
+    0x1, 0xACAC,
+    0x0, 0xAD3E,
+    0x1, 0x8107,
+    0x0, 0x851E,
+};
+
+static const puzzle_t puzzle_8 = {
+    .id = "classic_depth4_9",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_8_pieces,
+    .solution_length = 7,
+    .solution = puzzle_8_solution
+};
+
+// Puzzle 9: classic_depth4_10
+static const uint8_t puzzle_9_pieces[] = {
+    7, 0x04,
+    7, 0x05,
+    6, 0x04,
+    6, 0x03,
+    5, 0x05,
+    5, 0x02,
+    5, 0x03,
+    4, 0x00,
+    4, 0x02,
+    4, 0x03,
+    2, 0x0D,
+    2, 0x0E,
+    1, 0x09,
+    1, 0x0A,
+    0, 0x0E,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_9_solution[] = {
+    0x0, 0xE725,
+    0x1, 0xC306,
+    0x0, 0xC6A1,
+    0x1, 0xA284,
+    0x0, 0xA304,
+    0x1, 0x8184,
+    0x0, 0x849A,
+};
+
+static const puzzle_t puzzle_9 = {
+    .id = "classic_depth4_10",
+    .swap_rule = SWAP_RULE_CLASSIC,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_9_pieces,
+    .solution_length = 7,
+    .solution = puzzle_9_solution
+};
+
+// Puzzle 10: swapped_clears_depth4_1
+static const uint8_t puzzle_10_pieces[] = {
+    7, 0x01,
+    6, 0x04,
+    6, 0x01,
+    6, 0x02,
+    4, 0x09,
+    4, 0x07,
+    3, 0x0D,
+    3, 0x03,
+    2, 0x04,
+    2, 0x09,
+    2, 0x0A,
+    2, 0x07,
+    1, 0x05,
+    1, 0x02,
+    1, 0x07,
+    0, 0x04,
+};
+
+static const uint16_t puzzle_10_solution[] = {
+    0x0, 0xEAB5,
+    0x1, 0xC316,
+    0x0, 0xC292,
+    0x1, 0xAAB0,
+    0x0, 0xAA33,
+    0x1, 0x8081,
+    0x0, 0x871F,
+};
+
+static const puzzle_t puzzle_10 = {
+    .id = "swapped_clears_depth4_1",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_10_pieces,
+    .solution_length = 7,
+    .solution = puzzle_10_solution
+};
+
+// Puzzle 11: swapped_clears_depth4_2
+static const uint8_t puzzle_11_pieces[] = {
+    7, 0x0C,
+    7, 0x0D,
+    6, 0x08,
+    5, 0x06,
+    5, 0x03,
+    4, 0x01,
+    4, 0x02,
+    4, 0x03,
+    3, 0x05,
+    3, 0x02,
+    2, 0x06,
+    2, 0x03,
+    1, 0x04,
+    1, 0x01,
+    1, 0x06,
+    0, 0x06,
+};
+
+static const uint16_t puzzle_11_solution[] = {
+    0x0, 0xE30A,
+    0x1, 0xC714,
+    0x0, 0xCAA3,
+    0x1, 0xA91A,
+    0x0, 0xAB2E,
+    0x1, 0x8185,
+    0x0, 0x88AD,
+};
+
+static const puzzle_t puzzle_11 = {
+    .id = "swapped_clears_depth4_2",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_11_pieces,
+    .solution_length = 7,
+    .solution = puzzle_11_solution
+};
+
+// Puzzle 12: swapped_clears_depth4_3
+static const uint8_t puzzle_12_pieces[] = {
+    7, 0x07,
+    6, 0x09,
+    6, 0x03,
+    5, 0x09,
+    4, 0x0C,
+    4, 0x0D,
+    4, 0x03,
+    3, 0x09,
+    3, 0x0A,
+    3, 0x03,
+    2, 0x0D,
+    2, 0x0E,
+    2, 0x07,
+    1, 0x04,
+    1, 0x03,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_12_solution[] = {
+    0x0, 0xEB37,
+    0x1, 0xC386,
+    0x0, 0xC59E,
+    0x1, 0xA99E,
+    0x0, 0xA91B,
+    0x1, 0x810F,
+    0x0, 0x8307,
+};
+
+static const puzzle_t puzzle_12 = {
+    .id = "swapped_clears_depth4_3",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_12_pieces,
+    .solution_length = 7,
+    .solution = puzzle_12_solution
+};
+
+// Puzzle 13: swapped_clears_depth4_4
+static const uint8_t puzzle_13_pieces[] = {
+    7, 0x05,
+    7, 0x07,
+    6, 0x00,
+    6, 0x05,
+    6, 0x02,
+    6, 0x07,
+    5, 0x05,
+    5, 0x02,
+    4, 0x07,
+    3, 0x08,
+    2, 0x08,
+    2, 0x09,
+    2, 0x0A,
+    1, 0x0C,
+    1, 0x0D,
+    1, 0x0A,
+};
+
+static const uint16_t puzzle_13_solution[] = {
+    0x0, 0xE691,
+    0x1, 0xCB26,
+    0x0, 0xCAB4,
+    0x1, 0xAC3A,
+    0x0, 0xACBA,
+    0x1, 0x810B,
+    0x0, 0x8927,
+};
+
+static const puzzle_t puzzle_13 = {
+    .id = "swapped_clears_depth4_4",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_13_pieces,
+    .solution_length = 7,
+    .solution = puzzle_13_solution
+};
+
+// Puzzle 14: swapped_clears_depth4_5
+static const uint8_t puzzle_14_pieces[] = {
+    7, 0x0C,
+    7, 0x0D,
+    7, 0x0E,
+    7, 0x03,
+    6, 0x0C,
+    6, 0x09,
+    5, 0x00,
+    5, 0x09,
+    4, 0x00,
     3, 0x00,
+    3, 0x07,
+    2, 0x04,
+    1, 0x04,
+    1, 0x02,
+    1, 0x07,
+    0, 0x00,
+};
+
+static const uint16_t puzzle_14_solution[] = {
+    0x0, 0xE48D,
+    0x1, 0xC488,
+    0x0, 0xC408,
+    0x1, 0xA612,
+    0x0, 0xA281,
+    0x1, 0x818F,
+    0x0, 0x8691,
+};
+
+static const puzzle_t puzzle_14 = {
+    .id = "swapped_clears_depth4_5",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_14_pieces,
+    .solution_length = 7,
+    .solution = puzzle_14_solution
+};
+
+// Puzzle 15: swapped_clears_depth4_6
+static const uint8_t puzzle_15_pieces[] = {
+    7, 0x0D,
+    7, 0x0E,
+    7, 0x0F,
+    6, 0x0C,
+    6, 0x09,
+    5, 0x03,
+    4, 0x02,
+    4, 0x03,
+    3, 0x05,
     3, 0x06,
     3, 0x07,
-    2, 0x01,
+    2, 0x02,
+    1, 0x00,
+    1, 0x02,
+    1, 0x07,
+    0, 0x01,
+};
+
+static const uint16_t puzzle_15_solution[] = {
+    0x0, 0xEB2F,
+    0x1, 0xC50E,
+    0x0, 0xC489,
+    0x1, 0xA49A,
+    0x0, 0xA71A,
+    0x1, 0x8295,
+    0x0, 0x850D,
+};
+
+static const puzzle_t puzzle_15 = {
+    .id = "swapped_clears_depth4_6",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_15_pieces,
+    .solution_length = 7,
+    .solution = puzzle_15_solution
+};
+
+// Puzzle 16: swapped_clears_depth4_7
+static const uint8_t puzzle_16_pieces[] = {
+    7, 0x05,
+    7, 0x06,
+    7, 0x03,
+    6, 0x00,
+    6, 0x01,
+    6, 0x06,
+    5, 0x06,
+    4, 0x08,
+    3, 0x09,
+    3, 0x03,
+    2, 0x0C,
+    2, 0x0D,
+    2, 0x03,
+    1, 0x0D,
+    1, 0x03,
+    0, 0x0D,
+};
+
+static const uint16_t puzzle_16_solution[] = {
+    0x0, 0xEAB1,
+    0x1, 0xCCBC,
+    0x0, 0xCD3C,
+    0x1, 0xAAB2,
+    0x0, 0xAB32,
+    0x1, 0x8103,
+    0x0, 0x891B,
+};
+
+static const puzzle_t puzzle_16 = {
+    .id = "swapped_clears_depth4_7",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_16_pieces,
+    .solution_length = 7,
+    .solution = puzzle_16_solution
+};
+
+// Puzzle 17: swapped_clears_depth4_8
+static const uint8_t puzzle_17_pieces[] = {
+    7, 0x02,
+    6, 0x02,
+    5, 0x00,
+    5, 0x07,
+    4, 0x06,
+    4, 0x07,
+    3, 0x01,
+    3, 0x03,
+    2, 0x04,
+    2, 0x0D,
+    2, 0x0B,
+    1, 0x04,
+    1, 0x0A,
+    1, 0x0B,
+    0, 0x05,
+    0, 0x0E,
+};
+
+static const uint16_t puzzle_17_solution[] = {
+    0x0, 0xE91A,
+    0x1, 0xC7A6,
+    0x0, 0xCDBD,
+    0x1, 0xA185,
+    0x0, 0xABB4,
+    0x1, 0x8107,
+    0x0, 0x8725,
+};
+
+static const puzzle_t puzzle_17 = {
+    .id = "swapped_clears_depth4_8",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_17_pieces,
+    .solution_length = 7,
+    .solution = puzzle_17_solution
+};
+
+// Puzzle 18: swapped_clears_depth4_9
+static const uint8_t puzzle_18_pieces[] = {
+    7, 0x05,
+    7, 0x0F,
+    6, 0x04,
+    6, 0x0B,
+    5, 0x0C,
+    5, 0x09,
+    5, 0x0A,
+    4, 0x09,
+    4, 0x0F,
+    3, 0x0C,
     2, 0x06,
+    2, 0x03,
+    1, 0x00,
+    1, 0x05,
+    1, 0x03,
+    0, 0x01,
+};
+
+static const uint16_t puzzle_18_solution[] = {
+    0x0, 0xE489,
+    0x1, 0xC498,
+    0x0, 0xC516,
+    0x1, 0xA396,
+    0x0, 0xA282,
+    0x1, 0x8103,
+    0x0, 0x8699,
+};
+
+static const puzzle_t puzzle_18 = {
+    .id = "swapped_clears_depth4_9",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_18_pieces,
+    .solution_length = 7,
+    .solution = puzzle_18_solution
+};
+
+// Puzzle 19: swapped_clears_depth4_10
+static const uint8_t puzzle_19_pieces[] = {
+    7, 0x0F,
+    6, 0x00,
+    6, 0x09,
+    6, 0x0E,
+    5, 0x0A,
+    4, 0x00,
+    4, 0x0F,
+    3, 0x00,
+    3, 0x02,
+    2, 0x04,
+    2, 0x06,
+    2, 0x07,
+    1, 0x00,
+    1, 0x06,
     1, 0x03,
     0, 0x05,
 };
 
-static const uint16_t puzzle_7_solution[] = {
-    0x0, 0xA8AA,
-    0x1, 0x849C,
-    0x0, 0x851C,
-    0x1, 0x6103,
-    0x0, 0x6699,
+static const uint16_t puzzle_19_solution[] = {
+    0x0, 0xEA31,
+    0x1, 0xC202,
+    0x0, 0xC51C,
+    0x1, 0xA396,
+    0x0, 0xA316,
+    0x1, 0x818F,
+    0x0, 0x8699,
 };
 
-static const puzzle_t puzzle_7 = {
-    .id = "classic_depth3_8",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
+static const puzzle_t puzzle_19 = {
+    .id = "swapped_clears_depth4_10",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS,
+    .difficulty = 4,
+    .is_solved = false,
     .piece_count = 16,
-    .pieces = puzzle_7_pieces,
-    .solution_length = 5,
-    .solution = puzzle_7_solution
+    .pieces = puzzle_19_pieces,
+    .solution_length = 7,
+    .solution = puzzle_19_solution
 };
 
-// Puzzle 8: classic_depth3_9
-static const uint8_t puzzle_8_pieces[] = {
-    7, 0x05,
-    7, 0x07,
+// Puzzle 20: swapped_clears_own_depth4_1
+static const uint8_t puzzle_20_pieces[] = {
+    7, 0x03,
     6, 0x04,
+    6, 0x05,
+    6, 0x02,
+    5, 0x05,
+    5, 0x06,
+    4, 0x09,
+    4, 0x06,
+    4, 0x0F,
+    3, 0x05,
+    3, 0x02,
+    2, 0x09,
+    2, 0x0F,
+    1, 0x08,
+    1, 0x09,
+    0, 0x08,
+};
+
+static const uint16_t puzzle_20_solution[] = {
+    0x0, 0xE69C,
+    0x1, 0xCDAD,
+    0x0, 0xCAB4,
+    0x1, 0xA7A5,
+    0x0, 0xAF3F,
+    0x1, 0x8397,
+    0x0, 0x8CBC,
+};
+
+static const puzzle_t puzzle_20 = {
+    .id = "swapped_clears_own_depth4_1",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_20_pieces,
+    .solution_length = 7,
+    .solution = puzzle_20_solution
+};
+
+// Puzzle 21: swapped_clears_own_depth4_2
+static const uint8_t puzzle_21_pieces[] = {
+    7, 0x04,
+    7, 0x0D,
+    7, 0x06,
+    6, 0x01,
+    6, 0x02,
+    5, 0x05,
+    5, 0x06,
+    4, 0x00,
+    4, 0x0A,
+    4, 0x03,
+    3, 0x01,
+    3, 0x06,
+    2, 0x02,
+    1, 0x00,
+    1, 0x05,
+    1, 0x07,
+};
+
+static const uint16_t puzzle_21_solution[] = {
+    0x0, 0xEB26,
+    0x1, 0xC50E,
+    0x0, 0xC621,
+    0x1, 0xA694,
+    0x0, 0xA724,
+    0x1, 0x810B,
+    0x0, 0x8899,
+};
+
+static const puzzle_t puzzle_21 = {
+    .id = "swapped_clears_own_depth4_2",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_21_pieces,
+    .solution_length = 7,
+    .solution = puzzle_21_solution
+};
+
+// Puzzle 22: swapped_clears_own_depth4_3
+static const uint8_t puzzle_22_pieces[] = {
+    7, 0x0C,
+    7, 0x07,
+    6, 0x01,
+    6, 0x02,
+    5, 0x04,
+    5, 0x01,
+    4, 0x03,
+    3, 0x00,
+    3, 0x09,
+    3, 0x0F,
+    2, 0x0F,
+    1, 0x04,
+    1, 0x01,
+    1, 0x02,
+    0, 0x04,
+    0, 0x0D,
+};
+
+static const uint16_t puzzle_22_solution[] = {
+    0x0, 0xE499,
+    0x1, 0xC488,
+    0x0, 0xC40B,
+    0x1, 0xAAA8,
+    0x0, 0xAB27,
+    0x1, 0x8103,
+    0x0, 0x88A9,
+};
+
+static const puzzle_t puzzle_22 = {
+    .id = "swapped_clears_own_depth4_3",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_22_pieces,
+    .solution_length = 7,
+    .solution = puzzle_22_solution
+};
+
+// Puzzle 23: swapped_clears_own_depth4_4
+static const uint8_t puzzle_23_pieces[] = {
+    7, 0x0F,
+    6, 0x00,
+    6, 0x05,
+    6, 0x06,
+    6, 0x0F,
+    5, 0x00,
+    5, 0x05,
+    4, 0x00,
+    4, 0x01,
+    4, 0x03,
+    3, 0x05,
+    3, 0x02,
+    1, 0x00,
+    1, 0x0B,
+    0, 0x0C,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_23_solution[] = {
+    0x0, 0xE6A0,
+    0x1, 0xCA20,
+    0x0, 0xCAA0,
+    0x1, 0xA8A8,
+    0x0, 0xA51D,
+    0x1, 0x8107,
+    0x0, 0x8927,
+};
+
+static const puzzle_t puzzle_23 = {
+    .id = "swapped_clears_own_depth4_4",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_23_pieces,
+    .solution_length = 7,
+    .solution = puzzle_23_solution
+};
+
+// Puzzle 24: swapped_clears_own_depth4_5
+static const uint8_t puzzle_24_pieces[] = {
+    7, 0x06,
+    7, 0x0F,
+    6, 0x08,
+    6, 0x01,
+    6, 0x03,
+    5, 0x04,
+    5, 0x07,
+    4, 0x0E,
+    3, 0x0C,
+    3, 0x0A,
+    3, 0x03,
+    2, 0x09,
+    1, 0x08,
+    1, 0x01,
+    0, 0x0C,
+    0, 0x0E,
+};
+
+static const uint16_t puzzle_24_solution[] = {
+    0x0, 0xEBB6,
+    0x1, 0xC284,
+    0x0, 0xCF32,
+    0x1, 0xA081,
+    0x0, 0xADBC,
+    0x1, 0x8003,
+    0x0, 0x891E,
+};
+
+static const puzzle_t puzzle_24 = {
+    .id = "swapped_clears_own_depth4_5",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_24_pieces,
+    .solution_length = 7,
+    .solution = puzzle_24_solution
+};
+
+// Puzzle 25: swapped_clears_own_depth4_6
+static const uint8_t puzzle_25_pieces[] = {
+    7, 0x04,
+    7, 0x06,
+    7, 0x07,
+    6, 0x00,
+    6, 0x09,
+    6, 0x02,
+    6, 0x07,
+    5, 0x04,
+    4, 0x05,
+    4, 0x06,
+    3, 0x09,
+    3, 0x02,
+    3, 0x0B,
+    2, 0x09,
+    1, 0x02,
+    0, 0x07,
+};
+
+static const uint16_t puzzle_25_solution[] = {
+    0x0, 0xE28D,
+    0x1, 0xC107,
+    0x0, 0xCA30,
+    0x1, 0xA284,
+    0x0, 0xA89C,
+    0x1, 0x808B,
+    0x0, 0x8285,
+};
+
+static const puzzle_t puzzle_25 = {
+    .id = "swapped_clears_own_depth4_6",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_25_pieces,
+    .solution_length = 7,
+    .solution = puzzle_25_solution
+};
+
+// Puzzle 26: swapped_clears_own_depth4_7
+static const uint8_t puzzle_26_pieces[] = {
+    7, 0x09,
     6, 0x06,
     6, 0x03,
     5, 0x00,
-    4, 0x05,
-    4, 0x02,
-    4, 0x07,
-    3, 0x08,
-    3, 0x01,
-    2, 0x0C,
-    2, 0x09,
-    1, 0x08,
-    1, 0x0A,
-    0, 0x06,
-};
-
-static const uint16_t puzzle_8_solution[] = {
-    0x0, 0xAD36,
-    0x1, 0x8690,
-    0x0, 0x88A4,
-    0x1, 0x6185,
-    0x0, 0x6CB5,
-};
-
-static const puzzle_t puzzle_8 = {
-    .id = "classic_depth3_9",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
-    .piece_count = 16,
-    .pieces = puzzle_8_pieces,
-    .solution_length = 5,
-    .solution = puzzle_8_solution
-};
-
-// Puzzle 9: classic_depth3_10
-static const uint8_t puzzle_9_pieces[] = {
-    7, 0x00,
-    6, 0x0C,
-    6, 0x05,
-    6, 0x02,
     5, 0x0D,
-    5, 0x0A,
-    4, 0x0A,
-    3, 0x0E,
-    3, 0x0B,
-    2, 0x04,
-    2, 0x05,
-    2, 0x07,
-    1, 0x04,
-    1, 0x02,
-    0, 0x02,
-    0, 0x03,
+    5, 0x06,
+    4, 0x08,
+    4, 0x01,
+    4, 0x0E,
+    3, 0x0A,
+    2, 0x06,
+    2, 0x0B,
+    1, 0x09,
+    1, 0x0E,
+    0, 0x04,
+    0, 0x0F,
 };
 
-static const uint16_t puzzle_9_solution[] = {
-    0x0, 0xA58C,
-    0x1, 0x8D2A,
-    0x0, 0x8CB8,
-    0x1, 0x608D,
-    0x0, 0x6305,
+static const uint16_t puzzle_26_solution[] = {
+    0x0, 0xE516,
+    0x1, 0xC8AC,
+    0x0, 0xCD3A,
+    0x1, 0xA081,
+    0x0, 0xABB7,
+    0x1, 0x8107,
+    0x0, 0x88A8,
 };
 
-static const puzzle_t puzzle_9 = {
-    .id = "classic_depth3_10",
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 3,
+static const puzzle_t puzzle_26 = {
+    .id = "swapped_clears_own_depth4_7",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
     .piece_count = 16,
-    .pieces = puzzle_9_pieces,
-    .solution_length = 5,
-    .solution = puzzle_9_solution
+    .pieces = puzzle_26_pieces,
+    .solution_length = 7,
+    .solution = puzzle_26_solution
+};
+
+// Puzzle 27: swapped_clears_own_depth4_8
+static const uint8_t puzzle_27_pieces[] = {
+    7, 0x01,
+    7, 0x07,
+    6, 0x04,
+    6, 0x01,
+    6, 0x07,
+    5, 0x0B,
+    4, 0x01,
+    4, 0x02,
+    3, 0x05,
+    2, 0x08,
+    2, 0x06,
+    2, 0x07,
+    1, 0x01,
+    1, 0x0A,
+    0, 0x0D,
+    0, 0x0E,
+};
+
+static const uint16_t puzzle_27_solution[] = {
+    0x0, 0xE50A,
+    0x1, 0xC49B,
+    0x0, 0xCD3B,
+    0x1, 0xAD3E,
+    0x0, 0xADBE,
+    0x1, 0x8185,
+    0x0, 0x86A3,
+};
+
+static const puzzle_t puzzle_27 = {
+    .id = "swapped_clears_own_depth4_8",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_27_pieces,
+    .solution_length = 7,
+    .solution = puzzle_27_solution
+};
+
+// Puzzle 28: swapped_clears_own_depth4_9
+static const uint8_t puzzle_28_pieces[] = {
+    7, 0x04,
+    6, 0x00,
+    6, 0x05,
+    6, 0x07,
+    5, 0x08,
+    4, 0x02,
+    3, 0x0A,
+    3, 0x03,
+    2, 0x04,
+    2, 0x07,
+    1, 0x00,
+    1, 0x06,
+    1, 0x03,
+    0, 0x0D,
+    0, 0x0A,
+    0, 0x0F,
+};
+
+static const uint16_t puzzle_28_solution[] = {
+    0x0, 0xE8A5,
+    0x1, 0xC386,
+    0x0, 0xC59E,
+    0x1, 0xAC38,
+    0x0, 0xACB8,
+    0x1, 0x8003,
+    0x0, 0x8304,
+};
+
+static const puzzle_t puzzle_28 = {
+    .id = "swapped_clears_own_depth4_9",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_28_pieces,
+    .solution_length = 7,
+    .solution = puzzle_28_solution
+};
+
+// Puzzle 29: swapped_clears_own_depth4_10
+static const uint8_t puzzle_29_pieces[] = {
+    6, 0x00,
+    6, 0x03,
+    5, 0x08,
+    5, 0x05,
+    5, 0x06,
+    5, 0x03,
+    4, 0x07,
+    3, 0x04,
+    3, 0x0A,
+    3, 0x03,
+    2, 0x06,
+    1, 0x00,
+    1, 0x05,
+    1, 0x03,
+    0, 0x0D,
+    0, 0x0E,
+};
+
+static const uint16_t puzzle_29_solution[] = {
+    0x0, 0xE50E,
+    0x1, 0xC185,
+    0x0, 0xC99C,
+    0x1, 0xADAC,
+    0x0, 0xAD2F,
+    0x1, 0x8107,
+    0x0, 0x8288,
+};
+
+static const puzzle_t puzzle_29 = {
+    .id = "swapped_clears_own_depth4_10",
+    .swap_rule = SWAP_RULE_SWAPPED_CLEARS_OWN,
+    .difficulty = 4,
+    .is_solved = false,
+    .piece_count = 16,
+    .pieces = puzzle_29_pieces,
+    .solution_length = 7,
+    .solution = puzzle_29_solution
 };
 
 static const puzzle_t *all_puzzles[] = {
@@ -441,10 +1246,30 @@ static const puzzle_t *all_puzzles[] = {
     &puzzle_7,
     &puzzle_8,
     &puzzle_9,
+    &puzzle_10,
+    &puzzle_11,
+    &puzzle_12,
+    &puzzle_13,
+    &puzzle_14,
+    &puzzle_15,
+    &puzzle_16,
+    &puzzle_17,
+    &puzzle_18,
+    &puzzle_19,
+    &puzzle_20,
+    &puzzle_21,
+    &puzzle_22,
+    &puzzle_23,
+    &puzzle_24,
+    &puzzle_25,
+    &puzzle_26,
+    &puzzle_27,
+    &puzzle_28,
+    &puzzle_29,
 };
 
 static const puzzle_collection_t puzzle_collection = {
-    .count = 10,
+    .count = 30,
     .puzzles = all_puzzles
 };
 
@@ -505,42 +1330,3 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
     }
 }
 
-void display_puzzle_solution(const puzzle_t *puzzle) {
-    const uint16_t *solution = puzzle->solution;
-    
-    for (uint8_t i = 0; i < puzzle->solution_length; i++) {
-        uint8_t player_packed = solution[i * 2];
-        uint16_t move_packed = solution[i * 2 + 1];
-        
-        player_t player = (player_t)player_packed;
-        uint8_t move_type = MOVE_UNPACK_TYPE(move_packed);
-        
-        char buf[26]; // 25 chars + null terminator
-        uint8_t len;
-        
-        uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
-        uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
-
-        uint8_t from_row = POS_UNPACK_ROW(from_pos);
-        uint8_t from_col = POS_UNPACK_COL(from_pos);
-        uint8_t to_row = POS_UNPACK_ROW(to_pos);
-        uint8_t to_col = POS_UNPACK_COL(to_pos);
-
-        uint8_t chess_from_row = (uint8_t)(8u - from_row);
-        uint8_t chess_to_row = (uint8_t)(8u - to_row);
-
-        len = pd_format_move(buf, sizeof(buf), player,
-                             from_col, chess_from_row,
-                             to_col, chess_to_row,
-                             move_type == 0);
-        
-        // Right-fill with spaces to exactly 25 characters
-        while (len < 25) {
-            buf[len++] = ' ';
-        }
-        buf[25] = '\0';
-        
-        textGotoXY(0, 20 + i);
-        textPrint(buf);
-    }
-}

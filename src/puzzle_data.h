@@ -44,6 +44,7 @@ typedef struct {
     const char *id;                    // Puzzle identifier string
     swap_rule_t swap_rule;             // Swap rule for this puzzle
     uint8_t difficulty;                // Difficulty level
+    bool is_solved;                     // Whether the puzzle is solved
     uint8_t piece_count;               // Number of pieces in starting position
     const uint8_t *pieces;             // Packed pieces: [row][packed_piece]...
     uint8_t solution_length;           // Number of moves in solution

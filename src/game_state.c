@@ -56,7 +56,7 @@ void game_state_init(game_state_t *state) {
     board_init(&state->board);
     
     // Set default preferences
-    state->prefs.difficulty_level = 2;  // Standard
+    state->prefs.difficulty_level = 3;  // Standard
     state->prefs.swap_rule = SWAP_RULE_CLASSIC;
     state->prefs.current_puzzle_index = 0;
     state->prefs.color_scheme = 0;      // Default theme
@@ -65,7 +65,7 @@ void game_state_init(game_state_t *state) {
     state->prefs.volume_level = 7;
     
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
-    ai_agent_init(&state->ai_config, state->prefs.swap_rule, AI_DIFFICULTY_STANDARD, PLAYER_BLACK);
+    ai_agent_init(&state->ai_config, state->prefs.swap_rule, AI_DIFFICULTY_EXPERT, PLAYER_BLACK);
     
     // Initialize menu state
     game_state_update_menu_enables(state);
@@ -112,20 +112,13 @@ void game_state_reset_board(game_state_t *state) {
             // Ensure no swapped flags remain
             board_clear_all_swapped(&state->board);
             // Clear any puzzle debug text lines (id, rule, difficulty, hint)
-            print_formatted_text(0, 18, "");
-            print_formatted_text(0, 19, "");
-            print_formatted_text(0, 20, "");
-            print_formatted_text(0, 21, "");
+            clear_puzzle_info();
         }
     } else {
         // No moves played: normal gameplay reset
         board_reset(&state->board);
         board_clear_all_swapped(&state->board);
-        // Clear any puzzle debug text lines
-        print_formatted_text(0, 18, "");
-        print_formatted_text(0, 19, "");
-        print_formatted_text(0, 20, "");
-        print_formatted_text(0, 21, "");
+        clear_puzzle_info();
     }
 
     game_state_deselect_piece(state);
@@ -249,8 +242,6 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
 
             if (puzzle && puzzle->solution_length > 0) {
                 display_puzzle_solution(puzzle);
-            } else {
-                print_formatted_text(40, 0, "NO SOLUTION          ");
             }
 
             state->phase = GAME_PHASE_PLAYING;
@@ -279,18 +270,8 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
                 // Reset game state
                 game_state_deselect_piece(state);
                 state->phase = GAME_PHASE_PLAYING;
-                // Display debugging info: id, swap rule, and difficulty (WIN IN <n>)
-                char id_msg[32];
-                gs_copy_text(id_msg, sizeof(id_msg), puzzle->id);
-                print_formatted_text(0, 18, id_msg);
-
-                char rule_msg[32];
-                gs_copy_text(rule_msg, sizeof(rule_msg), swap_rule_to_string(puzzle->swap_rule));
-                print_formatted_text(0, 19, rule_msg);
-
-                char diff_msg[32];
-                gs_format_win_in(diff_msg, sizeof(diff_msg), (unsigned)puzzle->difficulty);
-                print_formatted_text(0, 20, diff_msg);
+                print_puzzle_info(state->prefs.current_puzzle_index, collection->count, puzzle->difficulty, puzzle->is_solved);
+                clear_puzzle_hint();
             }
             break;
             

@@ -142,6 +142,7 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
             break;
             
         case INPUT_EVENT_KEY_DOWN:
+ 
             switch (event->data.key.code) {
                 case KEY_UP:
                 case KEY_DOWN:

@@ -23,7 +23,7 @@
 #define WIN_END_ROW 7
 
 // Maximum moves in history
-#define MAX_MOVE_HISTORY 40
+#define MAX_MOVE_HISTORY 8
 
 /**
  * Piece types on the board

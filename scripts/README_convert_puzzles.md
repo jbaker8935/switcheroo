@@ -3,7 +3,7 @@
 This script converts JSON puzzle data to C source files for the F256 Switcharoo game.
 
 Usage:
-    python3 scripts/convert_puzzles.py input.json output.c
+    python3 scripts/convert_puzzles.py output.c input1.json [input2.json ...]
 
 The script reads puzzle data from a JSON file and generates a C source file with
 compact binary representations suitable for embedded systems.
@@ -41,4 +41,4 @@ The generated C file will contain:
 - Helper functions for puzzle management
 
 Example:
-    python3 scripts/convert_puzzles.py swap_puzzle_example.json src/puzzle_data.c
+    python3 scripts/convert_puzzles.py src/puzzle_data.c classic_d2.json classic_d3.json swapped_clears_d3.json

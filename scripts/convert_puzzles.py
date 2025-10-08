@@ -7,7 +7,7 @@ corresponding C source file with compact binary representations suitable
 for embedded systems.
 
 Usage:
-    python3 convert_puzzles.py input.json output.c
+    python3 convert_puzzles.py output.c input1.json [input2.json ...]
 
 JSON Format:
 {
@@ -174,6 +174,7 @@ def generate_puzzle_c_code(puzzles: List[Dict[str, Any]]) -> str:
         lines.append(f"    .id = \"{puzzle_id}\",")
         lines.append(f"    .swap_rule = {swap_rule},")
         lines.append(f"    .difficulty = {difficulty},")
+        lines.append(f"    .is_solved = false,")  # Default to false; can be updated in-game
         # piece_count is the number of pieces (not the number of bytes in the array)
         lines.append(f"    .piece_count = {len(puzzle['startingPosition'])},")
         lines.append(f"    .pieces = puzzle_{i}_pieces,")
@@ -262,103 +263,48 @@ def generate_puzzle_c_code(puzzles: List[Dict[str, Any]]) -> str:
     lines.append("}")
     lines.append("")
 
-    # Generate display_puzzle_solution function
-    lines.append("void display_puzzle_solution(const puzzle_t *puzzle) {")
-    lines.append("    const uint16_t *solution = puzzle->solution;")
-    lines.append("    ")
-    lines.append("    for (uint8_t i = 0; i < puzzle->solution_length; i++) {")
-    lines.append("        uint8_t player_packed = solution[i * 2];")
-    lines.append("        uint16_t move_packed = solution[i * 2 + 1];")
-    lines.append("        ")
-    lines.append("        player_t player = (player_t)player_packed;")
-    lines.append("        uint8_t move_type = MOVE_UNPACK_TYPE(move_packed);")
-    lines.append("        ")
-    lines.append("        char buf[26]; // 25 chars + null terminator")
-    lines.append("        uint8_t len;")
-    lines.append("        ")
-    lines.append("        if (move_type == 0) { // swap")
-    lines.append("            uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);")
-    lines.append("            uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);")
-    lines.append("            ")
-    lines.append("            uint8_t from_row = POS_UNPACK_ROW(from_pos);")
-    lines.append("            uint8_t from_col = POS_UNPACK_COL(from_pos);")
-    lines.append("            uint8_t to_row = POS_UNPACK_ROW(to_pos);")
-    lines.append("            uint8_t to_col = POS_UNPACK_COL(to_pos);")
-    lines.append("            ")
-    lines.append("            // Convert internal row (0-7, 0=top) back to chess notation (1-8, 1=bottom)")
-    lines.append("            uint8_t chess_from_row = 8 - from_row;")
-    lines.append("            uint8_t chess_to_row = 8 - to_row;")
-    lines.append("            ")
-    lines.append("            len = sprintf(buf, \"%c: %c%d->%c%d(swap)\", ")
-    lines.append("                         player == PLAYER_WHITE ? 'W' : 'B',")
-    lines.append("                         'A' + from_col, chess_from_row, 'A' + to_col, chess_to_row);")
-    lines.append("        } else { // empty move")
-    lines.append("            uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);")
-    lines.append("            uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);")
-    lines.append("            ")
-    lines.append("            uint8_t from_row = POS_UNPACK_ROW(from_pos);")
-    lines.append("            uint8_t from_col = POS_UNPACK_COL(from_pos);")
-    lines.append("            uint8_t to_row = POS_UNPACK_ROW(to_pos);")
-    lines.append("            uint8_t to_col = POS_UNPACK_COL(to_pos);")
-    lines.append("            ")
-    lines.append("            // Convert internal row (0-7, 0=top) back to chess notation (1-8, 1=bottom)")
-    lines.append("            uint8_t chess_from_row = 8 - from_row;")
-    lines.append("            uint8_t chess_to_row = 8 - to_row;")
-    lines.append("            ")
-    lines.append("            len = sprintf(buf, \"%c: %c%d->%c%d\", ")
-    lines.append("                         player == PLAYER_WHITE ? 'W' : 'B',")
-    lines.append("                         'A' + from_col, chess_from_row, 'A' + to_col, chess_to_row);")
-    lines.append("        }")
-    lines.append("        ")
-    lines.append("        // Right-fill with spaces to exactly 25 characters")
-    lines.append("        while (len < 25) {")
-    lines.append("            buf[len++] = ' ';")
-    lines.append("        }")
-    lines.append("        buf[25] = '\\0';")
-    lines.append("        ")
-    lines.append("        textGotoXY(0, 20 + i);")
-    lines.append("        textPrint(buf);")
-    lines.append("    }")
-    lines.append("}")
-
     return "\n".join(lines)
 
 
 def main():
-    if len(sys.argv) != 3:
-        print("Usage: python3 convert_puzzles.py input.json output.c")
+    if len(sys.argv) < 3:
+        print("Usage: python3 convert_puzzles.py output.c input1.json [input2.json ...]")
         sys.exit(1)
 
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
+    output_file = sys.argv[1]
+    input_files = sys.argv[2:]
 
-    try:
-        with open(input_file, 'r') as f:
-            data = json.load(f)
-
-        puzzles = data.get('puzzles', [])
-        if not puzzles:
-            print("No puzzles found in JSON file")
+    puzzles = []
+    for input_file in input_files:
+        try:
+            with open(input_file, 'r') as f:
+                data = json.load(f)
+            puzzles.extend(data.get('puzzles', []))
+        except FileNotFoundError:
+            print(f"Input file not found: {input_file}")
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON in {input_file}: {e}")
+            sys.exit(1)
+        except Exception as e:
+            print(f"Error reading {input_file}: {e}")
             sys.exit(1)
 
-        print(f"Converting {len(puzzles)} puzzles...")
+    if not puzzles:
+        print("No puzzles found in any JSON file")
+        sys.exit(1)
 
-        c_code = generate_puzzle_c_code(puzzles)
+    print(f"Converting {len(puzzles)} puzzles from {len(input_files)} files...")
 
+    c_code = generate_puzzle_c_code(puzzles)
+
+    try:
         with open(output_file, 'w') as f:
             f.write(c_code)
             f.write('\n')  # Ensure file ends with newline for build system compatibility
-
         print(f"Generated C code written to {output_file}")
-
-    except FileNotFoundError:
-        print(f"Input file not found: {input_file}")
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"Invalid JSON: {e}")
-        sys.exit(1)
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error writing to {output_file}: {e}")
         sys.exit(1)
 
 

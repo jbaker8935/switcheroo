@@ -30,3 +30,4 @@ void print_ai_difficulty(ai_difficulty_t difficulty);
 void print_puzzle_hint(const char *hint);
 void clear_puzzle_hint(void);
 void print_move_history(const move_t *history, uint8_t move_count);
+void clear_puzzle_info(void);

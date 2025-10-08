@@ -18,22 +18,22 @@ static input_state_t s_input_state;
 // F256 keyboard scan codes from PS/2 keyboard
 static key_code_t scan_to_key(uint8_t scan) {
     switch (scan) {
-        case 0x75: return KEY_UP;      // Up arrow
-        case 0x72: return KEY_DOWN;    // Down arrow
-        case 0x6B: return KEY_LEFT;    // Left arrow
-        case 0x74: return KEY_RIGHT;   // Right arrow
-        case 0x5A: return KEY_ENTER;   // Enter
-        case 0x76: return KEY_ESCAPE;  // Escape
-        case 0x2D: return KEY_R;       // R
-        case 0x43: return KEY_I;       // I
-        case 0x23: return KEY_D;       // D
-        case 0x1B: return KEY_S;       // S
-        case 0x33: return KEY_H;       // H
-        case 0x22: return KEY_X;       // X
-        case 0x3A: return KEY_M;       // M
-        case 0x79: return KEY_PLUS;    // Keypad +
-        case 0x7B: return KEY_MINUS;   // Keypad -
-        case 0x2C: return KEY_U;       // U
+        case 0xB6: return KEY_UP;      // Up arrow
+        case 0xB7: return KEY_DOWN;    // Down arrow
+        case 0xB8: return KEY_LEFT;    // Left arrow
+        case 0xB9: return KEY_RIGHT;   // Right arrow
+        case 0x94: return KEY_ENTER;   // Enter
+        case 0x92: return KEY_ESCAPE;  // Escape
+        case 0x72: return KEY_R;       // R
+        case 0x69: return KEY_I;       // I
+        case 0x64: return KEY_D;       // D
+        case 0x73: return KEY_S;       // S
+        case 0x68: return KEY_H;       // H
+        case 0x78: return KEY_X;       // X
+        case 0x6D: return KEY_M;       // M
+        case 0x81: return KEY_PLUS;    // F1/F2 (Volume up)
+        case 0x83: return KEY_MINUS;   // F3/F4 (Volume down)
+        case 0x75: return KEY_U;       // U
         default: return KEY_NONE;
     }
 }
@@ -70,7 +70,7 @@ bool input_translate_event(input_event_t *event) {
     // Handle keyboard events
     if (kernelEventData.type == kernelEvent(key.PRESSED)) {
         key_code_t key = scan_to_key(kernelEventData.key.raw);
-        
+   
         if (key != KEY_NONE && event) {
             event->type = INPUT_EVENT_KEY_DOWN;
             event->data.key.code = key;

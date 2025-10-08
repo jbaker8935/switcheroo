@@ -7,7 +7,6 @@
  */
 
 #include "../src/board.h"
-#include <stdio.h>
 #include <string.h>
 
 // Direction deltas for 8-way adjacency (N, NE, E, SE, S, SW, W, NW)
@@ -183,9 +182,13 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
         return false;
     }
     
-    // Save to history if space available
+    // Save to history: shift existing moves and place new one at index 0
+    for (int i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
+        board->history[i] = board->history[i - 1];
+    }
+    board->history[0] = *move;
     if (board->history_count < MAX_MOVE_HISTORY) {
-        board->history[board->history_count++] = *move;
+        board->history_count++;
     }
     
     piece_type_t from_piece = board_get_piece(board, move->from_row, move->from_col);

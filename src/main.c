@@ -1,4 +1,7 @@
+#define WITHOUT_TILE
+#define WITHOUT_PLATFORM
 #define F256LIB_IMPLEMENTATION
+
 #include "../src/game_state.h"
 #include "../src/input.h"
 #include "../src/input_handler.h"
@@ -10,6 +13,7 @@
 extern void platform_bootstrap(void);
 extern void platform_idle(void);
 extern void video_init(const void *config);
+extern void video_reset(void);
 
 // Global game state
 static game_state_t g_game_state;
@@ -32,6 +36,7 @@ int main(int argc, char *argv[])
 
     // Initialize game state
     game_state_init(&g_game_state);
+    render_update_score(&g_game_state.stats);
     game_state_start_new_game(&g_game_state);
 
     // Initialize rendering
@@ -85,6 +90,15 @@ int main(int argc, char *argv[])
         // Idle/wait for next frame
         platform_idle();
     }
+
+    textClear();
+    video_reset();
+
+    // soft reset
+    POKE(0xD6A2,0xDE);
+    POKE(0xD6A3,0xAD);
+    POKE(0xD6A0, 0x80); // arm reset
+    POKE(0xD6A0, 0x00); // trigger reset
 
     return 0;
 }
