@@ -1,310 +1,342 @@
 #!/usr/bin/env python3
-"""
-Convert swap puzzle JSON data to C file format for F256 Switcharoo.
-
-This script reads a JSON file containing puzzle data and generates the
-corresponding C source file with compact binary representations suitable
-for embedded systems.
+"""Convert puzzle JSON files into a fixed-width binary catalog for F256 Switcharoo.
 
 Usage:
-    python3 convert_puzzles.py output.c input1.json [input2.json ...]
+    python3 convert_puzzles.py output.bin input1.json [input2.json ...]
 
-JSON Format:
-{
-  "puzzles": [
-    {
-      "id": "puzzle_id",
-      "swapRule": "classic|clears_own|swapped_clears|swapped_clears_own",
-      "difficulty": 1-4,
-      "startingPosition": [
-        {"row": 1-8, "col": "A-D", "player": "A|B", "swapped": false|true}
-      ],
-      "exampleSolution": [
-        {
-          "player": "A|B",
-          "move": {
-            "from": {"row": 1-8, "col": "A-D"},
-            "to": {"row": 1-8, "col": "A-D"},
-            "type": "swap|empty",
-            "priority": 0-7
-          }
-        }
-      ]
-    }
-  ]
-}
+Input files must provide a top-level "puzzles" array whose records are described
+in `requirements.md`. Each puzzle is normalised and written to a binary catalog
+whose layout matches the runtime deserialiser documented in `design.md`.
 """
 
+from __future__ import annotations
+
 import json
+import struct
 import sys
-from typing import Dict, List, Any
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Sequence
+
+PUZZLE_ID_BYTES = 32
+PUZZLE_MAX_PIECES = 16
+PUZZLE_PIECE_BYTES = PUZZLE_MAX_PIECES * 2
+PUZZLE_MAX_SOLUTION_MOVES = 9
+PUZZLE_SOLUTION_WORDS = PUZZLE_MAX_SOLUTION_MOVES * 2
+PUZZLE_SOLUTION_BYTES = PUZZLE_SOLUTION_WORDS * 2
+PUZZLE_RECORD_BYTES = (
+    PUZZLE_ID_BYTES
+    + 2  # swap rule
+    + 1  # difficulty
+    + 1  # solved flag
+    + 1  # piece count
+    + PUZZLE_PIECE_BYTES
+    + 1  # solution length
+    + PUZZLE_SOLUTION_BYTES
+)
+
+PuzzleDict = Dict[str, Any]
 
 
 def col_to_index(col: str) -> int:
-    """Convert column letter A-D to index 0-3."""
-    return ord(col.upper()) - ord('A')
+    """Convert a column letter (A-D) to zero-based index."""
+
+    if len(col) != 1 or col.upper() not in {"A", "B", "C", "D"}:
+        raise ValueError(f"Column must be A-D, got '{col}'")
+    return ord(col.upper()) - ord("A")
 
 
 def player_to_index(player: str) -> int:
-    """Convert player A/B to index 0/1."""
-    return 0 if player.upper() == 'A' else 1
+    """Convert a player designator (A/B) to zero-based index."""
+
+    if player.upper() not in {"A", "B"}:
+        raise ValueError(f"Player must be 'A' or 'B', got '{player}'")
+    return 0 if player.upper() == "A" else 1
 
 
 def json_row_to_internal(json_row: int) -> int:
-    """Convert JSON row (1-8, 1=bottom) to internal row (0-7, 0=top)."""
+    """Convert JSON row (1=bottom, 8=top) to internal index (0=top)."""
+
+    if json_row < 1 or json_row > 8:
+        raise ValueError(f"Row must be between 1 and 8, got '{json_row}'")
     return 8 - json_row
 
 
 def pack_piece(player: int, col: int, swapped: bool) -> int:
-    """Pack piece data: [swapped:1][player:1][col:2]"""
+    """Pack piece flags into a single byte."""
+
     return (int(swapped) << 3) | (player << 2) | col
 
 
 def pack_position(row: int, col: int) -> int:
-    """Pack position: [row:3][col:2]"""
+    """Pack a board position into five bits (row:3, col:2)."""
+
     return (row << 2) | col
 
 
-def pack_swap_move(from_row: int, from_col: int, to_row: int, to_col: int, priority: int) -> int:
-    """Pack swap move: [priority:3][to_pos:6][from_pos:6][type:1] where type=0 for swap"""
+def pack_swap_move(
+    from_row: int, from_col: int, to_row: int, to_col: int, priority: int
+) -> int:
+    """Pack a swap move into a 16-bit word."""
+
     to_pos = pack_position(to_row, to_col)
     from_pos = pack_position(from_row, from_col)
-    return (priority << 13) | (to_pos << 7) | (from_pos << 1) | 0
+    return (priority << 13) | (to_pos << 7) | (from_pos << 1)
 
 
-def pack_empty_move(from_row: int, from_col: int, to_row: int, to_col: int, priority: int) -> int:
-    """Pack empty move: store both from and to positions but set type=1 (empty)
-    Encoding: [priority:3][to_pos:6][from_pos:6][type:1] where type=1 for empty moves
-    """
-    to_pos = pack_position(to_row, to_col)
-    from_pos = pack_position(from_row, from_col)
-    return (priority << 13) | (to_pos << 7) | (from_pos << 1) | 1
+def pack_empty_move(
+    from_row: int, from_col: int, to_row: int, to_col: int, priority: int
+) -> int:
+    """Pack an empty move into a 16-bit word with the type bit set."""
+
+    return pack_swap_move(from_row, from_col, to_row, to_col, priority) | 1
 
 
-def swap_rule_to_enum(swap_rule: str) -> str:
-    """Convert swap rule string to enum value."""
+def swap_rule_to_value(swap_rule: str) -> int:
+    """Translate the swap rule string into the ordinal stored in the catalog."""
+
     mapping = {
-        "classic": "SWAP_RULE_CLASSIC",
-        "clears_own": "SWAP_RULE_CLEARS_OWN",
-        "swapped_clears": "SWAP_RULE_SWAPPED_CLEARS",
-        "swapped_clears_own": "SWAP_RULE_SWAPPED_CLEARS_OWN"
+        "classic": 0,
+        "clears_own": 1,
+        "swapped_clears": 2,
+        "swapped_clears_own": 3,
     }
-    return mapping.get(swap_rule, "SWAP_RULE_CLASSIC")
+    normalised = swap_rule.lower()
+    if normalised not in mapping:
+        raise ValueError(f"Unsupported swapRule '{swap_rule}'")
+    return mapping[normalised]
 
 
-def generate_puzzle_c_code(puzzles: List[Dict[str, Any]]) -> str:
-    """Generate C code for all puzzles."""
+def load_puzzle_documents(paths: Sequence[Path]) -> List[PuzzleDict]:
+    """Load and concatenate puzzle entries from the provided JSON files."""
 
-    lines = []
-    lines.append("// Auto-generated from JSON puzzle data")
-    lines.append("// Do not edit manually")
-    lines.append("")
-    lines.append("#include \"../src/puzzle_data.h\"")
-    lines.append("#include \"../src/board.h\"")
-    lines.append("#include <string.h>")
-    lines.append("")
+    puzzles: List[PuzzleDict] = []
+    for path in paths:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
 
-    # Generate individual puzzle data
-    puzzle_pointers = []
+        file_puzzles = data.get("puzzles", [])
+        if not isinstance(file_puzzles, list):
+            raise ValueError(f"Expected 'puzzles' array in {path}")
 
-    for i, puzzle in enumerate(puzzles):
-        puzzle_id = puzzle["id"]
-        swap_rule = swap_rule_to_enum(puzzle["swapRule"])
-        difficulty = puzzle["difficulty"]
+        puzzles.extend(file_puzzles)
 
-        # Generate pieces array
-        pieces = []
-        for piece in puzzle["startingPosition"]:
-            internal_row = json_row_to_internal(piece["row"])
+    return puzzles
+
+
+def serialise_puzzle(puzzle: PuzzleDict) -> bytes:
+    """Serialise a single puzzle dictionary into the fixed-width record."""
+
+    record = bytearray(PUZZLE_RECORD_BYTES)
+
+    puzzle_id = puzzle.get("id", "")
+    if not isinstance(puzzle_id, str):
+        raise ValueError("Puzzle id must be a string")
+    encoded_id = puzzle_id.encode("ascii")
+    if len(encoded_id) >= PUZZLE_ID_BYTES:
+        raise ValueError(
+            f"Puzzle id '{puzzle_id}' exceeds {PUZZLE_ID_BYTES - 1} characters"
+        )
+    record[0 : len(encoded_id)] = encoded_id
+
+    swap_rule = swap_rule_to_value(puzzle.get("swapRule", "classic"))
+    struct.pack_into("<H", record, PUZZLE_ID_BYTES, swap_rule)
+
+    difficulty = int(puzzle.get("difficulty", 1))
+    if difficulty < 1 or difficulty > 4:
+        raise ValueError(
+            f"Unsupported difficulty '{difficulty}' in puzzle '{puzzle_id}'"
+        )
+    record[PUZZLE_ID_BYTES + 2] = difficulty & 0xFF
+
+    is_solved = 1 if puzzle.get("isSolved", False) else 0
+    record[PUZZLE_ID_BYTES + 3] = is_solved
+
+    starting_position = puzzle.get("startingPosition", [])
+    if not isinstance(starting_position, list):
+        raise ValueError(
+            f"startingPosition must be a list in puzzle '{puzzle_id}'"
+        )
+    if len(starting_position) > PUZZLE_MAX_PIECES:
+        raise ValueError(
+            f"Puzzle '{puzzle_id}' has {len(starting_position)} pieces; "
+            f"max is {PUZZLE_MAX_PIECES}"
+        )
+    record[PUZZLE_ID_BYTES + 4] = len(starting_position)
+
+    pieces_offset = PUZZLE_ID_BYTES + 5
+    pieces_buffer = memoryview(record)[
+        pieces_offset : pieces_offset + PUZZLE_PIECE_BYTES
+    ]
+    for index, piece in enumerate(starting_position):
+        try:
+            internal_row = json_row_to_internal(int(piece["row"]))
             col_idx = col_to_index(piece["col"])
             player_idx = player_to_index(piece["player"])
-            swapped = piece["swapped"]
+        except KeyError as exc:
+            raise ValueError(
+                f"Missing '{exc.args[0]}' in startingPosition for "
+                f"puzzle '{puzzle_id}'"
+            ) from exc
 
-            packed_piece = pack_piece(player_idx, col_idx, swapped)
-            pieces.extend([internal_row, packed_piece])
+        swapped = bool(piece.get("swapped", False))
+        base = index * 2
+        pieces_buffer[base] = internal_row & 0xFF
+        pieces_buffer[base + 1] = pack_piece(player_idx, col_idx, swapped) & 0xFF
 
-        lines.append(f"// Puzzle {i}: {puzzle_id}")
-        lines.append(f"static const uint8_t puzzle_{i}_pieces[] = {{")
-        for j in range(0, len(pieces), 2):
-            row = pieces[j]
-            packed = pieces[j + 1]
-            lines.append(f"    {row}, 0x{packed:02X},")
-        lines.append("};")
-        lines.append("")
+    solution = puzzle.get("exampleSolution", [])
+    if not isinstance(solution, list):
+        raise ValueError(
+            f"exampleSolution must be a list in puzzle '{puzzle_id}'"
+        )
+    if len(solution) > PUZZLE_MAX_SOLUTION_MOVES:
+        raise ValueError(
+            f"Puzzle '{puzzle_id}' has solution length {len(solution)}; "
+            f"max is {PUZZLE_MAX_SOLUTION_MOVES}"
+        )
 
-        # Generate solution array
-        solution_moves = []
-        for move_data in puzzle["exampleSolution"]:
+    solution_length_offset = pieces_offset + PUZZLE_PIECE_BYTES
+    record[solution_length_offset] = len(solution)
+
+    solution_offset = solution_length_offset + 1
+    for move_index, move_data in enumerate(solution):
+        try:
             player_idx = player_to_index(move_data["player"])
             move = move_data["move"]
+        except KeyError as exc:
+            raise ValueError(
+                f"Missing '{exc.args[0]}' in exampleSolution for "
+                f"puzzle '{puzzle_id}'"
+            ) from exc
+        if not isinstance(move, dict):
+            raise ValueError(
+                f"Move entry must be an object in puzzle '{puzzle_id}'"
+            )
 
-            if move["type"] == "swap":
-                from_row = json_row_to_internal(move["from"]["row"])
-                from_col = col_to_index(move["from"]["col"])
-                to_row = json_row_to_internal(move["to"]["row"])
-                to_col = col_to_index(move["to"]["col"])
-                priority = int(move["priority"])  # Convert float to int if needed
-
-                packed_move = pack_swap_move(from_row, from_col, to_row, to_col, priority)
-            elif move["type"] == "empty":
-                # For empty moves we preserve both from and to positions so the UI
-                # can display the full from->to move. Pack both positions and set type=1.
-                from_row = json_row_to_internal(move["from"]["row"])
-                from_col = col_to_index(move["from"]["col"])
-                to_row = json_row_to_internal(move["to"]["row"])
-                to_col = col_to_index(move["to"]["col"])
-                priority = int(move["priority"])  # Convert float to int if needed
-
-                packed_move = pack_empty_move(from_row, from_col, to_row, to_col, priority)
-            else:
-                raise ValueError(f"Unknown move type: {move['type']}")
-
-            solution_moves.extend([player_idx, packed_move])
-
-        lines.append(f"static const uint16_t puzzle_{i}_solution[] = {{")
-        for j in range(0, len(solution_moves), 2):
-            player = solution_moves[j]
-            packed = solution_moves[j + 1]
-            lines.append(f"    0x{player:X}, 0x{packed:04X},")
-        lines.append("};")
-        lines.append("")
-
-        # Generate puzzle struct
-        lines.append(f"static const puzzle_t puzzle_{i} = {{")
-        lines.append(f"    .id = \"{puzzle_id}\",")
-        lines.append(f"    .swap_rule = {swap_rule},")
-        lines.append(f"    .difficulty = {difficulty},")
-        lines.append(f"    .is_solved = false,")  # Default to false; can be updated in-game
-        # piece_count is the number of pieces (not the number of bytes in the array)
-        lines.append(f"    .piece_count = {len(puzzle['startingPosition'])},")
-        lines.append(f"    .pieces = puzzle_{i}_pieces,")
-        # solution_length is the number of moves; the solution array stores pairs [player, packed_move]
-        lines.append(f"    .solution_length = {len(puzzle['exampleSolution'])},")
-        lines.append(f"    .solution = puzzle_{i}_solution")
-        lines.append("};")
-        lines.append("")
-
-        puzzle_pointers.append(f"    &puzzle_{i}")
-
-    # Generate puzzle collection
-    lines.append("static const puzzle_t *all_puzzles[] = {")
-    for ptr in puzzle_pointers:
-        lines.append(f"{ptr},")
-    lines.append("};")
-    lines.append("")
-
-    lines.append("static const puzzle_collection_t puzzle_collection = {")
-    lines.append(f"    .count = {len(puzzles)},")
-    lines.append("    .puzzles = all_puzzles")
-    lines.append("};")
-    lines.append("")
-
-    # Generate functions
-    lines.append("const puzzle_collection_t *get_puzzle_collection(void) {")
-    lines.append("    return &puzzle_collection;")
-    lines.append("}")
-    lines.append("")
-
-    lines.append("const puzzle_t *get_puzzle_by_index(uint8_t index) {")
-    lines.append("    if (index >= puzzle_collection.count) return NULL;")
-    lines.append("    return puzzle_collection.puzzles[index];")
-    lines.append("}")
-    lines.append("")
-
-    lines.append("swap_rule_t swap_rule_from_string(const char *str) {")
-    lines.append("    if (strcmp(str, \"classic\") == 0) return SWAP_RULE_CLASSIC;")
-    lines.append("    if (strcmp(str, \"clears_own\") == 0) return SWAP_RULE_CLEARS_OWN;")
-    lines.append("    if (strcmp(str, \"swapped_clears\") == 0) return SWAP_RULE_SWAPPED_CLEARS;")
-    lines.append("    if (strcmp(str, \"swapped_clears_own\") == 0) return SWAP_RULE_SWAPPED_CLEARS_OWN;")
-    lines.append("    return SWAP_RULE_CLASSIC; // default")
-    lines.append("}")
-    lines.append("")
-
-    lines.append("const char *swap_rule_to_string(swap_rule_t rule) {")
-    lines.append("    switch (rule) {")
-    lines.append("        case SWAP_RULE_CLASSIC: return \"CLASSIC\";")
-    lines.append("        case SWAP_RULE_CLEARS_OWN: return \"CLEARS_OWN\";")
-    lines.append("        case SWAP_RULE_SWAPPED_CLEARS: return \"SWAPPED_CLEARS\";")
-    lines.append("        case SWAP_RULE_SWAPPED_CLEARS_OWN: return \"SWAPPED_CLEARS_OWN\";")
-    lines.append("        default: return \"UNKNOWN\";")
-    lines.append("    }")
-    lines.append("}")
-    lines.append("")
-
-    # Generate apply_puzzle_position function
-    lines.append("void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {")
-    lines.append("    // Clear the board first - set all cells to PIECE_NONE")
-    lines.append("    for (uint8_t row = 0; row < BOARD_ROWS; row++) {")
-    lines.append("        for (uint8_t col = 0; col < BOARD_COLS; col++) {")
-    lines.append("            board_set_piece(board, row, col, PIECE_NONE);")
-    lines.append("        }")
-    lines.append("    }")
-    lines.append("")
-    lines.append("    // Apply puzzle pieces")
-    lines.append("    const uint8_t *pieces = puzzle->pieces;")
-    lines.append("    for (uint8_t p = 0; p < puzzle->piece_count; p++) {")
-    lines.append("        uint8_t idx = p * 2;")
-    lines.append("        uint8_t row = pieces[idx];")
-    lines.append("        uint8_t packed_piece = pieces[idx + 1];")
-    lines.append("")
-    lines.append("        uint8_t swapped = PIECE_UNPACK_SWAPPED(packed_piece);")
-    lines.append("        uint8_t player = PIECE_UNPACK_PLAYER(packed_piece);")
-    lines.append("        uint8_t col = PIECE_UNPACK_COL(packed_piece);")
-    lines.append("")
-    lines.append("        piece_type_t piece_type;")
-    lines.append("        if (player == PLAYER_WHITE) {")
-    lines.append("            piece_type = swapped ? PIECE_WHITE_SWAPPED : PIECE_WHITE_NORMAL;")
-    lines.append("        } else {")
-    lines.append("            piece_type = swapped ? PIECE_BLACK_SWAPPED : PIECE_BLACK_NORMAL;")
-    lines.append("        }")
-    lines.append("")
-    lines.append("        board_set_piece(board, row, col, piece_type);")
-    lines.append("    }")
-    lines.append("}")
-    lines.append("")
-
-    return "\n".join(lines)
-
-
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python3 convert_puzzles.py output.c input1.json [input2.json ...]")
-        sys.exit(1)
-
-    output_file = sys.argv[1]
-    input_files = sys.argv[2:]
-
-    puzzles = []
-    for input_file in input_files:
         try:
-            with open(input_file, 'r') as f:
-                data = json.load(f)
-            puzzles.extend(data.get('puzzles', []))
-        except FileNotFoundError:
-            print(f"Input file not found: {input_file}")
-            sys.exit(1)
-        except json.JSONDecodeError as e:
-            print(f"Invalid JSON in {input_file}: {e}")
-            sys.exit(1)
-        except Exception as e:
-            print(f"Error reading {input_file}: {e}")
-            sys.exit(1)
+            move_type = move["type"].lower()
+        except AttributeError as exc:
+            raise ValueError(
+                f"Move type must be a string in puzzle '{puzzle_id}'"
+            ) from exc
+        except KeyError as exc:
+            raise ValueError(
+                f"Missing '{exc.args[0]}' in move definition for "
+                f"puzzle '{puzzle_id}'"
+            ) from exc
 
-    if not puzzles:
-        print("No puzzles found in any JSON file")
+        priority = int(move.get("priority", 0))
+        if priority < 0 or priority > 7:
+            raise ValueError(
+                f"Invalid priority '{priority}' in puzzle '{puzzle_id}'"
+            )
+
+        def parse_endpoint(label: str) -> tuple[int, int]:
+            try:
+                endpoint = move[label]
+            except KeyError as exc:
+                raise ValueError(
+                    f"Missing '{label}' endpoint in puzzle '{puzzle_id}'"
+                ) from exc
+
+            if not isinstance(endpoint, dict):
+                raise ValueError(
+                    f"Endpoint '{label}' must be an object in puzzle "
+                    f"'{puzzle_id}'"
+                )
+            try:
+                row = json_row_to_internal(int(endpoint["row"]))
+                col = col_to_index(endpoint["col"])
+            except KeyError as exc:
+                raise ValueError(
+                    f"Missing '{exc.args[0]}' in move endpoint '{label}' for "
+                    f"puzzle '{puzzle_id}'"
+                ) from exc
+            return row, col
+
+        from_row, from_col = parse_endpoint("from")
+        to_row, to_col = parse_endpoint("to")
+
+        if move_type == "swap":
+            packed_move = pack_swap_move(
+                from_row, from_col, to_row, to_col, priority
+            )
+        elif move_type == "empty":
+            packed_move = pack_empty_move(
+                from_row, from_col, to_row, to_col, priority
+            )
+        else:
+            raise ValueError(
+                f"Unknown move type '{move_type}' in puzzle '{puzzle_id}'"
+            )
+
+        struct.pack_into(
+            "<H", record, solution_offset + (move_index * 4), player_idx & 0xFFFF
+        )
+        struct.pack_into(
+            "<H",
+            record,
+            solution_offset + (move_index * 4) + 2,
+            packed_move & 0xFFFF,
+        )
+
+    return bytes(record)
+
+
+def serialise_catalog(puzzles: Iterable[PuzzleDict]) -> bytes:
+    """Serialise all puzzles into a binary blob with a puzzle-count header."""
+
+    puzzles_list = list(puzzles)
+    if len(puzzles_list) > 0xFFFF:
+        raise ValueError("Puzzle catalog exceeds 65535 entries")
+
+    output = bytearray()
+    output.extend(struct.pack("<H", len(puzzles_list)))
+    for puzzle in puzzles_list:
+        output.extend(serialise_puzzle(puzzle))
+
+    padding = (-len(output)) % 4
+    if padding:
+        output.extend(b"\x00" * padding)
+
+    return bytes(output)
+
+
+def main() -> None:
+    """Parse arguments, serialise puzzles, and emit the binary catalog."""
+
+    if len(sys.argv) < 3:
+        print(
+            "Usage: python3 convert_puzzles.py output.bin "
+            "input1.json [input2.json ...]"
+        )
         sys.exit(1)
 
-    print(f"Converting {len(puzzles)} puzzles from {len(input_files)} files...")
-
-    c_code = generate_puzzle_c_code(puzzles)
+    output_path = Path(sys.argv[1])
+    input_paths = [Path(arg) for arg in sys.argv[2:]]
 
     try:
-        with open(output_file, 'w') as f:
-            f.write(c_code)
-            f.write('\n')  # Ensure file ends with newline for build system compatibility
-        print(f"Generated C code written to {output_file}")
-    except Exception as e:
-        print(f"Error writing to {output_file}: {e}")
+        puzzles = load_puzzle_documents(input_paths)
+        if not puzzles:
+            raise ValueError("No puzzles found across provided JSON files")
+
+        catalog = serialise_catalog(puzzles)
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("wb") as handle:
+            handle.write(catalog)
+
+        print(
+            f"Wrote {len(puzzles)} puzzles (catalog size {len(catalog)} bytes) "
+            f"to {output_path}"
+        )
+    except FileNotFoundError as exc:
+        print(f"Input file not found: {exc}")
+        sys.exit(1)
+    except json.JSONDecodeError as exc:
+        print(f"Invalid JSON: {exc}")
+        sys.exit(1)
+    except Exception as exc:  # pragma: no cover - CLI entry point
+        print(f"Error: {exc}")
         sys.exit(1)
 
 

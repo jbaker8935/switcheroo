@@ -348,15 +348,80 @@ minimize runtime branching.
   to screen pixels and skips disabled entries.
 - Post-initialization, the menu controller disables the Starting Board icon and
   enables Move History after the first move; resetting the session reverses that
-  state.
+  state when puzzles are present, and the icon remains disabled entirely if the
+  puzzle catalog is empty.
+- The menu controller and text overlay surface a "No puzzles available" status
+  in the puzzle information panel whenever the catalog header reports zero
+  entries so hardware users receive immediate feedback instead of a silent
+  failure.
 - Overlays reuse bitmap layer 1 with semi-transparent blitting (implemented via
   dithered patterns) to leave board context visible.
 - Move history stores up to 40 entries in a ring buffer; render the top 12
   entries per page and toggle overlay availability with the menu state machine.
-- Reset workflows clear move history and swapped flags while leaving the
-  session scoreboard intact and triggering the game initialization audio cue.
+- Reset workflows attempt to reapply the currently selected puzzle via
+  `game_state_apply_current_puzzle`, falling back to the default board layout
+  and status messaging when no puzzle records exist, while also clearing move
+  history and swapped flags and leaving the session scoreboard intact. The game
+  initialization audio cue still triggers after the reset action completes.
 - Exit confirmations queue the exit audio cue immediately before issuing the
   shutdown sequence.
+
+## Puzzle Data High-Memory Pipeline
+
+### Binary Catalog Layout
+
+| Field | Size (bytes) | Notes |
+| --- | --- | --- |
+| Puzzle count | 2 | Little-endian `uint16_t` value at offset 0. |
+| Identifier | 32 | ASCII string, null-padded; max 31 printable chars plus terminator. |
+| Swap rule | 2 | Encoded as the `swap_rule_t` ordinal. |
+| Difficulty | 1 | Difficulty value (1-4). |
+| Solved flag | 1 | Reserved for future progress tracking; currently zero. |
+| Piece count | 1 | Number of `[row, packed_piece]` pairs populated in the piece buffer. |
+| Pieces | 32 | Sixteen packed `[row, packed_piece]` pairs (unused slots zeroed). |
+| Solution length | 1 | Number of solution moves (≤9). |
+| Solution words | 36 | Eighteen `uint16_t` entries storing pairs of `[player, packed_move]`. |
+
+Each puzzle record occupies 106 bytes. Records follow back-to-back after the
+2-byte puzzle count header, allowing constant-time seeks via `index * 106`.
+
+### Generation Flow
+
+1. `scripts/convert_puzzles.py` loads one or more JSON puzzle manifests, packs
+   the normalized data into fixed-width buffers, and writes
+   `assets/generated/puzzle_data.bin` using the layout above.
+2. The script enforces identifier, piece-count, and solution-length limits
+   before emitting the binary. Violations raise errors during conversion.
+3. A summary of the converted puzzle count is printed for build logs.
+
+### Runtime Deserialization
+
+- `src/puzzle_data.c` is now a hand-maintained module that embeds the binary
+  catalog at address `0x30000` using `EMBED`. Runtime access uses
+  `FAR_PEEK`/`FAR_PEEKW` to stream data directly from far memory.
+- `src/platform_f256.h` centralises Foenix-specific overrides, pinning the
+  far-memory swap slot to bank 5 (0xA000 window) so catalog reads do not
+  clash with the firmware-reserved bank 7 used by the microkernel.
+- Low-memory buffers sized for a single puzzle (`32` bytes for the identifier
+  and pieces, `36` bytes for the solution words) receive the streamed data.
+  `get_puzzle_by_index` populates these buffers and returns a stable pointer to
+  the static `puzzle_t` struct.
+- `get_puzzle_collection` lazily reads the catalog header to expose the puzzle
+  count without materialising pointer arrays. The legacy `puzzles` pointer is
+  left `NULL` for compatibility with existing callers that only inspect
+  `count`.
+- `puzzle_catalog_ensure_header` and `puzzle_catalog_load_record` emit
+  diagnostics via `print_puzzle_debug`, reporting the header count, embed base
+  address, loaded record index, identifier, and out-of-range errors directly in
+  the on-screen text panel for hardware troubleshooting.
+- `game_state_apply_current_puzzle` orchestrates board resets and new-session
+  initialisation by streaming the selected puzzle, clearing swapped flags,
+  synchronising swap rules and AI configuration, and updating puzzle info text;
+  if the catalog is empty the helper restores the default layout and prints the
+  "No puzzles available" status message.
+- Host builds that lack `EMBED` support load the binary from disk on demand
+  and reuse the same deserialisation path, preserving functional parity across
+  testing environments.
 
 ## Asset Pipeline
 

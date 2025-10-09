@@ -16,7 +16,7 @@
 #ifdef AI_AGENT_HOST_TEST
 #include "../tests/include/f256lib_host.h"
 #else
-#include "f256lib.h"
+#include "platform_f256.h"
 #endif
 
 #include "../src/board.h"

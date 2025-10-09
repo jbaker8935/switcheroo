@@ -1,4 +1,4 @@
-#include "f256lib.h"
+#include "../src/platform_f256.h"
 #include <stdint.h>
 
 // Simple video initialization without complex config

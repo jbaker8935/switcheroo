@@ -8,7 +8,7 @@
 #ifndef PLATFORM_INPUT_H
 #define PLATFORM_INPUT_H
 
-#include "f256lib.h"
+#include "platform_f256.h"
 #include <stdint.h>
 
 // Input event types

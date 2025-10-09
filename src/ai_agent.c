@@ -14,44 +14,36 @@
 
 #if defined(__llvm_mos__) && !defined(AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS)
 #define AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
+
+#define T0_PEND 0xD660
+#define T0_MASK 0xD66C
+
+#define T0_CTR 0xD650  // master control register for timer0, write.b0=ticks b1=reset b2=set
+          // to last value of VAL b3=set count up, clear count down
+#define T0_STAT 0xD650  // master control register for timer0, read bit0 set = reached target
+          // val
+
+#define CTR_INTEN 0x80  // present only for timer1? or timer0 as well?
+#define CTR_ENABLE 0x01
+#define CTR_CLEAR 0x02
+#define CTR_LOAD 0x04
+#define CTR_UPDOWN 0x08
+
+#define T0_VAL_L 0xD651  // current 24 bit value of the timer
+#define T0_VAL_M 0xD652
+#define T0_VAL_H 0xD653
+
+#define T0_CMP_CTR 0xD654  // b0: t0 returns 0 on reaching target. b1: CMP = last value written
+          // to T0_VAL
+#define T0_CMP_L 0xD655  // 24 bit target value for comparison
+#define T0_CMP_M 0xD656
+#define T0_CMP_H 0xD657
+
+#define T0_CMP_CTR_RECLEAR 0x01
+#define T0_CMP_CTR_RELOAD 0x02
+
 #endif
 
-#if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
-#include "../include/f256lib.h"
-
-typedef struct ai_overlay_info_s {
-    uint32_t lma;
-    uint16_t size;
-} __attribute__((packed)) ai_overlay_info_t;
-
-extern const ai_overlay_info_t __ai_overlay_info;
-
-static bool s_ai_overlay_loaded = false;
-
-static void __attribute__((used)) ai_overlay_ensure_loaded(void) {
-    if (s_ai_overlay_loaded) {
-        return;
-    }
-
-    uint32_t src = __ai_overlay_info.lma;
-    uint16_t remaining = __ai_overlay_info.size;
-    uint16_t dest = 0xA000u;
-
-    for (uint16_t offset = 0; offset < remaining; ++offset) {
-        uint8_t value = FAR_PEEK(src + offset);
-        POKE(dest + offset, value);
-    }
-
-    s_ai_overlay_loaded = true;
-}
-
-#define AI_OVERLAY_SECTION __attribute__((noinline, used))
-#else
-#define AI_OVERLAY_SECTION
-static void ai_overlay_ensure_loaded(void) {
-    /* Host builds run without overlay indirection. */
-}
-#endif
 
 #ifdef AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
 extern void print_formatted_text(uint8_t x, uint8_t y, const char *text);
@@ -295,11 +287,8 @@ static void ai_tt_store(uint32_t key, uint8_t depth, ai_tt_flag_t flag,
     entry->move = *move;
 }
 
-#if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
-#pragma clang section text=".block8.ai"
-#endif
 
-static uint8_t AI_OVERLAY_SECTION ai_count_goal_rows_for_player(const board_t *board,
+static uint8_t  ai_count_goal_rows_for_player(const board_t *board,
                                                                 player_t player) {
     uint8_t rows = 0;
     for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
@@ -318,13 +307,13 @@ static uint8_t AI_OVERLAY_SECTION ai_count_goal_rows_for_player(const board_t *b
     return rows;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_goal_row_pressure(const board_t *board) {
+static uint8_t  ai_goal_row_pressure(const board_t *board) {
     uint8_t white_rows = ai_count_goal_rows_for_player(board, PLAYER_WHITE);
     uint8_t black_rows = ai_count_goal_rows_for_player(board, PLAYER_BLACK);
     return (white_rows > black_rows) ? white_rows : black_rows;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_count_move_volume(const board_t *board, player_t player) {
+static uint8_t  ai_count_move_volume(const board_t *board, player_t player) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -350,7 +339,7 @@ static uint8_t AI_OVERLAY_SECTION ai_count_move_volume(const board_t *board, pla
     return total;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_select_dynamic_depth(const ai_config_t *config,
+static uint8_t  ai_select_dynamic_depth(const ai_config_t *config,
                                                           uint8_t pressure) {
     if (pressure <= 3u) {
         return 0u;
@@ -362,7 +351,7 @@ static uint8_t AI_OVERLAY_SECTION ai_select_dynamic_depth(const ai_config_t *con
     return config->search.max_depth;
 }
 
-static uint32_t AI_OVERLAY_SECTION ai_select_node_cap(const ai_config_t *config,
+static uint32_t  ai_select_node_cap(const ai_config_t *config,
                                                       uint8_t pressure) {
     uint32_t limit = config->search.node_limit ? config->search.node_limit
                                                : AI_NODE_LIMIT_FALLBACK;
@@ -372,7 +361,7 @@ static uint32_t AI_OVERLAY_SECTION ai_select_node_cap(const ai_config_t *config,
     return limit;
 }
 
-static void AI_OVERLAY_SECTION ai_store_killer(ai_search_context_t *ctx, uint8_t ply, const move_t *move) {
+static void  ai_store_killer(ai_search_context_t *ctx, uint8_t ply, const move_t *move) {
     if (!ctx->config->search.use_killer_moves || ply >= AI_MAX_DEPTH) {
         return;
     }
@@ -403,7 +392,7 @@ static bool ai_is_killer(const ai_search_context_t *ctx, uint8_t ply, const move
     return false;
 }
 
-static void AI_OVERLAY_SECTION ai_compute_connection_metrics(const board_t *board, player_t player,
+static void  ai_compute_connection_metrics(const board_t *board, player_t player,
                                                              ai_connection_metrics_t *out) {
     uint8_t parent[BOARD_CELLS];
     uint8_t row_mask[BOARD_CELLS];
@@ -502,7 +491,7 @@ static void AI_OVERLAY_SECTION ai_compute_connection_metrics(const board_t *boar
     }
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_count_bridge_potential(const board_t *board, player_t player) {
+static uint8_t  ai_count_bridge_potential(const board_t *board, player_t player) {
     uint8_t bridges = 0;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -536,7 +525,7 @@ static uint8_t AI_OVERLAY_SECTION ai_count_bridge_potential(const board_t *board
     return bridges;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule) {
+static uint8_t  ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule) {
     (void)rule;
     int16_t pressure = 0;
     piece_type_t swapped = (player == PLAYER_WHITE) ? PIECE_WHITE_SWAPPED : PIECE_BLACK_SWAPPED;
@@ -591,7 +580,7 @@ static uint8_t AI_OVERLAY_SECTION ai_measure_swap_pressure(const board_t *board,
     return (uint8_t)pressure;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_measure_blocking(const board_t *board, player_t player) {
+static uint8_t  ai_measure_blocking(const board_t *board, player_t player) {
     player_t opponent = (player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
     uint8_t blocking = 0;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
@@ -652,7 +641,7 @@ static int16_t ai_clamp_score(int32_t value) {
     return (int16_t)value;
 }
 
-static bool AI_OVERLAY_SECTION ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule) {
+static bool  ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -684,7 +673,7 @@ static bool AI_OVERLAY_SECTION ai_immediate_win_available(const board_t *board, 
     return false;
 }
 
-static bool AI_OVERLAY_SECTION ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
+static bool  ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -753,7 +742,7 @@ static bool AI_OVERLAY_SECTION ai_forcing_move_available(const board_t *board, p
     return false;
 }
 
-static bool AI_OVERLAY_SECTION ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
+static bool  ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
     player_t to_move = board->current_player;
     player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
@@ -768,7 +757,7 @@ static bool AI_OVERLAY_SECTION ai_has_tactical_threat(const board_t *board, swap
     return false;
 }
 
-static uint8_t AI_OVERLAY_SECTION ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
+static uint8_t  ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
                                                     ai_ordered_move_t *out_moves, uint8_t ply) {
     board_t scratch;
     ai_board_copy(&scratch, board);
@@ -833,7 +822,7 @@ static uint8_t AI_OVERLAY_SECTION ai_generate_moves(const board_t *board, const 
     return count;
 }
 
-static int16_t AI_OVERLAY_SECTION ai_agent_evaluate_internal(const board_t *board, player_t perspective,
+static int16_t  ai_agent_evaluate_internal(const board_t *board, player_t perspective,
                                                              const ai_config_t *config,
                                                              ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
@@ -909,7 +898,7 @@ static int16_t AI_OVERLAY_SECTION ai_agent_evaluate_internal(const board_t *boar
     return ai_clamp_score(total);
 }
 
-static bool AI_OVERLAY_SECTION ai_select_move_heuristic(board_t *root,
+static bool  ai_select_move_heuristic(board_t *root,
                                                         const ai_config_t *config,
                                                         move_t *out_move,
                                                         uint32_t *out_nodes) {
@@ -991,7 +980,7 @@ static bool ai_search_should_abort(ai_search_context_t *ctx) {
     return false;
 }
 
-static int16_t AI_OVERLAY_SECTION ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
+static int16_t  ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
                                              uint8_t ply, uint8_t extensions_used, int16_t alpha,
                                              int16_t beta, move_t *out_move) {
     if (ctx->abort) {
@@ -1196,7 +1185,7 @@ void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
     s_last_breakdown = (ai_eval_breakdown_t){ 0 };
 }
 
-static bool AI_OVERLAY_SECTION ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
+static bool  ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
                                                             move_t *out_move) {
     board_t root;
     player_t to_move;
@@ -1348,20 +1337,12 @@ static bool AI_OVERLAY_SECTION ai_agent_find_best_move_impl(const board_t *board
     return true;
 }
 
-#if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
-#pragma clang section text=""
-#endif
 
 bool ai_agent_find_best_move(const board_t *board, const ai_config_t *config,
                              move_t *out_move) {
     if (!board || !config || !out_move) {
         return false;
     }
-
-#if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
-    ai_overlay_ensure_loaded();
-#endif
-
     return ai_agent_find_best_move_impl(board, config, out_move);
 }
 
@@ -1370,9 +1351,7 @@ int16_t ai_agent_evaluate_board(const board_t *board, player_t player,
     if (!board || !config) {
         return 0;
     }
-#if defined(__llvm_mos__) && !defined(AI_AGENT_DISABLE_OVERLAY)
-    ai_overlay_ensure_loaded();
-#endif
+
     return ai_agent_evaluate_internal(board, player, config, NULL);
 }
 

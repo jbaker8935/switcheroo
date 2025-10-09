@@ -46,6 +46,9 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T19 | AI Immediate Threat Avoidance | Enhance evaluation to detect and avoid moves allowing opponent instant wins, ensuring AI only chooses such moves when all options permit them. | Updated `ai_agent_evaluate_internal`, regression tests pass. | T8 | Done |
 | T20 | AI Swap Move Safety Filter | Filter out swapping moves that result in immediate opponent wins during heuristic selection. | Updated `ai_select_move_heuristic`, build succeeds. | T8 | Done |
 | T21 | AI Forcing Move Detection | Implement tunable forcing move checks in deeper evaluation to avoid positions where opponent can force a win on next turn, enabled only for Expert difficulty. | Updated `ai_agent_evaluate_internal`, `ai_forcing_move_available` function, build succeeds. | T8 | Done |
+| T22 | Puzzle Data High Memory Migration | Serialize puzzles into a fixed-record binary blob, embed it at 0x30000, and stream records into low-memory buffers on demand. | Updated `convert_puzzles.py`, `assets/generated/puzzle_data.bin`, `src/puzzle_data.c`, documentation refresh. | T2, T4 | In Progress |
+| T23 | Puzzle Loader UX Integration | Auto-apply puzzles on resets and new sessions, disable the Starting Board icon when the catalog is empty, and surface fallback messaging. | Updated `src/game_state.c`, requirements & design refresh. | T22 | Done |
+| T24 | Puzzle Catalog Diagnostics | Display on-device diagnostic text for header counts, record loads, and error conditions during puzzle streaming. | Updated `src/puzzle_data.c`, `src/text_display.*`, requirements & design updates. | T22 | Done |
 
 ## Milestones
 

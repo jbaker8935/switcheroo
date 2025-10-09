@@ -8,7 +8,7 @@
 #ifndef RENDER_H
 #define RENDER_H
 
-#include "f256lib.h"
+#include "platform_f256.h"
 #include "../src/game_state.h"
 
 // Highlight types for visual feedback

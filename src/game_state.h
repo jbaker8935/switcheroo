@@ -8,7 +8,7 @@
 #ifndef GAME_STATE_H
 #define GAME_STATE_H
 
-#include "f256lib.h"
+#include "platform_f256.h"
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include <stdint.h>

@@ -6,7 +6,7 @@
 #ifndef INPUT_HANDLER_H
 #define INPUT_HANDLER_H
 
-#include "f256lib.h"
+#include "platform_f256.h"
 #include "../src/input.h"
 #include "../src/game_state.h"
 

@@ -5,6 +5,7 @@
 
 #include "../src/game_state.h"
 #include "../src/puzzle_data.h"
+#include <stdint.h>
 #include <string.h>
 #include "../src/text_display.h"
 
@@ -47,6 +48,57 @@ static void gs_format_win_in(char *dest, size_t dest_size, unsigned value) {
     dest[len] = '\0';
 }
 
+static void game_state_show_no_puzzle_notice(void) {
+    print_formatted_text(0, 5, "No puzzles available");
+    print_formatted_text(0, 6, "");
+    print_formatted_text(0, 7, "");
+    clear_puzzle_hint();
+}
+
+static bool game_state_apply_current_puzzle(game_state_t *state, bool announce) {
+    const puzzle_collection_t *collection = get_puzzle_collection();
+    if (!collection || collection->count == 0u) {
+        if (announce) {
+            game_state_show_no_puzzle_notice();
+        }
+        return false;
+    }
+
+    if (state->prefs.current_puzzle_index >= collection->count) {
+        state->prefs.current_puzzle_index = 0;
+    }
+
+    const puzzle_t *puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+    if (puzzle == NULL) {
+        if (announce) {
+            print_formatted_text(0, 5, "Puzzle load failed");
+            print_formatted_text(0, 6, "");
+            print_formatted_text(0, 7, "");
+            clear_puzzle_hint();
+        }
+        return false;
+    }
+
+    apply_puzzle_position(&state->board, puzzle);
+    state->board.current_player = PLAYER_WHITE;
+    state->board.move_count = 0;
+    state->board.history_count = 0;
+
+    state->prefs.swap_rule = puzzle->swap_rule;
+    state->ai_config.swap_rule = puzzle->swap_rule;
+    ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+
+    if (announce) {
+        uint8_t total_puzzles = (collection->count > UINT8_MAX)
+                                    ? UINT8_MAX
+                                    : (uint8_t)collection->count;
+        print_puzzle_info(state->prefs.current_puzzle_index, total_puzzles, puzzle->difficulty, puzzle->is_solved);
+        clear_puzzle_hint();
+    }
+
+    return true;
+}
+
 
 
 void game_state_init(game_state_t *state) {
@@ -85,40 +137,29 @@ game_phase_t game_state_get_phase(const game_state_t *state) {
 }
 
 void game_state_reset_board(game_state_t *state) {
-    /* If there have been moves played, reset back to the currently selected
-       puzzle starting position so the user can retry the puzzle. If no moves
-       have been made, reset to the normal gameplay starting position. */
-    if (state->board.move_count > 0) {
-        const puzzle_collection_t *collection = get_puzzle_collection();
-        const puzzle_t *puzzle = NULL;
-        if (collection && state->prefs.current_puzzle_index < collection->count) {
-            puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
-        }
+    const puzzle_collection_t *collection = get_puzzle_collection();
+    bool has_puzzles = (collection != NULL) && (collection->count > 0u);
 
-        if (puzzle) {
-            // Apply the puzzle position and ensure AI/swap rule are in sync
-            apply_puzzle_position(&state->board, puzzle);
-            // Ensure the player to move is set back to Player A (WHITE)
-            state->board.current_player = PLAYER_WHITE;
-            // Ensure move/history counters are reset so menu icons update
-            state->board.move_count = 0;
-            state->board.history_count = 0;
-            state->prefs.swap_rule = puzzle->swap_rule;
-            state->ai_config.swap_rule = puzzle->swap_rule;
-            ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
-        } else {
-            // Fallback to normal reset
+    if (has_puzzles) {
+        // If no moves have been made on the current board, user expects the
+        // reset to return to the standard initial game position (A1-D2 / A7-D8).
+        // If moves have been made (i.e. puzzle play has progressed), reset should
+        // return the board to the initial position of the currently selected puzzle.
+        if (state->board.move_count == 0) {
             board_reset(&state->board);
-            // Ensure no swapped flags remain
             board_clear_all_swapped(&state->board);
-            // Clear any puzzle debug text lines (id, rule, difficulty, hint)
             clear_puzzle_info();
+            clear_puzzle_hint();
+        } else {
+            // Re-apply the puzzle's initial position
+            (void)game_state_apply_current_puzzle(state, true);
         }
     } else {
-        // No moves played: normal gameplay reset
+        // No puzzles available - behave as before and reset to standard start
         board_reset(&state->board);
         board_clear_all_swapped(&state->board);
         clear_puzzle_info();
+        clear_puzzle_hint();
     }
 
     game_state_deselect_piece(state);
@@ -211,8 +252,15 @@ void game_state_update_menu_enables(game_state_t *state) {
     // Difficulty is always enabled
     state->menu.enabled[MENU_ICON_DIFFICULTY] = true;
     
-    // Starting board enabled only when no moves have been made
-    state->menu.enabled[MENU_ICON_STARTING_BOARD] = (state->board.move_count == 0);
+    const puzzle_collection_t *collection = get_puzzle_collection();
+    bool has_puzzles = (collection != NULL) && (collection->count > 0u);
+
+    // Starting board enabled only when no moves have been made and puzzles exist
+    state->menu.enabled[MENU_ICON_STARTING_BOARD] = has_puzzles && (state->board.move_count == 0);
+
+    if (!has_puzzles) {
+        game_state_show_no_puzzle_notice();
+    }
     
     // History enabled only when moves have been made
     state->menu.enabled[MENU_ICON_HISTORY] = (state->board.history_count > 0);
@@ -223,6 +271,9 @@ void game_state_update_menu_enables(game_state_t *state) {
 
 void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
     if (!state->menu.enabled[icon]) {
+        if (icon == MENU_ICON_STARTING_BOARD) {
+            game_state_show_no_puzzle_notice();
+        }
         return;
     }
     
@@ -254,26 +305,20 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
             state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
             break;
             
-        case MENU_ICON_STARTING_BOARD:
-            // Cycle through puzzles
+        case MENU_ICON_STARTING_BOARD: {
             const puzzle_collection_t *collection = get_puzzle_collection();
-            state->prefs.current_puzzle_index = (state->prefs.current_puzzle_index + 1) % collection->count;
-            const puzzle_t *puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
-            if (puzzle) {
-                // Apply puzzle position
-                apply_puzzle_position(&state->board, puzzle);
-                // Set swap rule from puzzle
-                state->prefs.swap_rule = puzzle->swap_rule;
-                state->ai_config.swap_rule = puzzle->swap_rule;
-                // Reinitialize AI with new swap rule
-                ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
-                // Reset game state
-                game_state_deselect_piece(state);
-                state->phase = GAME_PHASE_PLAYING;
-                print_puzzle_info(state->prefs.current_puzzle_index, collection->count, puzzle->difficulty, puzzle->is_solved);
-                clear_puzzle_hint();
+            if (!collection || collection->count == 0u) {
+                game_state_show_no_puzzle_notice();
+                break;
             }
-            break;
+
+            state->prefs.current_puzzle_index = (state->prefs.current_puzzle_index + 1u) % collection->count;
+            if (game_state_apply_current_puzzle(state, true)) {
+                game_state_deselect_piece(state);
+                game_state_update_menu_enables(state);
+                state->phase = GAME_PHASE_PLAYING;
+            }
+        } break;
             
         case MENU_ICON_HISTORY:
             state->phase = GAME_PHASE_MENU_OVERLAY;

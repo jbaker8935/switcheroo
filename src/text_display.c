@@ -122,6 +122,17 @@ void clear_puzzle_info() {
     print_formatted_text(0,8, "");
 }
 
+void print_puzzle_debug(const char *line1, const char *line2) {
+    const char *first = line1 ? line1 : "";
+    const char *second = line2 ? line2 : "";
+    print_formatted_text(0, 20, first);
+    print_formatted_text(0, 21, second);
+}
+
+void clear_puzzle_debug(void) {
+    print_puzzle_debug("", "");
+}
+
 void print_puzzle_info(uint8_t puzzle_index, uint8_t total_puzzles, 
                        uint8_t puzzle_difficulty, bool is_solved) {
     char *buf = "";

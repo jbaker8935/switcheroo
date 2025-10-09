@@ -2,14 +2,15 @@
  * @file puzzle_data.h
  * @brief Compact puzzle data representation for F256 Switcharoo
  *
- * Contains puzzle definitions in a compact binary format suitable for
- * embedded systems without JSON parsing capabilities.
+ * Streams puzzle definitions from the high-memory binary catalog emitted by
+ * `scripts/convert_puzzles.py`, keeping low-memory usage bounded to a single
+ * record at a time.
  */
 
 #ifndef PUZZLE_DATA_H
 #define PUZZLE_DATA_H
 
-#include "f256lib.h"
+#include "platform_f256.h"
 #include "../src/game_state.h"
 #include "../src/board.h"
 #include <stdint.h>
@@ -53,14 +54,14 @@ typedef struct {
 
 // Puzzle collection
 typedef struct {
-    uint8_t count;
-    const puzzle_t **puzzles;  // Array of pointers to puzzles
+    uint16_t count;
+    const puzzle_t **puzzles;  // Legacy pointer array (unused in streaming mode)
 } puzzle_collection_t;
 
 // Get the global puzzle collection
 const puzzle_collection_t *get_puzzle_collection(void);
 
-// Get puzzle by index
+// Get puzzle by index. Returned pointer remains valid until the next call.
 const puzzle_t *get_puzzle_by_index(uint8_t index);
 
 // Convert swap rule string to enum

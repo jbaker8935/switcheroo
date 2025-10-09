@@ -73,7 +73,11 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 
 - WHEN the user activates the Reset icon, THE SYSTEM SHALL restore the board to
   the currently chosen starting layout and reset swapped states and
-  move history for the active session.
+  move history for the active session, loading the selected puzzle layout when
+  puzzle data is available.
+- IF no puzzles are available when the user activates the Reset icon, THEN THE
+  SYSTEM SHALL restore the default gameplay layout and reaffirm that no puzzles
+  are available in the puzzle information panel.
 - WHEN the user activates the Information icon, THE SYSTEM SHALL present an
   overlay containing the condensed rules and controls until dismissed via mouse
   click or Escape.
@@ -88,7 +92,8 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the user activates the Exit icon, THE SYSTEM SHALL prompt for
   confirmation and quit the application only on affirmative response.
 - WHEN at least one move has been made in the game, THE SYSTEM SHALL disable the Starting Board icon and will enable the Move History icon.
-- WHEN the game is initialized, THE SYSTEM SHALL enable the Starting Board icon and disable the Move History icon.
+- WHEN the game is initialized, THE SYSTEM SHALL enable the Starting Board icon if at least one puzzle exists and disable the Move History icon.
+- IF the puzzle catalog contains no entries, THEN THE SYSTEM SHALL disable the Starting Board icon and display the text "No puzzles available" in the puzzle information panel until puzzle data is loaded.
 - WHEN an icon is disabled, THE SYSTEM SHALL display the icon with the disabled state consistent with the UI them and the icon will not display the hover state when the mouse is positioned over the disabled icon
 - THE SYSTEM SHALL provide a Settings menu accessible via long-press or
   right-click on any menu icon, offering options for color schemes, AI move
@@ -200,6 +205,38 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the video subsystem initializes, THE SYSTEM SHALL upload the generated
   placeholder bitmap and sprite assets into VICKY VRAM so hardware tests can
   exercise populated bitmap and sprite layers.
+
+### Puzzle Data Management
+
+- WHEN the puzzle conversion script executes, THE SYSTEM SHALL emit a binary
+  catalog whose record layout matches the runtime deserializer contract so the
+  data can be embedded in high memory without further transformation.
+- WHEN gameplay code requests the puzzle count, THE SYSTEM SHALL read the
+  high-memory catalog header via far-memory access and expose the total as an
+  unsigned value without caching the entire dataset in low memory.
+- WHEN a specific puzzle is requested, THE SYSTEM SHALL stream exactly one
+  puzzle record from high memory into dedicated low-memory buffers sized for
+  the identifier, piece list, and solution steps, keeping aggregate low-memory
+  usage bounded regardless of catalog size.
+- WHEN a new play session begins or the board resets while puzzles are
+  available, THE SYSTEM SHALL automatically apply the currently selected puzzle
+  to the board and synchronize swap rules, AI configuration, and puzzle
+  metadata displays.
+- WHEN the puzzle catalog header is read, THE SYSTEM SHALL display diagnostic
+  text reporting the puzzle count and embed base address in the text display
+  region to aid hardware validation.
+- WHEN a puzzle record is streamed from high memory, THE SYSTEM SHALL display
+  diagnostic text containing the one-based puzzle index and identifier in the
+  text display region.
+- IF the puzzle catalog contains zero entries when a new play session begins or
+  the board resets, THEN THE SYSTEM SHALL fall back to the standard gameplay
+  layout and display the "No puzzles available" status message.
+- IF a puzzle request references an index beyond the catalog count, THEN THE
+  SYSTEM SHALL display a diagnostic error message showing the requested index
+  and the available catalog count.
+- IF a puzzle index exceeds the stored puzzle count, THEN THE SYSTEM SHALL
+  return no puzzle and leave previously populated buffers unchanged to prevent
+  the caller from reading invalid data.
 
 ## Non-Functional Requirements
 

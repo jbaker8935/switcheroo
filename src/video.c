@@ -1,4 +1,4 @@
-#include "f256lib.h"
+#include "../src/platform_f256.h"
 #include <stdint.h>
 #include <stddef.h>
 #include "../src/board.h"
@@ -9,6 +9,7 @@
 #define PS2_M_Y_LO    0xD6E4
 
 // EMBED statements for assets at specific memory addresses
+EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x30000);
 EMBED(board_bitmap, "../assets/generated/board_bitmap.bin", 0x44000);
 EMBED(piece_bitmap_a_normal, "../assets/generated/piece_bitmap_a_normal.bin", 0x56c00);
 EMBED(piece_bitmap_a_swapped, "../assets/generated/piece_bitmap_a_swapped.bin", 0x58000);

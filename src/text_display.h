@@ -1,4 +1,4 @@
-#include "f256lib.h"
+#include "../src/platform_f256.h"
 #include "../src/game_state.h"
 
 /*
@@ -31,3 +31,5 @@ void print_puzzle_hint(const char *hint);
 void clear_puzzle_hint(void);
 void print_move_history(const move_t *history, uint8_t move_count);
 void clear_puzzle_info(void);
+void print_puzzle_debug(const char *line1, const char *line2);
+void clear_puzzle_debug(void);

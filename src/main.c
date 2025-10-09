@@ -6,7 +6,7 @@
 #include "../src/input.h"
 #include "../src/input_handler.h"
 #include "../src/render.h"
-#include "f256lib.h"
+#include "../src/platform_f256.h"
 #include "../src/text_display.h"
 
 // Forward declarations

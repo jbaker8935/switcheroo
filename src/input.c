@@ -4,7 +4,7 @@
  */
 
 #include "../src/input.h"
-#include "f256lib.h"
+#include "../src/platform_f256.h"
 #include <string.h>
 
 // PS/2 Mouse hardware registers
