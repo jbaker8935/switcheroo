@@ -1,12 +1,13 @@
 # Puzzle Data Converter for F256 Switcharoo
 
-This script converts JSON puzzle data to C source files for the F256 Switcharoo game.
+This script converts JSON puzzle data into the fixed-record binary catalog used
+by the F256 Switcharoo game.
 
 Usage:
-    python3 scripts/convert_puzzles.py output.c input1.json [input2.json ...]
+  python3 scripts/convert_puzzles.py output.bin input1.json [input2.json ...]
 
-The script reads puzzle data from a JSON file and generates a C source file with
-compact binary representations suitable for embedded systems.
+The script reads puzzle data from the provided JSON files and generates a binary
+catalog whose layout matches the runtime deserialiser described in `design.md`.
 
 JSON Input Format:
 ```json
@@ -35,10 +36,10 @@ JSON Input Format:
 }
 ```
 
-The generated C file will contain:
-- Compact binary representations of piece positions and moves
-- Puzzle collection structure for easy access
-- Helper functions for puzzle management
+The generated binary file contains:
+- 16-bit puzzle count header
+- Fixed-width puzzle records (identifier, swap rule, difficulty, solved flag)
+- Normalised starting positions and packed example solutions
 
 Example:
-    python3 scripts/convert_puzzles.py src/puzzle_data.c classic_d2.json classic_d3.json swapped_clears_d3.json
+  python3 scripts/convert_puzzles.py assets/generated/puzzle_data.bin classic_d2.json classic_d3.json swapped_clears_d3.json

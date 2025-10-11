@@ -1,5 +1,6 @@
 #define WITHOUT_TILE
 #define WITHOUT_PLATFORM
+#define WITHOUT_FILE
 #define F256LIB_IMPLEMENTATION
 
 #include "../src/game_state.h"
@@ -14,7 +15,7 @@ extern void platform_bootstrap(void);
 extern void platform_idle(void);
 extern void video_init(const void *config);
 extern void video_reset(void);
-
+extern void display_test(void);
 // Global game state
 static game_state_t g_game_state;
 
