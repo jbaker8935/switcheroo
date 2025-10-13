@@ -185,9 +185,24 @@ static const ai_eval_weights_t kRuleWeights[4] = {
     { 55, 40, 40, 36, 24 }  // Swapped Clears Own
 };
 
-static void ai_board_copy(board_t *dest, const board_t *src) {
+void FAR8_ai_board_copy(board_t *dest, const board_t *src);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+void ai_board_copy(board_t *dest, const board_t *src) {
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;    
+    FAR8_ai_board_copy(dest, src);
+	*(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+void FAR8_ai_board_copy(board_t *dest, const board_t *src) {
     memcpy(dest, src, sizeof(board_t));
 }
+
 
 static uint8_t ai_popcount(uint8_t value) {
     value = (value & 0x55u) + ((value >> 1) & 0x55u);
@@ -392,7 +407,24 @@ static bool ai_is_killer(const ai_search_context_t *ctx, uint8_t ply, const move
     return false;
 }
 
-static void  ai_compute_connection_metrics(const board_t *board, player_t player,
+
+void FAR8_ai_compute_connection_metrics(const board_t *board, player_t player,
+                                                             ai_connection_metrics_t *out);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+void ai_compute_connection_metrics(const board_t *board, player_t player,
+                                                             ai_connection_metrics_t *out) {
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    FAR8_ai_compute_connection_metrics(board, player, out);
+	*(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+void  FAR8_ai_compute_connection_metrics(const board_t *board, player_t player,
                                                              ai_connection_metrics_t *out) {
     uint8_t parent[BOARD_CELLS];
     uint8_t row_mask[BOARD_CELLS];
@@ -491,7 +523,23 @@ static void  ai_compute_connection_metrics(const board_t *board, player_t player
     }
 }
 
-static uint8_t  ai_count_bridge_potential(const board_t *board, player_t player) {
+uint8_t FAR8_ai_count_bridge_potential(const board_t *board, player_t player);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+uint8_t ai_count_bridge_potential(const board_t *board, player_t player) {
+    uint8_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    return_value = FAR8_ai_count_bridge_potential(board, player);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+uint8_t FAR8_ai_count_bridge_potential(const board_t *board, player_t player) {
     uint8_t bridges = 0;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -525,7 +573,25 @@ static uint8_t  ai_count_bridge_potential(const board_t *board, player_t player)
     return bridges;
 }
 
-static uint8_t  ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule) {
+
+uint8_t FAR8_ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+uint8_t ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule){
+    uint8_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    return_value = FAR8_ai_measure_swap_pressure(board, player, rule);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+uint8_t  FAR8_ai_measure_swap_pressure(const board_t *board, player_t player, swap_rule_t rule) {
     (void)rule;
     int16_t pressure = 0;
     piece_type_t swapped = (player == PLAYER_WHITE) ? PIECE_WHITE_SWAPPED : PIECE_BLACK_SWAPPED;
@@ -580,7 +646,25 @@ static uint8_t  ai_measure_swap_pressure(const board_t *board, player_t player, 
     return (uint8_t)pressure;
 }
 
-static uint8_t  ai_measure_blocking(const board_t *board, player_t player) {
+
+uint8_t FAR8_ai_measure_blocking(const board_t *board, player_t player);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+uint8_t ai_measure_blocking(const board_t *board, player_t player){
+    uint8_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    return_value = FAR8_ai_measure_blocking(board, player);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+uint8_t  FAR8_ai_measure_blocking(const board_t *board, player_t player) {
     player_t opponent = (player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
     uint8_t blocking = 0;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
@@ -611,7 +695,24 @@ static uint8_t  ai_measure_blocking(const board_t *board, player_t player) {
     return blocking;
 }
 
-static uint16_t ai_measure_mobility(const board_t *board, player_t player) {
+uint16_t FAR8_ai_measure_mobility(const board_t *board, player_t player);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+uint16_t ai_measure_mobility(const board_t *board, player_t player) {
+    uint16_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    return_value = FAR8_ai_measure_mobility(board, player);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+ 
+ uint16_t FAR8_ai_measure_mobility(const board_t *board, player_t player) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -641,7 +742,23 @@ static int16_t ai_clamp_score(int32_t value) {
     return (int16_t)value;
 }
 
-static bool  ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule) {
+bool  FAR8_ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule) {
+    bool return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    return_value = FAR8_ai_immediate_win_available(board, player, rule);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+bool  FAR8_ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -673,7 +790,24 @@ static bool  ai_immediate_win_available(const board_t *board, player_t player, s
     return false;
 }
 
-static bool  ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
+
+bool  FAR9_ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+bool ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
+    bool return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 9;
+    return_value = FAR9_ai_forcing_move_available(board, player, rule);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block9")))
+bool  FAR9_ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule) {
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -757,7 +891,26 @@ static bool  ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
     return false;
 }
 
-static uint8_t  ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
+
+uint8_t FAR9_ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
+                                                    ai_ordered_move_t *out_moves, uint8_t ply);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+uint8_t ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
+                                                    ai_ordered_move_t *out_moves, uint8_t ply) {
+    uint8_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 9;
+    return_value = FAR9_ai_generate_moves(board, ctx, out_moves, ply);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block9")))
+uint8_t FAR9_ai_generate_moves(const board_t *board, const ai_search_context_t *ctx,
                                                     ai_ordered_move_t *out_moves, uint8_t ply) {
     board_t scratch;
     ai_board_copy(&scratch, board);
@@ -822,7 +975,28 @@ static uint8_t  ai_generate_moves(const board_t *board, const ai_search_context_
     return count;
 }
 
-static int16_t  ai_agent_evaluate_internal(const board_t *board, player_t perspective,
+
+int16_t FAR9_ai_agent_evaluate_internal(const board_t *board, player_t perspective,
+                                                             const ai_config_t *config,
+                                                             ai_eval_breakdown_t *breakdown);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+int16_t ai_agent_evaluate_internal(const board_t *board, player_t perspective,
+                                                             const ai_config_t *config,
+                                                            ai_eval_breakdown_t *breakdown) {
+    int16_t return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 9;
+    return_value = FAR9_ai_agent_evaluate_internal(board, perspective, config, breakdown);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block9")))
+int16_t FAR9_ai_agent_evaluate_internal(const board_t *board, player_t perspective,
                                                              const ai_config_t *config,
                                                              ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
@@ -898,8 +1072,31 @@ static int16_t  ai_agent_evaluate_internal(const board_t *board, player_t perspe
     return ai_clamp_score(total);
 }
 
-static bool  ai_select_move_heuristic(board_t *root,
+
+
+
+bool  FAR9_ai_select_move_heuristic(board_t *root,
                                                         const ai_config_t *config,
+                                                        move_t *out_move,
+                                                        uint32_t *out_nodes);
+
+#pragma clang optimize off
+__attribute__((noinline))
+
+bool  ai_select_move_heuristic(board_t *root, const ai_config_t *config,
+                                                        move_t *out_move,
+                                                        uint32_t *out_nodes) {
+    bool return_value;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 9;
+    return_value = FAR9_ai_select_move_heuristic(root, config, out_move, out_nodes);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block9")))
+bool  FAR9_ai_select_move_heuristic(board_t *root, const ai_config_t *config,
                                                         move_t *out_move,
                                                         uint32_t *out_nodes) {
     ai_ordered_move_t moves[AI_MAX_ORDERED_MOVES];
@@ -980,7 +1177,27 @@ static bool ai_search_should_abort(ai_search_context_t *ctx) {
     return false;
 }
 
-static int16_t  ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
+int16_t  FAR8_ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
+                                             uint8_t ply, uint8_t extensions_used, int16_t alpha,
+                                             int16_t beta, move_t *out_move);
+
+#pragma clang optimize off
+__attribute__((noinline))
+int16_t ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
+                                             uint8_t ply, uint8_t extensions_used, int16_t alpha,
+                                             int16_t beta, move_t *out_move) {
+    int16_t result;
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    result = FAR8_ai_negamax(board, ctx, depth, ply, extensions_used, alpha, beta, out_move);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return result;
+}
+#pragma clang optimize on
+
+
+__attribute__((noinline, section(".block8")))
+int16_t  FAR8_ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth,
                                              uint8_t ply, uint8_t extensions_used, int16_t alpha,
                                              int16_t beta, move_t *out_move) {
     if (ctx->abort) {
@@ -1120,7 +1337,23 @@ static int16_t  ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t dep
     return value;
 }
 
+void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
+                   ai_difficulty_t difficulty, player_t ai_player);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
+                   ai_difficulty_t difficulty, player_t ai_player) {
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+	*(volatile unsigned char *)0x000d = 8;
+    FAR8_ai_agent_init(config, swap_rule, difficulty, ai_player);
+	*(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+
+__attribute__((noinline, section(".block8")))
+void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
                    ai_difficulty_t difficulty, player_t ai_player) {
     if (!config) {
         return;
@@ -1185,7 +1418,24 @@ void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
     s_last_breakdown = (ai_eval_breakdown_t){ 0 };
 }
 
-static bool  ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
+
+bool FAR8_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
+
+#pragma clang optimize off
+__attribute__((noinline))
+bool ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
+                                                            move_t *out_move) {
+	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    bool ret;
+	*(volatile unsigned char *)0x000d = 8;
+    ret = FAR8_ai_agent_find_best_move_impl(board, config, out_move);
+	*(volatile unsigned char *)0x000d = ___mmu;
+    return ret;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+bool  FAR8_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
                                                             move_t *out_move) {
     board_t root;
     player_t to_move;

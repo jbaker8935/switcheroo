@@ -2,7 +2,7 @@
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include "../src/puzzle_data.h"
-#include "../src/twidget.h"
+// #include "../src/twidget.h"
 #include <string.h>
 
 /*
@@ -302,68 +302,68 @@ char get_mode_callback(unsigned char x, unsigned char y) {
 }
 
 
-void display_test() {
-    CharMap char_map;
-    Checkbox checkbox1, checkbox2, checkbox3;
-    RadioGroup radio1, radio2;
-    Dropdown dropdown1, dropdown2;
+// void display_test() {
+//     CharMap char_map;
+//     Checkbox checkbox1, checkbox2, checkbox3;
+//     RadioGroup radio1, radio2;
+//     Dropdown dropdown1, dropdown2;
 
-    char_map.radio_unselected = 'o';      /* ○ */
-    char_map.radio_selected = '*';        /* ● */
-    char_map.checkbox_unchecked = '[';    /* ☐ */
-    char_map.checkbox_checked = 'X';      /* ☑ */
-    char_map.box_down_right = '+';        /* ┌ */
-    char_map.box_down_left = '+';         /* ┐ */
-    char_map.box_horizontal = '-';        /* ─ */
-    char_map.box_vertical = '|';          /* │ */
-    char_map.box_up_right = '+';          /* └ */
-    char_map.box_up_left = '+';           /* ┘ */
+//     char_map.radio_unselected = 'o';      /* ○ */
+//     char_map.radio_selected = '*';        /* ● */
+//     char_map.checkbox_unchecked = '[';    /* ☐ */
+//     char_map.checkbox_checked = 'X';      /* ☑ */
+//     char_map.box_down_right = '+';        /* ┌ */
+//     char_map.box_down_left = '+';         /* ┐ */
+//     char_map.box_horizontal = '-';        /* ─ */
+//     char_map.box_vertical = '|';          /* │ */
+//     char_map.box_up_right = '+';          /* └ */
+//     char_map.box_up_left = '+';           /* ┘ */
 
-    widget_init(display_char_callback, get_char_callback, get_mode_callback, &char_map);
+//     widget_init(display_char_callback, get_char_callback, get_mode_callback, &char_map);
 
-    /* Checkbox without box - unchecked */
-    checkbox_create(&checkbox1, 2, 30, "Enable Sound", 0);
-    checkbox_draw(&checkbox1);
+//     /* Checkbox without box - unchecked */
+//     checkbox_create(&checkbox1, 2, 30, "Enable Sound", 0);
+//     checkbox_draw(&checkbox1);
     
-    /* Checkbox with box - checked */
-    checkbox_create(&checkbox2, 2, 32, "Enable Music", 1);
-    checkbox_set_checked(&checkbox2, 1);
+//     /* Checkbox with box - checked */
+//     checkbox_create(&checkbox2, 2, 32, "Enable Music", 1);
+//     checkbox_set_checked(&checkbox2, 1);
     
-    /* Checkbox with box - unchecked */
-    checkbox_create(&checkbox3, 2, 34, "Show FPS", 1);
-    checkbox_draw(&checkbox3);
+//     /* Checkbox with box - unchecked */
+//     checkbox_create(&checkbox3, 2, 34, "Show FPS", 1);
+//     checkbox_draw(&checkbox3);
 
-        /* Vertical radio group without box */
-    radio_create(&radio1, 2, 36, LAYOUT_VERTICAL, 0);
-    radio_add_item(&radio1, "Easy", 0, 0);
-    radio_add_item(&radio1, "Medium", 0, 1);
-    radio_add_item(&radio1, "Hard", 0, 2);
-    radio_add_item(&radio1, "Insane", 0, 3);
-    radio_set_selected(&radio1, 1);  /* Select "Medium" */
+//         /* Vertical radio group without box */
+//     radio_create(&radio1, 2, 36, LAYOUT_VERTICAL, 0);
+//     radio_add_item(&radio1, "Easy", 0, 0);
+//     radio_add_item(&radio1, "Medium", 0, 1);
+//     radio_add_item(&radio1, "Hard", 0, 2);
+//     radio_add_item(&radio1, "Insane", 0, 3);
+//     radio_set_selected(&radio1, 1);  /* Select "Medium" */
     
-    /* Horizontal radio group with box */
-    radio_create(&radio2, 2, 42, LAYOUT_HORIZONTAL, 1);
-    radio_add_item(&radio2, "1P", 0, 0);
-    radio_add_item(&radio2, "2P", 6, 0);
-    radio_add_item(&radio2, "3P", 12, 0);
-    radio_add_item(&radio2, "4P", 18, 0);
-    radio_set_selected(&radio2, 0);  /* Select "1P" */
+//     /* Horizontal radio group with box */
+//     radio_create(&radio2, 2, 42, LAYOUT_HORIZONTAL, 1);
+//     radio_add_item(&radio2, "1P", 0, 0);
+//     radio_add_item(&radio2, "2P", 6, 0);
+//     radio_add_item(&radio2, "3P", 12, 0);
+//     radio_add_item(&radio2, "4P", 18, 0);
+//     radio_set_selected(&radio2, 0);  /* Select "1P" */
 
-    dropdown_create(&dropdown1, 2, 44, 0);
-    dropdown_add_item(&dropdown1, "320x240");
-    dropdown_add_item(&dropdown1, "640x480");
-    dropdown_add_item(&dropdown1, "800x600");
-    dropdown_add_item(&dropdown1, "1024x768");
-    dropdown_set_selected(&dropdown1, 1);  /* Select "640x480" */
-    dropdown_draw(&dropdown1);
+//     dropdown_create(&dropdown1, 2, 44, 0);
+//     dropdown_add_item(&dropdown1, "320x240");
+//     dropdown_add_item(&dropdown1, "640x480");
+//     dropdown_add_item(&dropdown1, "800x600");
+//     dropdown_add_item(&dropdown1, "1024x768");
+//     dropdown_set_selected(&dropdown1, 1);  /* Select "640x480" */
+//     dropdown_draw(&dropdown1);
     
-    /* Dropdown with box - collapsed */
-    dropdown_create(&dropdown2, 2, 46, 1);
-    dropdown_add_item(&dropdown2, "NTSC");
-    dropdown_add_item(&dropdown2, "PAL");
-    dropdown_add_item(&dropdown2, "RGB");
-    dropdown_set_selected(&dropdown2, 0);  /* Select "NTSC" */
-    dropdown_draw(&dropdown2);   
+//     /* Dropdown with box - collapsed */
+//     dropdown_create(&dropdown2, 2, 46, 1);
+//     dropdown_add_item(&dropdown2, "NTSC");
+//     dropdown_add_item(&dropdown2, "PAL");
+//     dropdown_add_item(&dropdown2, "RGB");
+//     dropdown_set_selected(&dropdown2, 0);  /* Select "NTSC" */
+//     dropdown_draw(&dropdown2);   
 
 
-}
+// }
