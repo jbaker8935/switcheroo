@@ -22,6 +22,7 @@
 void print_formatted_text(uint8_t x, uint8_t y, const char *text);
 void print_win_loss(uint16_t win_count, uint16_t loss_count);
 void print_current_player(player_t player);
+void print_game_winner(player_t winner);
 void print_game_mode(bool is_puzzle_mode);
 void print_swap_rule(swap_rule_t rule);
 void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,

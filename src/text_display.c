@@ -2,6 +2,7 @@
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include "../src/puzzle_data.h"
+#include "../src/mouse_pointer.h"
 // #include "../src/twidget.h"
 #include <string.h>
 
@@ -62,8 +63,19 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count) {
     textPrintUInt(loss_count);
 }
 
+void print_game_winner(player_t winner) {
+    const char *win_str = (winner == PLAYER_WHITE) ? "Human Player Wins!     " : "AI Agent Wins!         ";
+    print_formatted_text(0, 1, win_str);
+    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+}
+
 void print_current_player(player_t player) {
     const char *player_str = (player == PLAYER_WHITE) ? "Human Player's Move" : "AI Agent Thinking ...";
+    if (player == PLAYER_WHITE) {
+        set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+    } else {
+        set_mouse_cursor(MOUSE_CURSOR_BUSY);
+    }
     print_formatted_text(0,1, player_str);
 }
 

@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "../src/board.h"
+#include "../src/mouse_pointer.h"
 
 // PS/2 Mouse hardware registers (not in f256lib.h)
 #define PS2_M_MODE_EN 0xD6E0
@@ -321,6 +322,7 @@ void video_init(const video_config_t *config) {
 
     // Initialize PS/2 mouse hardware
     // Mouse coordinate system is always 640x480 regardless of video mode
+    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     POKE(PS2_M_MODE_EN, 0x01);      // Enable mouse (bit0=enable, bit1=mode)
     POKEW(PS2_M_X_LO, 320);         // Center mouse at 320x240 (center of 640x480)
     POKEW(PS2_M_Y_LO, 240);

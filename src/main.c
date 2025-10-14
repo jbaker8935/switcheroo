@@ -10,6 +10,7 @@
 #include "../src/platform_f256.h"
 #include "../src/text_display.h"
 
+
 // Forward declarations
 extern void platform_bootstrap(void);
 extern void platform_idle(void);
@@ -47,14 +48,19 @@ int main(int argc, char *argv[])
 
     
     print_ai_difficulty(g_game_state.ai_config.difficulty);
-    // print_game_mode(g_game_state.game_mode);
-    print_swap_rule(g_game_state.ai_config.swap_rule);
-
+    
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)
     {
+        // print_game_mode(g_game_state.game_mode);
+        print_swap_rule(g_game_state.ai_config.swap_rule);
 
         // Update game state
         game_state_update(&g_game_state, 1.0f / 60.0f);
+
+        if(g_game_state.phase == GAME_PHASE_GAME_OVER) {
+            print_game_winner(g_game_state.win_path.winner);
+        }
+
         if (g_game_state.board.move_count != old_move_count)
         {
             print_move_history(g_game_state.board.history, g_game_state.board.history_count);
