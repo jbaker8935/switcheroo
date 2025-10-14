@@ -9,7 +9,7 @@
 // Layout constants from video.c
 #define SCREEN_WIDTH 320u
 #define SCREEN_HEIGHT 240u
-#define BOARD_CELL_SIZE 28u
+#define BOARD_CELL_SIZE 26u
 #define ICON_SIZE 16u
 #define BOARD_BORDER 4u
 

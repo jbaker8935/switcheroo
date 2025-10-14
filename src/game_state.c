@@ -89,9 +89,9 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce) 
     ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
 
     if (announce) {
-        uint8_t total_puzzles = (collection->count > UINT8_MAX)
-                                    ? UINT8_MAX
-                                    : (uint8_t)collection->count;
+        uint16_t total_puzzles = (collection->count > UINT16_MAX)
+                                    ? UINT16_MAX
+                                    : (uint16_t)collection->count;
         print_puzzle_info(state->prefs.current_puzzle_index, total_puzzles, puzzle->difficulty, puzzle->is_solved);
         clear_puzzle_hint();
     }

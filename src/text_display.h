@@ -24,7 +24,7 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count);
 void print_current_player(player_t player);
 void print_game_mode(bool is_puzzle_mode);
 void print_swap_rule(swap_rule_t rule);
-void print_puzzle_info(uint8_t puzzle_index, uint8_t total_puzzles,
+void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
                       uint8_t puzzle_difficulty, bool is_solved);
 void print_ai_difficulty(ai_difficulty_t difficulty);
 void print_puzzle_hint(const char *hint);

@@ -98,7 +98,7 @@ if len(MODERN_COLOR_PALETTE) <= CLUT_FOCUS:
 # Board configuration
 BOARD_COLUMNS = 4
 BOARD_ROWS = 8
-CELL_SIZE = 28
+CELL_SIZE = 26
 BOARD_WIDTH = BOARD_COLUMNS * CELL_SIZE + 8 + 3
 BOARD_HEIGHT = BOARD_ROWS * CELL_SIZE + 8 + 7
 
@@ -109,6 +109,17 @@ SCREEN_HEIGHT = 240
 # Asset definitions
 PIECE_SIZE = 24
 ICON_SIZE = 16
+
+# Gradient types for background patterns
+GRADIENT_TYPES = [
+    ("linear_horizontal", lambda x, y, w, h: int((x / w) * 30)),
+    ("linear_vertical", lambda x, y, w, h: int((y / h) * 30)),
+    ("radial", lambda x, y, w, h: int(math.sqrt((x - w/2)**2 + (y - h/2)**2) / math.sqrt((w/2)**2 + (h/2)**2) * 30)),
+    ("conic", lambda x, y, w, h: int(((math.atan2(y - h/2, x - w/2) + math.pi) / (2 * math.pi)) * 30)),
+    ("procedural", lambda x, y, w, h: int((math.sin(x / 20) + math.cos(y / 20)) * 15 + 15)),
+    ("multi_stop", lambda x, y, w, h: int((x / w + y / h) / 2 * 30)),
+    ("function_mapping", lambda x, y, w, h: int((math.sin(x / 10) * math.cos(y / 10) + 1) * 15)),
+]
 
 
 def ensure_directory(path: Path) -> None:
@@ -122,8 +133,8 @@ def write_binary(path: Path, data: bytes) -> None:
     path.write_bytes(data)
 
 
-def generate_board_bitmap() -> bytes:
-    """Generate 320x240 board bitmap with centered 4x8 checkerboard."""
+def generate_board_bitmap_with_gradient(gradient_func) -> bytes:
+    """Generate 320x240 board bitmap with centered 4x8 checkerboard and gradient background."""
     # Calculate board position (centered)
     board_x = (SCREEN_WIDTH - BOARD_WIDTH) // 2
     board_y = (SCREEN_HEIGHT - BOARD_HEIGHT) // 2
@@ -146,8 +157,10 @@ def generate_board_bitmap() -> bytes:
             )
             
             if not in_board_area:
-                # Outside board area - use first board cell color as background
-                buffer[idx] = CLUT_BOARD_CELLS[0]
+                # Outside board area - use gradient pattern
+                gradient_index = min(30, max(0, gradient_func(x, y, SCREEN_WIDTH, SCREEN_HEIGHT)))
+                clut_index = 34 + gradient_index
+                buffer[idx] = clut_index
                 continue
             # in Board Area
             # Check if we're in the border area
@@ -208,18 +221,21 @@ def generate_png_assets(output_dir: Path, binary_assets: dict[str, bytes]) -> No
     png_dir = output_dir / "png"
     ensure_directory(png_dir)
     
-    # Board bitmap
-    board_data = binary_assets["board_bitmap.bin"]
-    create_png_from_clut_data(board_data, SCREEN_WIDTH, SCREEN_HEIGHT, 
-                            png_dir / "board_bitmap.png")
+    # Generate PNGs for board bitmaps
+    for filename, data in binary_assets.items():
+        if filename.startswith("board_bitmap_") and filename.endswith(".bin"):
+            png_name = filename.replace(".bin", ".png")
+            create_png_from_clut_data(data, SCREEN_WIDTH, SCREEN_HEIGHT, 
+                                    png_dir / png_name)
     
 
 def generate_assets(output_dir: Path) -> dict[str, bytes]:
     """Generate all game assets."""
     assets = {}
     
-    # Board bitmap
-    assets["board_bitmap.bin"] = generate_board_bitmap()
+    # Generate board bitmaps for each gradient type
+    for gradient_name, gradient_func in GRADIENT_TYPES:
+        assets[f"board_bitmap_{gradient_name}.bin"] = generate_board_bitmap_with_gradient(gradient_func)
     
        
     # Write all binary assets to files
@@ -258,6 +274,21 @@ def main() -> None:
     print(f"Generating assets to {output_dir}")
     assets = generate_assets(output_dir)
 
+    # Write gradient details to a file
+    gradient_details_path = output_dir / "gradient_details.txt"
+    with open(gradient_details_path, 'w') as f:
+        f.write("Gradient Background Patterns for Board Bitmaps\n")
+        f.write("=" * 50 + "\n\n")
+        for name, _ in GRADIENT_TYPES:
+            f.write(f"- {name}: board_bitmap_{name}.bin / board_bitmap_{name}.png\n")
+        f.write("\nDescriptions:\n")
+        f.write("- linear_horizontal: Horizontal gradient from left to right\n")
+        f.write("- linear_vertical: Vertical gradient from top to bottom\n")
+        f.write("- radial: Radial gradient from center outward\n")
+        f.write("- conic: Conic gradient based on angle from center\n")
+        f.write("- procedural: Sine and cosine wave pattern\n")
+        f.write("- multi_stop: Average of horizontal and vertical gradients\n")
+        f.write("- function_mapping: Sine product function mapping\n")
     
     print(f"Generated {len(assets)} binary assets:")
     for filename in sorted(assets.keys()):
@@ -268,6 +299,8 @@ def main() -> None:
     print(f"Generated {len(png_files)} PNG assets:")
     for png_file in sorted(png_files):
         print(f"  {png_file.name}")
+    
+    print(f"Gradient details written to {gradient_details_path}")
 
 
 if __name__ == "__main__":

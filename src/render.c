@@ -17,7 +17,7 @@ extern void video_reset_all_board_cell_colors(void);
 // Constants from video.c (should eventually be in a shared header)
 #define VIDEO_SCREEN_WIDTH 320u
 #define VIDEO_SCREEN_HEIGHT 240u
-#define VIDEO_BOARD_CELL_SIZE 28u
+#define VIDEO_BOARD_CELL_SIZE 26u
 #define VIDEO_PIECE_SPRITE_SIZE 24u
 #define VIDEO_ICON_SPRITE_SIZE 16u
 #define VIDEO_BOARD_COLUMNS 4u
@@ -165,13 +165,12 @@ void render_invalidate_cache(void) {
 void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y) {
     const int16_t first_cell_x = s_board_x + 4;
     const int16_t first_cell_y = s_board_y + 4;
-
+    const uint16_t cell_offset = (VIDEO_BOARD_CELL_SIZE - VIDEO_PIECE_SPRITE_SIZE) / 2;
     // Use the board definition: first cell is at (s_board_x + 4, s_board_y + 4).
     // Each cell is VIDEO_BOARD_CELL_SIZE pixels with a 1px separator, so
-    // stride = VIDEO_BOARD_CELL_SIZE + 1. Pieces must be inset 2px from the
-    // cell origin to leave a 2px margin around a 24x24 sprite in a 28x28 cell.
-    const int16_t cell_x = first_cell_x + (col * (VIDEO_BOARD_CELL_SIZE + 1)) + 2;
-    const int16_t cell_y = first_cell_y + (row * (VIDEO_BOARD_CELL_SIZE + 1)) + 2;
+    // stride = VIDEO_BOARD_CELL_SIZE + 1. Center piece within cell.
+    const int16_t cell_x = first_cell_x + (col * (VIDEO_BOARD_CELL_SIZE + 1)) + cell_offset;
+    const int16_t cell_y = first_cell_y + (row * (VIDEO_BOARD_CELL_SIZE + 1)) + cell_offset;
 
     if (x) *x = (uint16_t)cell_x;
     if (y) *y = (uint16_t)cell_y;

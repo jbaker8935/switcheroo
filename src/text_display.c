@@ -133,7 +133,7 @@ void clear_puzzle_debug(void) {
     print_puzzle_debug("", "");
 }
 
-void print_puzzle_info(uint8_t puzzle_index, uint8_t total_puzzles, 
+void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles, 
                        uint8_t puzzle_difficulty, bool is_solved) {
     char *buf = "";
     

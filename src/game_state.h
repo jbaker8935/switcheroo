@@ -44,7 +44,7 @@ typedef struct {
 typedef struct {
     uint8_t difficulty_level;     // 0=Learning, 1=Easy, 2=Standard, 3=Expert
     swap_rule_t swap_rule;        // Current swap rule preference
-    uint8_t current_puzzle_index; // Index of currently selected puzzle
+    uint16_t current_puzzle_index; // Index of currently selected puzzle
     uint8_t color_scheme;         // Theme index
     bool ai_explanations_enabled;
     bool audio_enabled;

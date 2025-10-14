@@ -101,7 +101,7 @@ void video_reset_all_board_cell_colors(void);
 
 #define VIDEO_SCREEN_WIDTH 320u
 #define VIDEO_SCREEN_HEIGHT 240u
-#define VIDEO_BOARD_CELL_SIZE 28u
+#define VIDEO_BOARD_CELL_SIZE 26u
 #define VIDEO_PIECE_SPRITE_SIZE 24u
 #define VIDEO_ICON_SPRITE_SIZE 16u
 #define VIDEO_BOARD_COLUMNS 4u
@@ -177,12 +177,6 @@ void video_reset_all_board_cell_colors(void);
 
 #define VIDEO_PRIMARY_CLUT 0
 #define VIDEO_BITMAP_PAGE 2
-
-#define VIDEO_SCREEN_WIDTH 320u
-#define VIDEO_SCREEN_HEIGHT 240u
-#define VIDEO_BOARD_CELL_SIZE 28u
-#define VIDEO_PIECE_SPRITE_SIZE 24u
-#define VIDEO_ICON_SPRITE_SIZE 16u
 
 // VRAM layout - bitmap at fixed address
 #define VIDEO_VRAM_BITMAP_BASE 0x44000u
@@ -356,6 +350,12 @@ static void video_setup_clut(const video_palette_t *palette) {
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_BOARD_BORDER, 
                        palette->board_border.r, palette->board_border.g, palette->board_border.b);
     
+    // Add placeholder greyscale for gradients
+    for (uint8_t i = 0; i < 31; ++i) {
+        const uint8_t base = 60;
+        graphicsDefineColor(VIDEO_PRIMARY_CLUT, 34 + i, base + i * 2, base + i * 2, base + i * 2);
+    }
+
     // Set piece sprite colors (slots 65-76) - modern blue/purple theme
     // Player A colors - Blue theme
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_A_EDGE_1, 0x4A, 0x90, 0xE2);  // Light blue edge
