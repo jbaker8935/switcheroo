@@ -25,23 +25,77 @@ static const piece_type_t kStartingLayout0[BOARD_ROWS][BOARD_COLS] = {
     { PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL }
 };
 
+static const piece_type_t kStartingLayout1[BOARD_ROWS][BOARD_COLS] = {
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE }
+};
+
+static const piece_type_t kStartingLayout2[BOARD_ROWS][BOARD_COLS] = {
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL, PIECE_WHITE_NORMAL, PIECE_BLACK_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_NONE }
+};
+
+static const piece_type_t kStartingLayout3[BOARD_ROWS][BOARD_COLS] = {
+    { PIECE_BLACK_NORMAL, PIECE_NONE, PIECE_NONE, PIECE_NONE },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL, PIECE_NONE, PIECE_NONE },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL,  PIECE_NONE, PIECE_NONE },
+    { PIECE_BLACK_NORMAL, PIECE_BLACK_NORMAL,  PIECE_BLACK_NORMAL, PIECE_NONE },
+    { PIECE_NONE, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_WHITE_NORMAL, PIECE_WHITE_NORMAL },
+    { PIECE_NONE, PIECE_NONE, PIECE_NONE, PIECE_WHITE_NORMAL }
+};
+
+
 void board_init(board_t *board) {
     memset(board, 0, sizeof(board_t));
     board_reset(board);
 }
 
 void board_reset(board_t *board) {
-    // Copy default starting layout
-    memcpy(board->cells, kStartingLayout0, sizeof(board->cells));
+    // Copy selected starting layout
+    board_set_starting_layout(board, board->layout_id);
     board->current_player = PLAYER_WHITE;
     board->move_count = 0;
     board->history_count = 0;
 }
 
 void board_set_starting_layout(board_t *board, uint8_t layout_id) {
-    // For now, only layout 0 exists
-    (void)layout_id;
-    board_reset(board);
+    const piece_type_t *layout = kStartingLayout0;
+    switch (layout_id) {
+        case 0:
+            layout = (const piece_type_t *)kStartingLayout0;
+            break;
+        case 1:
+            layout = (const piece_type_t *)kStartingLayout1;
+            break;
+        case 2:
+            layout = (const piece_type_t *)kStartingLayout2;
+            break;
+        case 3:
+            layout = (const piece_type_t *)kStartingLayout3;
+            break;
+        default:
+            layout = (const piece_type_t *)kStartingLayout0;
+            break;
+    }
+    memcpy(board->cells, layout, sizeof(board->cells));
+    board->layout_id = layout_id;
+    board->current_player = PLAYER_WHITE;
+    board->move_count = 0;
+    board->history_count = 0;
 }
 
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {

@@ -1,3 +1,4 @@
+
 #include "../src/puzzle_data.h"
 #include "../src/board.h"
 #include "../src/text_display.h"
@@ -20,7 +21,7 @@ enum {
     PUZZLE_SOLUTION_BYTES = PUZZLE_SOLUTION_WORDS * 2u,
     PUZZLE_HEADER_BYTES = 2u,
     PUZZLE_RECORD_BYTES = PUZZLE_ID_BYTES + 2u + 1u + 1u + 1u +
-                          PUZZLE_PIECE_BYTES + 1u + PUZZLE_SOLUTION_BYTES,
+    PUZZLE_PIECE_BYTES + 1u + PUZZLE_SOLUTION_BYTES,
     PUZZLE_CATALOG_BASE_ADDRESS = 0x30000u
 };
 
@@ -56,18 +57,18 @@ static void puzzle_catalog_host_load(void) {
     if (s_host_catalog_data != NULL) {
         return;
     }
-
+    
     const char *candidates[] = {
         "assets/generated/puzzle_data.bin",
         "../assets/generated/puzzle_data.bin"
     };
-
+    
     for (size_t i = 0u; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
         FILE *file = fopen(candidates[i], "rb");
         if (file == NULL) {
             continue;
         }
-
+        
         if (fseek(file, 0, SEEK_END) != 0) {
             fclose(file);
             continue;
@@ -81,20 +82,20 @@ static void puzzle_catalog_host_load(void) {
             fclose(file);
             continue;
         }
-
+        
         uint8_t *buffer = (uint8_t *)malloc((size_t)size);
         if (buffer == NULL) {
             fclose(file);
             continue;
         }
-
+        
         size_t read = fread(buffer, 1, (size_t)size, file);
         fclose(file);
         if (read != (size_t)size) {
             free(buffer);
             continue;
         }
-
+        
         s_host_catalog_data = buffer;
         s_host_catalog_size = (size_t)size;
         break;
@@ -103,54 +104,54 @@ static void puzzle_catalog_host_load(void) {
 #endif
 
 static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
-#if defined(__llvm_mos__)
+    #if defined(__llvm_mos__)
     return platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS + offset);
-#elif defined(AI_AGENT_HOST_TEST)
+    #elif defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
     if (s_host_catalog_data == NULL || offset >= s_host_catalog_size) {
         return 0u;
     }
     return s_host_catalog_data[offset];
-#else
+    #else
     (void)offset;
     return 0u;
-#endif
+    #endif
 }
 
 static inline uint16_t puzzle_catalog_read_word(uint32_t offset) {
-#if defined(__llvm_mos__)
+    #if defined(__llvm_mos__)
     return platform_far_read_word(PUZZLE_CATALOG_BASE_ADDRESS + offset);
-#elif defined(AI_AGENT_HOST_TEST)
+    #elif defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
     if (s_host_catalog_data == NULL || (offset + 1u) >= s_host_catalog_size) {
         return 0u;
     }
     return (uint16_t)s_host_catalog_data[offset] |
-           ((uint16_t)s_host_catalog_data[offset + 1u] << 8);
-#else
+    ((uint16_t)s_host_catalog_data[offset + 1u] << 8);
+    #else
     (void)offset;
     return 0u;
-#endif
+    #endif
 }
 
 static void puzzle_catalog_ensure_header(void) {
     if (s_header_loaded) {
         return;
     }
-
-#if defined(__llvm_mos__)
+    
+    #if defined(__llvm_mos__)
     print_formatted_text(0, 22, "");
-#endif
-
+    #endif
+    
     uint8_t header_low = platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS);
     uint8_t header_high = platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS + 1u);
-
+    
     uint16_t count = (uint16_t)header_low | ((uint16_t)header_high << 8);
     s_puzzle_collection.count = count;
     s_puzzle_collection.puzzles = NULL;
     s_header_loaded = true;
-
-
+    
+    
 }
 
 static bool puzzle_catalog_load_record(uint16_t index) {
@@ -158,16 +159,16 @@ static bool puzzle_catalog_load_record(uint16_t index) {
     if (index >= s_puzzle_collection.count) {
         return false;
     }
-
+    
     const uint32_t record_offset = PUZZLE_HEADER_BYTES +
-                                   (uint32_t)index * PUZZLE_RECORD_BYTES;
-
+    (uint32_t)index * PUZZLE_RECORD_BYTES;
+    
     memset(s_puzzle_id_buffer, 0, sizeof(s_puzzle_id_buffer));
     for (uint8_t i = 0u; i < PUZZLE_ID_BYTES; ++i) {
         s_puzzle_id_buffer[i] = (char)puzzle_catalog_read_byte(record_offset + i);
     }
     s_puzzle_id_buffer[PUZZLE_ID_BYTES - 1u] = '\0';
-
+    
     uint16_t swap_rule_value = puzzle_catalog_read_word(
         record_offset + PUZZLE_ID_BYTES
     );
@@ -176,14 +177,14 @@ static bool puzzle_catalog_load_record(uint16_t index) {
     } else {
         s_puzzle_cache.swap_rule = (swap_rule_t)swap_rule_value;
     }
-
+    
     s_puzzle_cache.difficulty = puzzle_catalog_read_byte(
         record_offset + PUZZLE_ID_BYTES + 2u
     );
     s_puzzle_cache.is_solved = puzzle_catalog_read_byte(
         record_offset + PUZZLE_ID_BYTES + 3u
     ) != 0u;
-
+    
     uint8_t piece_count = puzzle_catalog_read_byte(
         record_offset + PUZZLE_ID_BYTES + 4u
     );
@@ -191,13 +192,13 @@ static bool puzzle_catalog_load_record(uint16_t index) {
         piece_count = PUZZLE_MAX_PIECES;
     }
     s_puzzle_cache.piece_count = piece_count;
-
+    
     memset(s_puzzle_piece_buffer, 0, sizeof(s_puzzle_piece_buffer));
     const uint32_t pieces_offset = record_offset + PUZZLE_ID_BYTES + 5u;
     for (uint8_t i = 0u; i < PUZZLE_PIECE_BYTES; ++i) {
         s_puzzle_piece_buffer[i] = puzzle_catalog_read_byte(pieces_offset + i);
     }
-
+    
     uint8_t solution_length = puzzle_catalog_read_byte(
         pieces_offset + PUZZLE_PIECE_BYTES
     );
@@ -205,7 +206,7 @@ static bool puzzle_catalog_load_record(uint16_t index) {
         solution_length = PUZZLE_MAX_SOLUTION_MOVES;
     }
     s_puzzle_cache.solution_length = solution_length;
-
+    
     memset(s_puzzle_solution_buffer, 0, sizeof(s_puzzle_solution_buffer));
     const uint32_t solution_offset = pieces_offset + PUZZLE_PIECE_BYTES + 1u;
     for (uint8_t i = 0u; i < PUZZLE_SOLUTION_WORDS; ++i) {
@@ -213,11 +214,27 @@ static bool puzzle_catalog_load_record(uint16_t index) {
             solution_offset + (uint32_t)i * 2u
         );
     }
-
+    
     s_puzzle_cache_valid = true;
     s_puzzle_cache_index = index;
-
+    
     return true;
+}
+
+// Sets is_solved to true for a given puzzle catalog record index
+void mark_puzzle_solved(uint16_t index) {
+    // Load the puzzle record for the given index
+    if (!puzzle_catalog_load_record(index)) {
+        return;
+    }
+    // Calculate the address of the is_solved byte in the catalog
+    uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)index * PUZZLE_RECORD_BYTES;
+    uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
+#if defined(__llvm_mos__)
+    platform_far_write_byte(PUZZLE_CATALOG_BASE_ADDRESS + is_solved_offset, 1u);
+#endif
+    // Update the in-memory cache
+    s_puzzle_cache.is_solved = 1u;
 }
 
 const puzzle_collection_t *get_puzzle_collection(void) {
@@ -230,7 +247,7 @@ const puzzle_t *get_puzzle_by_index(uint8_t index) {
     if (s_puzzle_cache_valid && s_puzzle_cache_index == expanded_index) {
         return &s_puzzle_cache;
     }
-
+    
     if (!puzzle_catalog_load_record(expanded_index)) {
         return NULL;
     }

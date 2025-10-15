@@ -546,9 +546,11 @@ void render_update(const game_state_t *state) {
     
     // Update winning path if game over
     if (state->phase == GAME_PHASE_GAME_OVER) {
-        render_update_win_path(&state->win_path);
-        // Update score display
-        render_update_score(&state->stats);
+        if(!s_win_path_applied) {
+            render_update_win_path(&state->win_path);
+            render_update_score(&state->stats);
+        }
+
     }
     
     // Update menu icons

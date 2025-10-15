@@ -80,6 +80,7 @@ typedef struct {
     uint32_t frame_count;
     ai_config_t ai_config;
     uint8_t ai_think_frames;      // Frames spent in AI thinking (for visual delay)
+    bool is_puzzle_mode;          // true = PUZZLE mode, false = FREEPLAY mode
 } game_state_t;
 
 // Initialize game state
@@ -90,7 +91,7 @@ void game_state_set_phase(game_state_t *state, game_phase_t phase);
 game_phase_t game_state_get_phase(const game_state_t *state);
 
 // Board operations
-void game_state_reset_board(game_state_t *state);
+void game_state_set_game_mode(game_state_t *state, bool puzzle_mode);
 void game_state_start_new_game(game_state_t *state);
 
 // Selection management

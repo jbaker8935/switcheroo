@@ -76,4 +76,6 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle);
 // Display puzzle solution moves
 void display_puzzle_solution(const puzzle_t *puzzle);
 
+void mark_puzzle_solved(uint16_t index);
+
 #endif // PUZZLE_DATA_H

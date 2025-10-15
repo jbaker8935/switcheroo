@@ -388,8 +388,10 @@ minimize runtime branching.
 - Reset workflows attempt to reapply the currently selected puzzle via
   `game_state_apply_current_puzzle`, falling back to the default board layout
   and status messaging when no puzzle records exist, while also clearing move
-  history and swapped flags and leaving the session scoreboard intact. The game
-  initialization audio cue still triggers after the reset action completes.
+  history, swapped flags, and any applied winning-path highlights so board
+  CLUT state returns to the base checkerboard palette before the refreshed
+  layout renders. The game initialization audio cue still triggers after the
+  reset action completes.
 - Exit confirmations queue the exit audio cue immediately before issuing the
   shutdown sequence.
 

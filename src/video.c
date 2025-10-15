@@ -376,14 +376,14 @@ static void video_setup_clut(const video_palette_t *palette) {
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_PLAYER_B_SWAPPED_2, 0xF0, 0xF0, 0xF0);  // Light gray diamond
     
     // Icon sprite colors (slots 77-84) - Orange theme
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_EDGE_1, 0xE6, 0x7E, 0x22);  // Orange edge 1
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_EDGE_2, 0xD3, 0x54, 0x00);  // Dark orange edge 2
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_FILL_1, 0xF3, 0x9C, 0x12);  // Orange fill 1
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_FILL_2, 0xE6, 0x7E, 0x22);  // Orange fill 2
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_1, 0xF1, 0xC4, 0x0F);  // Yellow symbol 1
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_2, 0xF3, 0x9C, 0x12);  // Orange symbol 2
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_3, 0xE6, 0x7E, 0x22);  // Orange symbol 3
-    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_4, 0xD3, 0x54, 0x00);  // Dark orange symbol 4
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_EDGE_1, 0x00, 0x00, 0x00);  // Orange edge 1
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_EDGE_2, 0x13, 0x0b, 0xf9);  // Dark orange edge 2
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_FILL_1, 0x3b, 0x61, 0xe8);  // Orange fill 1
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_FILL_2, 0x19, 0x85, 0xee);  // Orange fill 2
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_1, 0xe8, 0x33, 0x33);  // Red symbol 1
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_2, 0xee, 0x3f, 0x3f);  // Red symbol 2
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_3, 0xd7, 0xa0, 0x0d);  // Yellow symbol 3
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_ICON_SYMBOL_4, 0xff, 0xe3, 0x97);  // Yellow symbol 4
 
     // Highlight colors (slots 35-36) - from active palette
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_PRIMARY,

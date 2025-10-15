@@ -4,6 +4,7 @@
  */
 #include "../src/ai_agent.h"
 #include "../src/board.h"
+#include "../src/input.h"
 #include <limits.h>
 #include <string.h>
 
@@ -1771,6 +1772,7 @@ bool  FAR9_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t 
 
         uint8_t start_depth = tuned.search.use_iterative_deepening ? 1u : min_depth;
         for (uint8_t depth = start_depth; depth <= target_depth; ++depth) {
+
             if (!tuned.search.use_iterative_deepening && depth != min_depth) {
                 continue;
             }

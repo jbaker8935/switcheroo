@@ -24,6 +24,15 @@
 // #define PLATFORM_F256_BANK_WINDOW   0xA000u
 // #define PLATFORM_F256_BLOCK_SIZE    0x2000u
 
+static inline void platform_far_write_byte(uint32_t address, uint8_t value) {
+#if defined(__llvm_mos__)
+	FAR_POKE(address, value);
+#else
+	(void)address;
+	(void)value;
+#endif
+}
+
 static inline uint8_t platform_far_read_byte(uint32_t address) {
 #if defined(__llvm_mos__)
 	return FAR_PEEK(address);

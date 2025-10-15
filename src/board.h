@@ -41,6 +41,8 @@ typedef enum {
 // Maximum moves in history
 #define MAX_MOVE_HISTORY 40
 
+#define NUM_STARTING_LAYOUTS 4
+
 /**
  * Piece types on the board
  */
@@ -97,6 +99,7 @@ typedef struct {
     uint16_t move_count;
     move_t history[MAX_MOVE_HISTORY];
     uint8_t history_count;
+    uint8_t layout_id; // current starting layout id
 } board_t;
 
 /**

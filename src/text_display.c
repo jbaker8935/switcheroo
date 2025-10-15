@@ -181,6 +181,14 @@ void print_puzzle_hint(const char *hint) {
     textPrint(hint_str);
 }
 
+void print_AI_hint(const char *hint) {
+    char *buf = "AI Hint: ";
+    char * hint_str = hint ? (char *)hint : (char *)"No hint available";
+    print_formatted_text(0,9, buf);
+    textGotoXY(9,9);
+    textPrint(hint_str);
+}
+
 static uint8_t pd_append_char(char *buf, size_t buf_size, uint8_t pos, char ch) {
     if (buf && pos + 1 < buf_size) {
         buf[pos] = ch;
@@ -208,12 +216,8 @@ static uint8_t pd_format_move(char *buf, size_t buf_size, player_t player,
         pos = pd_append_char(buf, buf_size, pos, (char)('0' + to_row));
         
         if (is_swap) {
-            pos = pd_append_char(buf, buf_size, pos, '(');
-            pos = pd_append_char(buf, buf_size, pos, 's');
-            pos = pd_append_char(buf, buf_size, pos, 'w');
-            pos = pd_append_char(buf, buf_size, pos, 'a');
-            pos = pd_append_char(buf, buf_size, pos, 'p');
-            pos = pd_append_char(buf, buf_size, pos, ')');
+            pos = pd_append_char(buf, buf_size, pos, ' ');
+            pos = pd_append_char(buf, buf_size, pos, 'S');            
         }
         
         if (buf) {
@@ -283,7 +287,7 @@ uint8_t format_move_string(char *buf, size_t buf_size, const move_t *move) {
 }
 
 void print_move_history(const move_t *history, uint8_t move_count) {
-    print_formatted_text(0, 9, "Move History");
+    print_formatted_text(0, 10, "Move History");
     for (uint8_t i = 0; i < 8; ++i) {
         if (i < move_count) {
             const move_t *move = &history[i];

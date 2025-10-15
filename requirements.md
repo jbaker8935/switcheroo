@@ -84,8 +84,10 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the user activates the Difficulty icon, THE SYSTEM SHALL cycle through
   available AI difficulty presets and immediately apply the new heuristic
   configuration.
-- WHEN the user activates the Starting Board icon, THE SYSTEM SHALL display and
-  apply one of the predefined layouts without exiting the current session.
+- WHEN the user activates the Starting Board icon, THE SYSTEM SHALL reset the
+  board to the selected predefined layout, clear any active winning-path
+  highlights, and render the refreshed layout without exiting the current
+  session.
 - WHEN the user activates the Move History icon, THE SYSTEM SHALL open an
   overlay list of moves with the newest entry at the top and allow dismissal via
   mouse click or Escape.
