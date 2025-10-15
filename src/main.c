@@ -1,5 +1,5 @@
 #define WITHOUT_TILE
-#define WITHOUT_PLATFORM
+// #define WITHOUT_PLATFORM
 #define WITHOUT_FILE
 #define F256LIB_IMPLEMENTATION
 
@@ -9,6 +9,7 @@
 #include "../src/render.h"
 #include "../src/platform_f256.h"
 #include "../src/text_display.h"
+#include <cstddef>
 
 
 // Forward declarations
@@ -46,7 +47,9 @@ int main(int argc, char *argv[])
 
     // Main game loop
 
-    
+    // display_test();
+
+
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)

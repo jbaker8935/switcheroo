@@ -1,9 +1,6 @@
-
 #ifndef TWIDGETS_H
 #define TWIDGETS_H
-
 #include <stdint.h>
-#include <stddef.h>
 #include <stdbool.h>
 
 /* Maximum limits */

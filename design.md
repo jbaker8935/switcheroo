@@ -248,6 +248,9 @@ minimize runtime branching.
   future ordering.
 - Moves that would result in an immediate win for the opponent are filtered out
   during heuristic selection to prevent blunders.
+- Standard and Expert difficulties add an ordering bonus for moves that force an
+  immediate win on the agent's following turn so alpha-beta inspects those
+  branches first.
 
 ### Evaluation Function
 
@@ -265,10 +268,10 @@ minimize runtime branching.
 - Immediate win detection: If the current player can achieve a winning position
   in one move, the evaluation treats the position as a win for that player,
   ensuring the AI avoids blunders that allow opponent instant wins.
-- Forcing move detection: In Expert difficulty, the evaluation checks if the
-  opponent has a move that leaves the AI with no safe response (all AI moves
-  lead to immediate opponent win). Such positions receive a heavy penalty to
-  discourage entering forcing sequences.
+  - Forcing move detection: On Standard and Expert difficulties, the evaluation
+    checks if the opponent has a move that leaves the AI with no safe response
+    (all AI moves lead to immediate opponent win). Such positions receive a
+    heavy penalty to discourage entering forcing sequences.
 - Scores normalise to signed 16-bit values using rule-specific weight tables
   stored in ROM so the engine remains 8-bit friendly.
 
@@ -276,11 +279,13 @@ minimize runtime branching.
 
 - **Learning**: Depth 1 with feature scaling at 40%, node limit 512, cache off.
 - **Easy**: Depth 2, reduced mobility weight, node limit 2k, cache off.
-- **Standard**: Depth 4 minimum, node limit 8k, transposition cache on, killer
-  moves enabled.
-- **Expert**: Depth 4 baseline with extension to 6 on tactical triggers,
-  aspiration search, transposition cache and iterative deepening enabled,
-  forcing move detection in evaluation.
+  - **Standard**: Depth 4 minimum, node limit 8k, transposition cache on, killer
+    moves enabled, forcing move probes active for both ordering and evaluation
+    safeguards.
+  - **Expert**: Depth 4 baseline with extension to 6 on tactical triggers,
+    aspiration search, transposition cache and iterative deepening enabled,
+    forcing move detection and prioritisation mirroring Standard with higher
+    depth limits.
 
 ### Time and Node Management
 
@@ -324,6 +329,28 @@ minimize runtime branching.
   with `AI_AGENT_DIAGNOSTIC` to aid in weight tuning.
 - `docs/heuristic_tuning.md` captures guidance for adjusting weights per swap
   rule and interpreting diagnostics without modifying engine code.
+
+#### AI Self-Play Tuning Harness
+
+- Host-side unit tests compile the AI with `AI_AGENT_HOST_TEST` so MMU bank
+  swaps and timer pokes collapse to no-ops, allowing the search core to run on
+  desktop compilers without undefined behaviour.
+- The harness drives deterministic self-play sessions between named weight
+  profiles, capping the number of half-moves to keep runs fast while still
+  exercising early- and mid-game decision making.
+- Candidate profiles play head-to-head matches against the frozen baseline for
+  every swap rule, logging deterministic win/loss/draw outcomes that surface in
+  regression tests whenever aggression regresses.
+- After each session the harness reports advancement metrics (frontier rows,
+  cumulative progress toward the goal band) that back regression assertions
+  and highlight candidates that promote aggressive play.
+- Profiles are stored alongside their swap-rule metadata so future tuning can
+  sweep alternative tables without touching production code.
+- The extended tuning workflow runs at least 1000 self-play matches per swap
+  rule from the standard layout, uses a deterministic depth-capped profile to
+  finish within host test budgets, declares a draw after 200 plies, and
+  aggregates advancement and frontier deltas into refined weight tables for
+  follow-up regression checks.
 
 ### AI Overlay Execution
 

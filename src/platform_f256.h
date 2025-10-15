@@ -14,8 +14,11 @@
 // #define SWAP_RESTORE
 // #endif
 
-#include <stdint.h>
 #include "f256lib.h"
+
+#include <stdint.h>
+
+#include <stdbool.h>
 
 // #define PLATFORM_F256_BANK_REGISTER MMU_MEM_BANK_5
 // #define PLATFORM_F256_BANK_WINDOW   0xA000u

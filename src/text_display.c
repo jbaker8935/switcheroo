@@ -3,7 +3,8 @@
 #include "../src/ai_agent.h"
 #include "../src/puzzle_data.h"
 #include "../src/mouse_pointer.h"
-// #include "../src/twidget.h"
+#include "../src/twidget.h"
+
 #include <string.h>
 
 /*
@@ -271,6 +272,16 @@ void clear_puzzle_hint() {
     print_formatted_text(0,8, "");
 } 
 
+uint8_t format_move_string(char *buf, size_t buf_size, const move_t *move) {
+    if (!buf || buf_size == 0 || !move) {
+        return 0;
+    }
+    return pd_format_move(buf, buf_size, move->player,
+        move->from_col, 8 - move->from_row,
+        move->to_col, 8 - move->to_row,
+        move->type == MOVE_TYPE_SWAP);
+}
+
 void print_move_history(const move_t *history, uint8_t move_count) {
     print_formatted_text(0, 9, "Move History");
     for (uint8_t i = 0; i < 8; ++i) {
@@ -293,23 +304,33 @@ void print_move_history(const move_t *history, uint8_t move_count) {
     }
 }
 
+void print_mouse_position(uint16_t x, uint16_t y) {
+
+    print_formatted_text(0, 23, "Mouse: X=    Y=   ");
+    textGotoXY(8, 23);
+    textPrintUInt(x);
+    textGotoXY(16, 23);
+    textPrintUInt(y);
+}
+
 /* Display character callback - puts character at (x,y) */
-void display_char_callback(unsigned char x, unsigned char y, unsigned char character, unsigned char mode) {
+void display_char_callback(uint8_t x, uint8_t y, uint8_t character, uint8_t mode) {
     char buf[2] = { character, '\0' };
     textGotoXY(x, y);
     textPrint(buf);
 }
 
 /* Gets character at (x,y) */
-char get_char_callback(unsigned char x, unsigned char y) {
-    char c;
+
+uint8_t get_char_callback(uint8_t x, uint8_t y) {
+    uint8_t c;
     POKE(0x0001,2);
     c = PEEK(0xC000 + x * 80 + y);
     POKE(0x0001,0);
     return c;
 }
 /* Gets mode at (x,y) */
-char get_mode_callback(unsigned char x, unsigned char y) {
+uint8_t get_mode_callback(uint8_t x, uint8_t y) {
     return 0 ;
 }
 
@@ -320,33 +341,37 @@ char get_mode_callback(unsigned char x, unsigned char y) {
 //     RadioGroup radio1, radio2;
 //     Dropdown dropdown1, dropdown2;
 
-//     char_map.radio_unselected = 'o';      /* ○ */
-//     char_map.radio_selected = '*';        /* ● */
-//     char_map.checkbox_unchecked = '[';    /* ☐ */
-//     char_map.checkbox_checked = 'X';      /* ☑ */
-//     char_map.box_down_right = '+';        /* ┌ */
-//     char_map.box_down_left = '+';         /* ┐ */
-//     char_map.box_horizontal = '-';        /* ─ */
-//     char_map.box_vertical = '|';          /* │ */
-//     char_map.box_up_right = '+';          /* └ */
-//     char_map.box_up_left = '+';           /* ┘ */
+//     char_map.radio_unselected = 179;      /* ○ */
+//     char_map.radio_selected = 225;        /* ● */
+//     char_map.checkbox_unchecked = 227;    /* ☐ */
+//     char_map.checkbox_checked = 222;      /* ☑ */
+//     char_map.box_down_right = 160;        /* ┌ */
+//     char_map.box_down_left = 161;         /* ┐ */
+//     char_map.box_horizontal = 150;        /* ─ */
+//     char_map.box_vertical = 130;          /* │ */
+//     char_map.box_up_right = 162;          /* └ */
+//     char_map.box_up_left = 163;           /* ┘ */
 
-//     widget_init(display_char_callback, get_char_callback, get_mode_callback, &char_map);
+//     GetCharCallback gccb = get_char_callback;
+//     GetModeCallback gmcb = get_mode_callback;
+//     DisplayCharCallback dccb = display_char_callback;
+
+//     widget_init(dccb, gccb, gmcb, &char_map);
 
 //     /* Checkbox without box - unchecked */
 //     checkbox_create(&checkbox1, 2, 30, "Enable Sound", 0);
 //     checkbox_draw(&checkbox1);
     
 //     /* Checkbox with box - checked */
-//     checkbox_create(&checkbox2, 2, 32, "Enable Music", 1);
+//     checkbox_create(&checkbox2, 2, 34, "Enable Music", 1);
 //     checkbox_set_checked(&checkbox2, 1);
     
 //     /* Checkbox with box - unchecked */
-//     checkbox_create(&checkbox3, 2, 34, "Show FPS", 1);
+//     checkbox_create(&checkbox3, 2, 38, "Show FPS", 1);
 //     checkbox_draw(&checkbox3);
 
 //         /* Vertical radio group without box */
-//     radio_create(&radio1, 2, 36, LAYOUT_VERTICAL, 0);
+//     radio_create(&radio1, 2, 42, LAYOUT_VERTICAL, 0);
 //     radio_add_item(&radio1, "Easy", 0, 0);
 //     radio_add_item(&radio1, "Medium", 0, 1);
 //     radio_add_item(&radio1, "Hard", 0, 2);
@@ -354,14 +379,14 @@ char get_mode_callback(unsigned char x, unsigned char y) {
 //     radio_set_selected(&radio1, 1);  /* Select "Medium" */
     
 //     /* Horizontal radio group with box */
-//     radio_create(&radio2, 2, 42, LAYOUT_HORIZONTAL, 1);
+//     radio_create(&radio2, 2, 46, LAYOUT_HORIZONTAL, 1);
 //     radio_add_item(&radio2, "1P", 0, 0);
 //     radio_add_item(&radio2, "2P", 6, 0);
 //     radio_add_item(&radio2, "3P", 12, 0);
 //     radio_add_item(&radio2, "4P", 18, 0);
 //     radio_set_selected(&radio2, 0);  /* Select "1P" */
 
-//     dropdown_create(&dropdown1, 2, 44, 0);
+//     dropdown_create(&dropdown1, 2, 50, 0);
 //     dropdown_add_item(&dropdown1, "320x240");
 //     dropdown_add_item(&dropdown1, "640x480");
 //     dropdown_add_item(&dropdown1, "800x600");
@@ -370,12 +395,23 @@ char get_mode_callback(unsigned char x, unsigned char y) {
 //     dropdown_draw(&dropdown1);
     
 //     /* Dropdown with box - collapsed */
-//     dropdown_create(&dropdown2, 2, 46, 1);
+//     dropdown_create(&dropdown2, 2, 54, 1);
 //     dropdown_add_item(&dropdown2, "NTSC");
 //     dropdown_add_item(&dropdown2, "PAL");
 //     dropdown_add_item(&dropdown2, "RGB");
 //     dropdown_set_selected(&dropdown2, 0);  /* Select "NTSC" */
 //     dropdown_draw(&dropdown2);   
+//     getchar();
+//     dropdown_expand(&dropdown1); /* Expand */
+//     dropdown_draw(&dropdown1);
+//     getchar();
+//     dropdown_set_highlighted(&dropdown1, 2);
+//     dropdown_draw(&dropdown1);
+//     getchar();
+//     dropdown_set_selected(&dropdown1, 2);
+
+//     dropdown_draw(&dropdown1);
+//     getchar();
 
 
 // }

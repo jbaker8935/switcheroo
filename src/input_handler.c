@@ -10,6 +10,7 @@
 #define SCREEN_WIDTH 320u
 #define SCREEN_HEIGHT 240u
 #define BOARD_CELL_SIZE 26u
+#define BOARD_CELL_SEPARATOR 1u
 #define ICON_SIZE 16u
 #define BOARD_BORDER 4u
 
@@ -20,10 +21,9 @@ static int16_t s_icon_x;       // Menu icons on right side
 static int16_t s_icon_start_y; // First icon Y position
 
 void input_handler_init(void) {
-    // Board: 4 cols * 28px + 11px = 123px wide
-    // Board: 8 rows * 28px + 15px = 239px tall
-    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + 11;
-    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + 15;
+
+    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + (3 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
+    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + (7 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
     
     s_board_x = (SCREEN_WIDTH - board_width) / 2;
     s_board_y = (SCREEN_HEIGHT - board_height) / 2;
@@ -38,8 +38,8 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
     result.type = HIT_NONE;
     
     // Check if click is within board area
-    const int16_t board_width = BOARD_BORDER + (BOARD_COLS * BOARD_CELL_SIZE) + BOARD_BORDER;
-    const int16_t board_height = BOARD_BORDER + (BOARD_ROWS * BOARD_CELL_SIZE) + BOARD_BORDER;
+    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + (3 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
+    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + (7 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
     
     if (screen_x >= s_board_x && screen_x < s_board_x + board_width &&
         screen_y >= s_board_y && screen_y < s_board_y + board_height) {
@@ -49,8 +49,8 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
         int16_t rel_y = screen_y - s_board_y - BOARD_BORDER;
         
         if (rel_x >= 0 && rel_y >= 0) {
-            uint8_t col = rel_x / BOARD_CELL_SIZE;
-            uint8_t row = rel_y / BOARD_CELL_SIZE;
+            uint8_t col = rel_x / (BOARD_CELL_SIZE + BOARD_CELL_SEPARATOR);
+            uint8_t row = rel_y / (BOARD_CELL_SIZE + BOARD_CELL_SEPARATOR);
             
             if (col < BOARD_COLS && row < BOARD_ROWS) {
                 result.type = HIT_BOARD_CELL;

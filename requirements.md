@@ -166,6 +166,25 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
   permit such wins.
 - WHEN selecting moves via heuristic evaluation, THE SYSTEM SHALL filter out
   AI moves that result in an immediate win for the opponent.
+- WHEN building the AI agent for host-side validation, THE SYSTEM SHALL avoid
+  performing direct Foenix MMU register writes so desktop unit tests run
+  without undefined behaviour.
+- WHEN the heuristic tuning harness executes, THE SYSTEM SHALL drive
+  deterministic AI self-play sessions between configurable weight profiles and
+  emit advancement metrics suitable for regression assertions.
+- WHEN the heuristic tuning harness compares a candidate profile against the
+  baseline profile, THE SYSTEM SHALL report deterministic win, loss, and draw
+  outcomes for each swap rule so automated tests can assert improved play.
+- WHEN the extended heuristic tuning harness executes, THE SYSTEM SHALL run at
+  least 1000 deterministic self-play matches per swap rule using the default
+  starting layout, cap each match at 200 plies as a draw threshold, and output
+  updated rule-specific evaluation weights for regression validation.
+- WHERE the AI difficulty is Standard or Expert, THE SYSTEM SHALL select any
+  move that guarantees an immediate win on the subsequent AI turn ahead of all
+  other non-winning choices.
+- WHEN the heuristic profile is marked aggressive during low-pressure opening
+  states, THE SYSTEM SHALL prefer moves that reduce the distance to the target
+  goal band over lateral or backward moves when scores are otherwise tied.
 
 ### Audio Feedback
 

@@ -5,6 +5,7 @@
 
 #include "../src/input.h"
 #include "../src/platform_f256.h"
+#include "../src/text_display.h"
 #include <string.h>
 
 // PS/2 Mouse hardware registers
@@ -129,7 +130,7 @@ bool input_translate_event(input_event_t *event) {
         // In 320x240 mode, mouse coords are 2x screen coords
         s_input_state.mouse_x = new_x / 2;
         s_input_state.mouse_y = new_y / 2;
-        
+        // print_mouse_position(s_input_state.mouse_x, s_input_state.mouse_y);
         // Update button state
         uint8_t new_buttons = kernelEventData.mouse.delta.buttons;
         bool button_changed = (new_buttons != s_input_state.mouse_buttons);

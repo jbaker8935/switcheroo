@@ -2,11 +2,12 @@
  * @file ai_agent.c
  * @brief Specification-compliant heuristic AI agent for F256 Switcharoo.
  */
-
 #include "../src/ai_agent.h"
 #include "../src/board.h"
 #include <limits.h>
 #include <string.h>
+
+#include <stdbool.h>
 
 #ifdef AI_AGENT_ENABLE_TIMER
 #include <time.h>
@@ -1655,13 +1656,13 @@ void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
 }
 
 
-bool FAR8_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
+bool FAR9_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
 
 #if defined(AI_AGENT_HOST_TEST)
 
 bool ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
                                                             move_t *out_move) {
-    return FAR8_ai_agent_find_best_move_impl(board, config, out_move);
+    return FAR9_ai_agent_find_best_move_impl(board, config, out_move);
 }
 
 #else
@@ -1672,8 +1673,8 @@ bool ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *confi
                                                             move_t *out_move) {
 	volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
     bool ret;
-	*(volatile unsigned char *)0x000d = 8;
-    ret = FAR8_ai_agent_find_best_move_impl(board, config, out_move);
+	*(volatile unsigned char *)0x000d = 9;
+    ret = FAR9_ai_agent_find_best_move_impl(board, config, out_move);
 	*(volatile unsigned char *)0x000d = ___mmu;
     return ret;
 }
@@ -1681,8 +1682,8 @@ bool ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *confi
 
 #endif
 
-__attribute__((noinline, section(".block8")))
-bool  FAR8_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
+__attribute__((noinline, section(".block9")))
+bool  FAR9_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config,
                                                             move_t *out_move) {
     board_t root;
     player_t to_move;

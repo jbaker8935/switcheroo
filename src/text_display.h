@@ -1,6 +1,7 @@
 #include "../src/platform_f256.h"
 #include "../src/game_state.h"
 
+
 /*
  * @file text_display.h
  * @brief Text display utilities for F256 Switcharoo
@@ -34,3 +35,6 @@ void print_move_history(const move_t *history, uint8_t move_count);
 void clear_puzzle_info(void);
 void print_puzzle_debug(const char *line1, const char *line2);
 void clear_puzzle_debug(void);
+void print_mouse_position(uint16_t x, uint16_t y);
+uint8_t format_move_string(char *buf, size_t buf_size, const move_t *move);
+

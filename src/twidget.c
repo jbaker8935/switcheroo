@@ -6,6 +6,7 @@
 /* twidgets.c */
 #include <string.h>
 #include "../src/twidget.h"
+#include <stdbool.h>
 
 typedef struct {
     DisplayCharCallback display_char;
@@ -208,16 +209,6 @@ uint8_t radio_get_selected(const RadioGroup *radio) {
     return radio->selected_index;
 }
 
-void radio_set_selected(RadioGroup *radio, uint8_t index) {
-    if (index < radio->item_count) {
-        radio->selected_index = index;
-        radio_draw(radio);
-    }
-}
-
-uint8_t radio_get_selected(const RadioGroup *radio) {
-    return radio->selected_index;
-}
 
 /* ============================================================================
  * DROPDOWN IMPLEMENTATION
