@@ -53,6 +53,9 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T26 | Puzzle Hint Node Cap Bypass | Ensure puzzle hint mode retains the configured depth and node cap by skipping move-volume throttles. | Updated `src/ai_agent.c`, regression test for Example 2 puzzle. | T8, T17 | Done |
 | T27 | Puzzle Hint Move Ordering | Bias move ordering toward swap-preserving lines and defer swap-clearing moves in both puzzle and free play hint contexts. | Updated `src/ai_agent.c`, host regression updated. | T8, T26 | Done |
 | T28 | Puzzle Hint Eval Profile | Introduce a lightweight evaluation profile and disable forcing checks during hint searches to improve responsiveness. | Updated `src/ai_agent.c`, `src/game_state.c`, regression documentation. | T8, T26 | Done |
+| T29 | Puzzle Hint Move Throttles | Reapply move-volume depth/node caps to puzzle hint searches to bound runtime after the first database hint. | Updated `src/ai_agent.c`, documentation refresh. | T26, T28 | Done |
+| T30 | Hint Evaluation Instrumentation | Capture deterministic hint evaluation traces and leverage the math coprocessor for weighted feature products. | Updated `src/ai_agent.c`, `src/ai_agent.h`, docs. | T8, T28, T29 | Done |
+| T31 | Hint Trace Export | Persist captured hint evaluation traces to a CSV log when the game exits so diagnostics survive resets. | Updated `src/main.c`, documentation refresh, build passes. | T30 | Done |
 
 ## Milestones
 

@@ -280,6 +280,15 @@ minimize runtime branching.
 - A dedicated puzzle-hint profile trims evaluation work to swap pressure,
   blocking coverage, and goal-band progress while still honouring immediate win
   checks, ensuring hints stay responsive without altering full-match behaviour.
+- When the hint trace is enabled, the engine captures up to 64 evaluation
+  samples per search (swap, block, goal, total, depth, ply, and board hash)
+  so host and hardware runs can be diffed without perturbing move ordering.
+- When gameplay exits through the main loop, `main.c` emits the captured hint
+  trace entries to `HINTTRACE.CSV` using the Foenix filesystem shim so runs on
+  hardware and the host preserve identical diagnostics for analysis.
+- Feature multiplications in both standard and hint evaluations use the
+  Foenix math coprocessor helpers on hardware, with host shims providing the
+  same arithmetic to retain deterministic outcomes.
 
 ### Difficulty Profiles
 
@@ -300,9 +309,12 @@ minimize runtime branching.
 - The search aborts gracefully when the node or time budget is exceeded,
   returning the best move from the deepest completed iteration and setting the
   fallback flag for diagnostics.
-- Puzzle hint analysis bypasses the move-volume node cap clamps so the
-  full configured depth and node limits remain available when solving
-  scripted scenarios for the human player.
+- When puzzle metadata provides a precomputed solution, the first hint can be
+  served directly; subsequent hints fall back to AI search using the throttled
+  hint profile.
+- Puzzle hint analysis honours the move-volume node cap clamps so wide
+  branches stay bounded while still leveraging the dedicated hint evaluation
+  profile.
 - Forcing-move detection is skipped under the hint profile to avoid the costly
   nested search that is otherwise reserved for competitive play.
 

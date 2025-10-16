@@ -8,12 +8,10 @@
 #ifndef AI_AGENT_H
 #define AI_AGENT_H
 
-#ifdef AI_AGENT_HOST_TEST
-#include <stdbool.h>
-#endif
 #include <stdint.h>
 
 #ifdef AI_AGENT_HOST_TEST
+#include <stdbool.h>
 #include "../tests/include/f256lib_host.h"
 #else
 #include "platform_f256.h"
@@ -86,5 +84,20 @@ int16_t ai_agent_evaluate_board(const board_t *board, player_t player,
 // Retrieve the feature breakdown for the most recent move selection.
 // If diagnostics are disabled, all fields are set to zero.
 void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out);
+
+typedef struct {
+    uint32_t board_hash;
+    player_t perspective;
+    int16_t total;
+    int16_t swap_contrib;
+    int16_t block_contrib;
+    int16_t goal_contrib;
+    uint8_t depth;
+    uint8_t ply;
+} ai_hint_eval_record_t;
+
+void ai_agent_hint_trace_enable(bool enabled);
+void ai_agent_hint_trace_clear(void);
+uint8_t ai_agent_hint_trace_get(const ai_hint_eval_record_t **out_records);
 
 #endif // AI_AGENT_H

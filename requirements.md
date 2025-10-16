@@ -162,9 +162,9 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the active player has eighteen or more legal moves available, THE SYSTEM
   SHALL select a move using single-ply heuristics without invoking recursive
   search.
-- WHEN the AI provides puzzle hints for the human player, THE SYSTEM SHALL keep
-  the configured search depth and node limit in effect without applying
-  move-volume throttles so forced wins remain discoverable.
+- WHEN the AI provides puzzle hints via search, THE SYSTEM SHALL apply the
+  move-volume throttles and node caps to bound runtime while still using the
+  dedicated hint evaluation profile.
 - WHEN generating puzzle hints, THE SYSTEM SHALL evaluate swap-preserving moves
   before considering moves that clear swapped pieces so blockade structures are
   maintained during search.
@@ -196,6 +196,12 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the heuristic profile is marked aggressive during low-pressure opening
   states, THE SYSTEM SHALL prefer moves that reduce the distance to the target
   goal band over lateral or backward moves when scores are otherwise tied.
+- WHEN hint diagnostics are requested, THE SYSTEM SHALL capture the swap,
+  block, and goal-band contributions used during hint evaluation to allow
+  deterministic trace comparison between host and target builds.
+- WHEN the main loop transitions to `GAME_PHASE_EXIT` while hint diagnostics
+  are enabled, THE SYSTEM SHALL persist the recorded hint evaluation trace to
+  a filesystem log for post-run analysis on hardware and host builds.
 
 ### Audio Feedback
 

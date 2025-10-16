@@ -1,8 +1,5 @@
-#define WITHOUT_TILE
-// #define WITHOUT_PLATFORM
-#define WITHOUT_FILE
 #define F256LIB_IMPLEMENTATION
-
+#include "f256lib.h"
 #include "../src/game_state.h"
 #include "../src/input.h"
 #include "../src/input_handler.h"
@@ -10,7 +7,11 @@
 #include "../src/platform_f256.h"
 #include "../src/text_display.h"
 #include "../src/puzzle_data.h"
+#include "../src/ai_agent.h"
 #include "stddef.h"
+#include <stdio.h>
+#include <stdint.h>
+#include <string.h>
 
 // Forward declarations
 extern void platform_bootstrap(void);
@@ -21,7 +22,221 @@ extern void display_test(void);
 // Global game state
 static game_state_t g_game_state;
 
-#define SEGMENT_MAIN
+#ifndef WITHOUT_FILE
+#if defined(__llvm_mos__)
+uint8_t write_row = 1u;
+uint8_t write_col = 0u;
+uint32_t far_mem_address = 0x60000u; // Example far memory address for file storage
+
+static void trace_write_literal(FILE *file, const char *text)
+{
+    if (!file || !text)
+    {
+        return;
+    }
+
+    size_t length = strlen(text);
+    if (length == 0u)
+    {
+        return;
+    }
+    // int16_t      fileWrite(void *buf, uint16_t nbytes, uint16_t nmemb, uint8_t *fd);
+    // if (fileWrite((void *)text, (uint16_t) 1u, (uint16_t)length, (uint8_t *) file) == (uint16_t)length)
+    // {
+    //     // Success
+    // }
+    // else
+    // {
+    //     textGotoXY(write_col, write_row);
+    //     textPrint("TRACE SAVE ERR");
+    //     return;
+    // }
+    for (size_t i = 0u; i < length; ++i)
+    {
+        FAR_POKE(far_mem_address, (uint8_t)*(text+i));
+        far_mem_address++;
+    }
+    // textGotoXY(write_col, write_row);
+    // textPrint((char *)text);
+    // if (*(text + length - 1u) == '\n') {
+    //     write_col = 0u;
+    //     write_row = (write_row + 1u) % 60u;
+    //     return;
+    // } else {
+    //     write_col += (uint8_t)length;
+    // }
+    // write_row = (write_row + 1u) % 60u;
+}
+
+static void trace_write_decimal_u32(FILE *file, uint32_t value)
+{
+    char buffer[11];
+    uint8_t index = 0u;
+
+    if (value == 0u)
+    {
+        buffer[index++] = '0';
+    }
+    else
+    {
+        char digits[10];
+        while (value != 0u && index < sizeof(digits))
+        {
+            digits[index++] = (char)('0' + (value % 10u));
+            value /= 10u;
+        }
+
+        for (uint8_t i = 0u; i < index; ++i)
+        {
+            buffer[i] = digits[index - 1u - i];
+        }
+    }
+
+    buffer[index] = '\0';
+    trace_write_literal(file, buffer);
+}
+
+static void trace_write_decimal_u8(FILE *file, uint8_t value)
+{
+    trace_write_decimal_u32(file, (uint32_t)value);
+}
+
+static void trace_write_decimal_i16(FILE *file, int16_t value)
+{
+    int32_t temp = (int32_t)value;
+    if (temp < 0)
+    {
+        trace_write_literal(file, "-");
+        temp = -temp;
+    }
+    trace_write_decimal_u32(file, (uint32_t)temp);
+}
+
+static void trace_write_perspective(FILE *file, player_t perspective)
+{
+    switch (perspective)
+    {
+        case PLAYER_WHITE:
+            trace_write_literal(file, "WHITE");
+            break;
+        case PLAYER_BLACK:
+            trace_write_literal(file, "BLACK");
+            break;
+        case PLAYER_NONE:
+        default:
+            trace_write_literal(file, "NONE");
+            break;
+    }
+}
+
+static void dump_hint_trace_to_file(void)
+{
+    const ai_hint_eval_record_t *records = NULL;
+    uint8_t count = ai_agent_hint_trace_get(&records);
+    if (!records)
+    {
+        print_puzzle_debug("TRACE BUFFER MISSING", "");
+        return;
+    }
+
+    // fileReset();
+    FILE *file = fopen("HINTTRACE.CSV", "w");
+    if (!file)
+    {
+        print_puzzle_debug("TRACE SAVE FAILED", "OPEN ERR");
+        return;
+    }
+
+
+    trace_write_literal(file, "index,board_hash,perspective,total,swap,block,goal,depth,ply\n");
+
+    for (uint8_t i = 0u; i < count; ++i)
+    {
+        const ai_hint_eval_record_t *entry = &records[i];
+
+        trace_write_decimal_u8(file, i);
+        trace_write_literal(file, ",");
+        trace_write_decimal_u32(file, entry->board_hash);
+        trace_write_literal(file, ",");
+        trace_write_perspective(file, entry->perspective);
+        trace_write_literal(file, ",");
+        trace_write_decimal_i16(file, entry->total);
+        trace_write_literal(file, ",");
+        trace_write_decimal_i16(file, entry->swap_contrib);
+        trace_write_literal(file, ",");
+        trace_write_decimal_i16(file, entry->block_contrib);
+        trace_write_literal(file, ",");
+        trace_write_decimal_i16(file, entry->goal_contrib);
+        trace_write_literal(file, ",");
+        trace_write_decimal_u8(file, entry->depth);
+        trace_write_literal(file, ",");
+        trace_write_decimal_u8(file, entry->ply);
+        trace_write_literal(file, "\n");
+    }
+
+    fclose(file);
+    // print_puzzle_debug("TRACE SAVED", "HINTTRACE.CSV");
+}
+#else
+static const char *ai_perspective_label(player_t perspective)
+{
+    switch (perspective)
+    {
+        case PLAYER_WHITE:
+            return "WHITE";
+        case PLAYER_BLACK:
+            return "BLACK";
+        case PLAYER_NONE:
+        default:
+            return "NONE";
+    }
+}
+
+static void dump_hint_trace_to_file(void)
+{
+    const ai_hint_eval_record_t *records = NULL;
+    uint8_t count = ai_agent_hint_trace_get(&records);
+    if (!records)
+    {
+        print_puzzle_debug("TRACE BUFFER MISSING", "");
+        return;
+    }
+
+    FILE *file = fopen("HINTTRACE.CSV", "w");
+    if (!file)
+    {
+        print_puzzle_debug("TRACE SAVE FAILED", "OPEN ERR");
+        return;
+    }
+
+    fprintf(file, "index,board_hash,perspective,total,swap,block,goal,depth,ply\n");
+
+    for (uint8_t i = 0u; i < count; ++i)
+    {
+        const ai_hint_eval_record_t *entry = &records[i];
+
+        fprintf(file,
+                "%u,%lu,%s,%d,%d,%d,%d,%u,%u\n",
+                (unsigned)i,
+                (unsigned long)entry->board_hash,
+                ai_perspective_label(entry->perspective),
+                (int)entry->total,
+                (int)entry->swap_contrib,
+                (int)entry->block_contrib,
+                (int)entry->goal_contrib,
+                (unsigned)entry->depth,
+                (unsigned)entry->ply);
+    }
+
+    fclose(file);
+    print_puzzle_debug("TRACE SAVED", "HINTTRACE.CSV");
+}
+#endif
+#else
+static void dump_hint_trace_to_file(void)
+{
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -49,7 +264,7 @@ int main(int argc, char *argv[])
     // display_test();
 
     print_ai_difficulty(g_game_state.ai_config.difficulty);
-
+    ai_agent_hint_trace_enable(true);
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)
     {
         // print_game_mode(g_game_state.game_mode);
@@ -121,6 +336,8 @@ int main(int argc, char *argv[])
 
     textClear();
     video_reset();
+    dump_hint_trace_to_file();
+    getchar();
 
     // soft reset
     POKE(0xD6A2, 0xDE);
