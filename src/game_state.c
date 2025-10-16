@@ -369,6 +369,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
         ai_config_t ai_config = state->ai_config;
         ai_config.ai_player = PLAYER_WHITE;
         ai_config.swap_rule = state->prefs.swap_rule;
+        ai_config.use_hint_profile = state->is_puzzle_mode;
         bool ai_found = ai_agent_find_best_move(&state->board, &ai_config, &ai_move);
         if (ai_found)
         {

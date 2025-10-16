@@ -50,6 +50,9 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T23 | Puzzle Loader UX Integration | Auto-apply puzzles on resets and new sessions, disable the Starting Board icon when the catalog is empty, and surface fallback messaging. | Updated `src/game_state.c`, requirements & design refresh. | T22 | Done |
 | T24 | Puzzle Catalog Diagnostics | Display on-device diagnostic text for header counts, record loads, and error conditions during puzzle streaming. | Updated `src/puzzle_data.c`, `src/text_display.*`, requirements & design updates. | T22 | Done |
 | T25 | Starting Board Highlight Reset | Ensure Starting Board activation clears winning-path highlights and resets board palette after wins. | Updated docs, `src/game_state.c`. | T10, T23 | Done |
+| T26 | Puzzle Hint Node Cap Bypass | Ensure puzzle hint mode retains the configured depth and node cap by skipping move-volume throttles. | Updated `src/ai_agent.c`, regression test for Example 2 puzzle. | T8, T17 | Done |
+| T27 | Puzzle Hint Move Ordering | Bias move ordering toward swap-preserving lines and defer swap-clearing moves in both puzzle and free play hint contexts. | Updated `src/ai_agent.c`, host regression updated. | T8, T26 | Done |
+| T28 | Puzzle Hint Eval Profile | Introduce a lightweight evaluation profile and disable forcing checks during hint searches to improve responsiveness. | Updated `src/ai_agent.c`, `src/game_state.c`, regression documentation. | T8, T26 | Done |
 
 ## Milestones
 

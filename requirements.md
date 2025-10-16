@@ -162,6 +162,15 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the active player has eighteen or more legal moves available, THE SYSTEM
   SHALL select a move using single-ply heuristics without invoking recursive
   search.
+- WHEN the AI provides puzzle hints for the human player, THE SYSTEM SHALL keep
+  the configured search depth and node limit in effect without applying
+  move-volume throttles so forced wins remain discoverable.
+- WHEN generating puzzle hints, THE SYSTEM SHALL evaluate swap-preserving moves
+  before considering moves that clear swapped pieces so blockade structures are
+  maintained during search.
+- WHEN evaluating puzzle hint positions, THE SYSTEM SHALL use a reduced
+  heuristic profile that favours swap pressure and goal-band progress to keep
+  response time acceptable on the target hardware.
 - WHEN evaluating a board position, THE SYSTEM SHALL treat positions where the
   current player can win in one move as winning for that player, ensuring the
   AI avoids moves that allow opponent immediate wins unless all legal moves

@@ -251,6 +251,9 @@ minimize runtime branching.
 - Standard and Expert difficulties add an ordering bonus for moves that force an
   immediate win on the agent's following turn so alpha-beta inspects those
   branches first.
+- Swap-preserving ordering pushes moves that maintain or extend swapped
+  pressure ahead of empty moves that would clear swapped status, keeping
+  blockade structures intact for puzzle analysis and free play hints.
 
 ### Evaluation Function
 
@@ -274,6 +277,9 @@ minimize runtime branching.
     heavy penalty to discourage entering forcing sequences.
 - Scores normalise to signed 16-bit values using rule-specific weight tables
   stored in ROM so the engine remains 8-bit friendly.
+- A dedicated puzzle-hint profile trims evaluation work to swap pressure,
+  blocking coverage, and goal-band progress while still honouring immediate win
+  checks, ensuring hints stay responsive without altering full-match behaviour.
 
 ### Difficulty Profiles
 
@@ -294,6 +300,11 @@ minimize runtime branching.
 - The search aborts gracefully when the node or time budget is exceeded,
   returning the best move from the deepest completed iteration and setting the
   fallback flag for diagnostics.
+- Puzzle hint analysis bypasses the move-volume node cap clamps so the
+  full configured depth and node limits remain available when solving
+  scripted scenarios for the human player.
+- Forcing-move detection is skipped under the hint profile to avoid the costly
+  nested search that is otherwise reserved for competitive play.
 
 ### Search Phase Adaptation
 

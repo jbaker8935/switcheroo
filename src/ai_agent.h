@@ -66,6 +66,7 @@ typedef struct {
     ai_search_settings_t search;
     bool diagnostics_enabled;
     bool enable_forcing_check;
+    bool use_hint_profile;
 } ai_config_t;
 
 // Initialize AI agent
