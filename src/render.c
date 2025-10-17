@@ -7,6 +7,7 @@
 #include "../src/input.h"
 #include "../src/board.h"
 #include "../src/text_display.h"
+#include "../src/mouse_pointer.h"
 #include <string.h>
 
 // External functions from video.c
@@ -25,7 +26,7 @@ extern void video_reset_all_board_cell_colors(void);
 
 #define VIDEO_SPRITE_PIECE_BASE 0u
 #define VIDEO_SPRITE_ICON_BASE 16u
-#define VIDEO_SPRITE_HIGHLIGHT_BASE 22u  // After 6 icons
+#define VIDEO_SPRITE_HIGHLIGHT_BASE 24u  // After 8 icons
 #define VIDEO_SPRITE_OFFSET 32u
 
 #define VIDEO_VRAM_PIECE_A_NORMAL 0x56c00u
@@ -34,11 +35,13 @@ extern void video_reset_all_board_cell_colors(void);
 #define VIDEO_VRAM_PIECE_B_SWAPPED 0x5a800u
 
 #define VIDEO_VRAM_ICON_RESET 0x5bc00u
-#define VIDEO_VRAM_ICON_INFO 0x5c400u
+#define VIDEO_VRAM_ICON_HINT 0x5c400u
 #define VIDEO_VRAM_ICON_DIFFICULTY 0x5cc00u
-#define VIDEO_VRAM_ICON_STARTING_BOARD 0x5d400u
-#define VIDEO_VRAM_ICON_HISTORY 0x5dc00u
-// ICON_EXIT was moved; reference via video constants
+#define VIDEO_VRAM_ICON_NEXT 0x5d400u
+#define VIDEO_VRAM_ICON_PREVIOUS 0x5f300u
+#define VIDEO_VRAM_ICON_SWAP_MODE 0x5dc00u
+#define VIDEO_VRAM_ICON_GAME_MODE_AI 0x5f100u
+#define VIDEO_VRAM_ICON_GAME_MODE_PUZZLE 0x5f200u
 #define VIDEO_VRAM_ICON_EXIT 0x5e400u
 
 #define VIDEO_PRIMARY_CLUT 0
@@ -61,12 +64,14 @@ extern void video_reset_all_board_cell_colors(void);
 #define VIDEO_VRAM_FOCUS_ICON 0x5ee00u
 
 // Icon bitmap addresses
-static const uint32_t s_icon_bitmap_addrs[6] = {
+static const uint32_t s_icon_bitmap_addrs[8] = {
+    VIDEO_VRAM_ICON_GAME_MODE_AI,  // DEFAULT ICON is AI MODE, BITMAP SWITCHED BASED ON MODE
     VIDEO_VRAM_ICON_RESET,
-    VIDEO_VRAM_ICON_INFO,
+    VIDEO_VRAM_ICON_PREVIOUS,
+    VIDEO_VRAM_ICON_NEXT,
+    VIDEO_VRAM_ICON_SWAP_MODE,
     VIDEO_VRAM_ICON_DIFFICULTY,
-    VIDEO_VRAM_ICON_STARTING_BOARD,
-    VIDEO_VRAM_ICON_HISTORY,
+    VIDEO_VRAM_ICON_HINT,
     VIDEO_VRAM_ICON_EXIT
 };
 
@@ -124,8 +129,8 @@ void render_init(void) {
         spriteSetVisible((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), 0);
     }
 
-    // Define icon sprites (6)
-    for (uint8_t i = 0; i < 6; ++i) {
+    // Define icon sprites (8)
+    for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
         spriteDefine(sid, s_icon_bitmap_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
         spriteSetVisible(sid, 1);
@@ -201,34 +206,6 @@ bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col) {
     return true;
 }
 
-int8_t render_screen_to_menu_icon(uint16_t x, uint16_t y) {
-    const uint16_t icon_spacing = VIDEO_ICON_SPRITE_SIZE + 8;
-    
-    // Check if x coordinate is in icon area
-    if (x < (uint16_t)s_icon_x || x >= (uint16_t)(s_icon_x + VIDEO_ICON_SPRITE_SIZE)) {
-        return -1;
-    }
-    
-    // Check y coordinate and determine which icon
-    if (y < (uint16_t)s_icon_start_y) {
-        return -1;
-    }
-    
-    int16_t rel_y = y - s_icon_start_y;
-    int8_t icon = (int8_t)(rel_y / icon_spacing);
-    
-    if (icon >= 6) {  // Only 6 icons
-        return -1;
-    }
-    
-    // Verify we're within the icon bounds (not in spacing gap)
-    uint16_t icon_y = s_icon_start_y + (icon * icon_spacing);
-    if (y < icon_y || y >= icon_y + VIDEO_ICON_SPRITE_SIZE) {
-        return -1;
-    }
-    
-    return icon;
-}
 
 void render_update_pieces(const board_t *board) {
     // Track which sprites we've used for each player
@@ -448,6 +425,7 @@ static void render_update_focus(void) {
     input_get_focus(&row, &col);
     if (!input_is_keyboard_mode()) {
         // Hide both focus sprites
+        enable_mouse();
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
         return;
@@ -493,34 +471,6 @@ void render_update_win_path(const win_path_t *path) {
         video_set_board_cell_win_color(row, col, path->winner);
     }
     s_win_path_applied = true;
-}
-
-void render_update_menu(const menu_state_t *menu) {
-    // Update icon sprite visibility and appearance based on enabled state
-    const uint16_t icon_spacing = VIDEO_ICON_SPRITE_SIZE + 8;
-    
-    for (uint8_t i = 0; i < 6; ++i) {
-        uint8_t sprite_id = VIDEO_SPRITE_ICON_BASE + i;
-        uint16_t y = s_icon_start_y + (i * icon_spacing);
-        
-        // Position icon sprite
-        spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + s_icon_x, VIDEO_SPRITE_OFFSET + y);
-        
-        // Show all icons, but use different CLUT for disabled vs enabled
-        uint8_t clut_index = VIDEO_PRIMARY_CLUT;
-        // if (!menu->enabled[i]) {
-        //     // Use dimmed CLUT for disabled icons
-        //     clut_index = VIDEO_PRIMARY_CLUT + 5;  // Dedicated disabled icon CLUT
-        // } else if (menu->selected_icon == (int8_t)i) {
-        //     // Highlight selected/hovered icon
-        //     clut_index = VIDEO_PRIMARY_CLUT + 6;  // Highlight CLUT
-        // }
-        
-        // Update sprite with appropriate appearance
-        uint32_t bitmap_addr = s_icon_bitmap_addrs[i];
-        spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, clut_index, 1);
-        spriteSetVisible(sprite_id, 1);
-    }
 }
 
 void render_update_score(const session_stats_t *stats) {

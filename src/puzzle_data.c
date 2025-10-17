@@ -52,19 +52,21 @@ static uint16_t s_puzzle_cache_index = 0u;
 #if defined(AI_AGENT_HOST_TEST)
 static uint8_t *s_host_catalog_data = NULL;
 static size_t s_host_catalog_size = 0u;
+static const char *const s_host_catalog_candidates[] = {
+    "assets/generated/puzzle_data.bin",
+    "../assets/generated/puzzle_data.bin"
+};
 
 static void puzzle_catalog_host_load(void) {
     if (s_host_catalog_data != NULL) {
         return;
     }
-    
-    const char *candidates[] = {
-        "assets/generated/puzzle_data.bin",
-        "../assets/generated/puzzle_data.bin"
-    };
-    
-    for (size_t i = 0u; i < sizeof(candidates) / sizeof(candidates[0]); ++i) {
-        FILE *file = fopen(candidates[i], "rb");
+
+    const size_t candidate_count = sizeof(s_host_catalog_candidates) / sizeof(s_host_catalog_candidates[0]);
+
+    for (size_t i = 0u; i < candidate_count; ++i) {
+        const char *path = s_host_catalog_candidates[i];
+        FILE *file = fopen(path, "rb");
         if (file == NULL) {
             continue;
         }
@@ -138,10 +140,6 @@ static void puzzle_catalog_ensure_header(void) {
     if (s_header_loaded) {
         return;
     }
-    
-    #if defined(__llvm_mos__)
-    print_formatted_text(0, 22, "");
-    #endif
     
     uint8_t header_low = platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS);
     uint8_t header_high = platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS + 1u);

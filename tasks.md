@@ -56,6 +56,7 @@ and win detection. AI implementation and audio system remain as future enhanceme
 | T29 | Puzzle Hint Move Throttles | Reapply move-volume depth/node caps to puzzle hint searches to bound runtime after the first database hint. | Updated `src/ai_agent.c`, documentation refresh. | T26, T28 | Done |
 | T30 | Hint Evaluation Instrumentation | Capture deterministic hint evaluation traces and leverage the math coprocessor for weighted feature products. | Updated `src/ai_agent.c`, `src/ai_agent.h`, docs. | T8, T28, T29 | Done |
 | T31 | Hint Trace Export | Persist captured hint evaluation traces to a CSV log when the game exits so diagnostics survive resets. | Updated `src/main.c`, documentation refresh, build passes. | T30 | Done |
+| T32 | Static Lookup Table Placement | Move puzzle catalog fallback paths and icon VRAM address arrays into static read-only storage to avoid per-call stack copies. | Updated `src/puzzle_data.c`, `src/video.c`, docs refreshed. | T22 | Done |
 
 ## Milestones
 

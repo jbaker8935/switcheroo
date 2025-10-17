@@ -248,6 +248,7 @@ int main(int argc, char *argv[])
     f256Init();
     // Initialize subsystems
     video_init(NULL); // Use default config
+    text_display_init();
     input_init();
     input_handler_init();
 
@@ -264,12 +265,17 @@ int main(int argc, char *argv[])
     // display_test();
 
     print_ai_difficulty(g_game_state.ai_config.difficulty);
-    ai_agent_hint_trace_enable(true);
+    ai_agent_hint_trace_enable(false);
+    print_game_mode(g_game_state.is_puzzle_mode);
+    print_swap_rule(g_game_state.ai_config.swap_rule);
+    print_current_player(g_game_state.board.current_player);
+    print_move_history(g_game_state.board.history, g_game_state.board.history_count);    
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)
     {
-        // print_game_mode(g_game_state.game_mode);
-        print_swap_rule(g_game_state.ai_config.swap_rule);
-
+        // print_game_mode(g_game_state.is_puzzle_mode);
+        // print_swap_rule(g_game_state.ai_config.swap_rule);
+        // print_current_player(g_game_state.board.current_player);
+        // print_move_history(g_game_state.board.history, g_game_state.board.history_count);
         // Update game state
         game_state_update(&g_game_state, 1.0f / 60.0f);
 
@@ -335,9 +341,8 @@ int main(int argc, char *argv[])
     }
 
     textClear();
-    video_reset();
-    dump_hint_trace_to_file();
-    getchar();
+    // dump_hint_trace_to_file();
+    // getchar();
 
     // soft reset
     POKE(0xD6A2, 0xDE);

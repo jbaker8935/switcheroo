@@ -21,6 +21,7 @@
 #endif
 
 // Swap rule modes
+#define NUMBER_OF_SWAP_RULES 4
 typedef enum {
     SWAP_RULE_CLASSIC = 0,           // Empty move clears all swapped
     SWAP_RULE_CLEARS_OWN = 1,       // Empty move clears player's swapped

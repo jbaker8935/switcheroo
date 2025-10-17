@@ -59,3 +59,17 @@ void set_mouse_cursor(mouse_cursor_t cursor_type) {
         load_mouse_cursor(normal_mouse);
     }
 }
+
+void enable_mouse() {
+    POKE(PS2_M_MODE_EN, 0x01);      // Enable mouse (bit0=enable, bit1=mode)
+
+}
+
+void disable_mouse() {
+    POKE(PS2_M_MODE_EN, 0x00);      // Disable mouse
+}
+
+void center_mouse() {
+    POKEW(PS2_M_X_LO, 320);         // Center mouse at 320x240 (center of 640x480)
+    POKEW(PS2_M_Y_LO, 240);
+}

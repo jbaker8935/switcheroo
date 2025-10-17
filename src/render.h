@@ -35,9 +35,6 @@ void render_update_highlights(const selection_state_t *selection);
 // Update winning path highlights
 void render_update_win_path(const win_path_t *path);
 
-// Update menu icon states (enabled/disabled/hovered)
-void render_update_menu(const menu_state_t *menu);
-
 // Update session score display
 void render_update_score(const session_stats_t *stats);
 
@@ -50,8 +47,5 @@ void render_invalidate_cache(void);
 
 // Helper: Get board cell from screen coordinates
 bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col);
-
-// Helper: Get menu icon from screen coordinates
-int8_t render_screen_to_menu_icon(uint16_t x, uint16_t y);
 
 #endif // RENDER_H

@@ -25,13 +25,15 @@ typedef enum {
 
 // Menu icons
 typedef enum {
-    MENU_ICON_RESET = 0,
-    MENU_ICON_INFO,
-    MENU_ICON_DIFFICULTY,
-    MENU_ICON_STARTING_BOARD,
-    MENU_ICON_HISTORY,
-    MENU_ICON_EXIT,
-    MENU_ICON_COUNT
+    MENU_ICON_GAME_MODE = 0,
+    MENU_ICON_RESET = 1,
+    MENU_ICON_PREVIOUS = 2,
+    MENU_ICON_NEXT = 3,
+    MENU_ICON_SWAP = 4,
+    MENU_ICON_DIFFICULTY = 5,
+    MENU_ICON_HINT = 6,
+    MENU_ICON_EXIT = 7,
+    MENU_ICON_COUNT = 8
 } menu_icon_t;
 
 // Session statistics

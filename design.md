@@ -67,6 +67,9 @@ hardware efficiency.
 - Initialization resets the VICKY palette tables via `graphicsReset`, clears
   all bitmap pages, and hides every sprite using `spriteReset` to guarantee a
   deterministic starting state.
+- Icon sprite VRAM addresses live in a static lookup table so repeated calls to
+  `video_init` and other sprite-positioning helpers reuse the same data without
+  paying per-invocation stack copies.
 - A curated CLUT is programmed through `video_apply_palette`, providing
   baseline colors for the board light/dark squares, UI panel, highlights, and
   typography. Slot 0 remains transparent-only so sprites and overlays can rely
@@ -474,6 +477,9 @@ Each puzzle record occupies 106 bytes. Records follow back-to-back after the
 - Host builds that lack `EMBED` support load the binary from disk on demand
   and reuse the same deserialisation path, preserving functional parity across
   testing environments.
+- Host fallback loading probes candidate catalog paths from a static const list
+  compiled into the binary so repeated asset lookups avoid reconstructing the
+  string table on the stack.
 
 ## Asset Pipeline
 

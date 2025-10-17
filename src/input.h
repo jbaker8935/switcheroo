@@ -34,13 +34,14 @@ typedef enum {
     KEY_RIGHT,
     KEY_ENTER,
     KEY_ESCAPE,
+    KEY_M,      // Game Mode Toggle
     KEY_R,      // Reset
-    KEY_I,      // Info
+    KEY_P,      // Previous
+    KEY_N,      // Next
+    KEY_S,      // Swap Rule
     KEY_D,      // Difficulty
-    KEY_S,      // Starting board
-    KEY_H,      // History
+    KEY_H,      // Hint
     KEY_X,      // Exit
-    KEY_M,      // Mute
     KEY_PLUS,   // Volume up
     KEY_MINUS,  // Volume down
     KEY_U       // Undo

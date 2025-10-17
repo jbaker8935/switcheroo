@@ -6,12 +6,15 @@
 #include "../src/game_state.h"
 #include "../src/puzzle_data.h"
 #include <stdint.h>
+#include <stdbool.h>
 #include <string.h>
 #include "../src/text_display.h"
 #include "../src/mouse_pointer.h"
+#include "../src/board.h"
 
 extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
+extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 
 static void gs_copy_text(char *dest, size_t dest_size, const char *src)
 {
@@ -61,14 +64,6 @@ static void gs_format_win_in(char *dest, size_t dest_size, unsigned value)
     dest[len] = '\0';
 }
 
-static void game_state_show_no_puzzle_notice(void)
-{
-    print_formatted_text(0, 5, "No puzzles available");
-    print_formatted_text(0, 6, "");
-    print_formatted_text(0, 7, "");
-    clear_puzzle_hint();
-}
-
 static void game_state_clear_win_path(game_state_t *state)
 {
     if (!state)
@@ -85,15 +80,32 @@ static void game_state_clear_win_path(game_state_t *state)
     render_invalidate_cache();
 }
 
+static void game_state_toggle_swap_rule(game_state_t *state)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    if(state->is_puzzle_mode) {
+        print_swap_unavailable();
+    } 
+    
+    if (!state->is_puzzle_mode && state->phase == GAME_PHASE_PLAYING && state->board.move_count == 0) {
+        state->prefs.swap_rule = (state->prefs.swap_rule + 1) % NUMBER_OF_SWAP_RULES;
+        state->ai_config.swap_rule = state->prefs.swap_rule;
+        ai_agent_init(&state->ai_config, state->prefs.swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+        print_swap_rule(state->prefs.swap_rule);
+        clear_swap_unavailable();
+    } 
+}
+
+
 static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 {
     const puzzle_collection_t *collection = get_puzzle_collection();
     if (!collection || collection->count == 0u)
     {
-        if (announce)
-        {
-            game_state_show_no_puzzle_notice();
-        }
         game_state_clear_win_path(state);
         return false;
     }
@@ -149,7 +161,7 @@ void game_state_init(game_state_t *state)
     state->board.layout_id = 0;
 
     // Set default preferences
-    state->prefs.difficulty_level = 3; // Standard
+    state->prefs.difficulty_level = AI_DIFFICULTY_EASY; // Easy Default
     state->prefs.swap_rule = SWAP_RULE_CLASSIC;
     state->prefs.current_puzzle_index = 0;
     state->prefs.color_scheme = 0; // Default theme
@@ -158,7 +170,7 @@ void game_state_init(game_state_t *state)
     state->prefs.volume_level = 7;
 
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
-    ai_agent_init(&state->ai_config, state->prefs.swap_rule, AI_DIFFICULTY_EXPERT, PLAYER_BLACK);
+    ai_agent_init(&state->ai_config, state->prefs.swap_rule, state->prefs.difficulty_level, PLAYER_BLACK);
 
     // Initialize menu state
     game_state_update_menu_enables(state);
@@ -211,6 +223,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 
     // Reset board cell colors to original checkerboard pattern
     video_reset_all_board_cell_colors();
+    video_set_game_mode_icon_bitmap(state->is_puzzle_mode);
 }
 
 void game_state_start_new_game(game_state_t *state)
@@ -291,155 +304,157 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
         game_state_update_menu_enables(state);
         return true;
     }
-
+    
     return false;
 }
 
 void game_state_update_menu_enables(game_state_t *state)
 {
-    // Reset is always enabled
+
+    state->menu.enabled[MENU_ICON_GAME_MODE] = true;  
     state->menu.enabled[MENU_ICON_RESET] = true;
-
-    // Info is always enabled
-    state->menu.enabled[MENU_ICON_INFO] = true;
-
-    // Difficulty is always enabled
+    state->menu.enabled[MENU_ICON_PREVIOUS] = true;
+    state->menu.enabled[MENU_ICON_NEXT] = true; 
+    state->menu.enabled[MENU_ICON_SWAP] = true;  
     state->menu.enabled[MENU_ICON_DIFFICULTY] = true;
-
-    // const puzzle_collection_t *collection = get_puzzle_collection();
-    // bool has_puzzles = (collection != NULL) && (collection->count > 0u);
-
-    // // Starting board enabled only when no moves have been made and puzzles exist
-    // state->menu.enabled[MENU_ICON_STARTING_BOARD] = has_puzzles && (state->board.move_count == 0);
-    state->menu.enabled[MENU_ICON_STARTING_BOARD] = true; // always true for now. TODO.
-    // if (!has_puzzles)
-    // {
-    //     game_state_show_no_puzzle_notice();
-    // }
-
-    // // History enabled only when moves have been made
-    // state->menu.enabled[MENU_ICON_HISTORY] = (state->board.history_count > 0);
-    
-    state->menu.enabled[MENU_ICON_HISTORY] = true;  // always true for now. TODO.
-
-    // Exit is always enabled
+    state->menu.enabled[MENU_ICON_HINT] = true;
     state->menu.enabled[MENU_ICON_EXIT] = true;
+
 }
 
 void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 {
-    if (!state->menu.enabled[icon])
-    {
-        if (icon == MENU_ICON_STARTING_BOARD)
-        {
-            game_state_show_no_puzzle_notice();
-        }
-        return;
-    }
+    bool new_mode=state->is_puzzle_mode;
 
     switch (icon)
     {
-    case MENU_ICON_RESET:
-    {
-        // Toggle mode and pass the new value
-        bool new_mode = !state->is_puzzle_mode;
-        game_state_set_game_mode(state, new_mode);
-        state->phase = GAME_PHASE_PLAYING;
-    }
-    break;
+        case MENU_ICON_GAME_MODE:
+    
+            // Toggle mode and fall through to RESET
+            new_mode = !state->is_puzzle_mode;
 
-    case MENU_ICON_INFO:
-    {
-        // Display the first solution move for the currently selected puzzle (hint)
-        const puzzle_collection_t *collection = get_puzzle_collection();
-        const puzzle_t *puzzle = NULL;
-        if (collection && state->prefs.current_puzzle_index < collection->count)
-        {
-            puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
-        }
+        case MENU_ICON_RESET:
 
-        if (puzzle && puzzle->solution_length > 0)
-        {
-            display_puzzle_solution(puzzle);
-        }
-
-        // Display AI Agent suggested move for Player A (White)
-        set_mouse_cursor(MOUSE_CURSOR_BUSY);
-        move_t ai_move;
-        ai_config_t ai_config = state->ai_config;
-        ai_config.ai_player = PLAYER_WHITE;
-        ai_config.swap_rule = state->prefs.swap_rule;
-        ai_config.use_hint_profile = state->is_puzzle_mode;
-        bool ai_found = ai_agent_find_best_move(&state->board, &ai_config, &ai_move);
-        if (ai_found)
-        {
-            char ai_hint_buf[26];
-            format_move_string(ai_hint_buf, sizeof(ai_hint_buf), &ai_move);
-            print_AI_hint(ai_hint_buf);
-        }
-        else
-        {
-            print_AI_hint("No AI move available");
-        }
-        set_mouse_cursor(MOUSE_CURSOR_NORMAL);
-        state->phase = GAME_PHASE_PLAYING;
-    }
-    break;
-
-    case MENU_ICON_DIFFICULTY:
-        // Cycle difficulty
-        state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
-        // Update AI difficulty
-        state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
-        print_ai_difficulty(state->prefs.difficulty_level);
-        break;
-
-    case MENU_ICON_STARTING_BOARD:
-    {
-        // if in puzzle mode, load next puzzle
-        if (state->is_puzzle_mode)
-        {
-            const puzzle_collection_t *collection = get_puzzle_collection();
-            if (!collection || collection->count == 0u)
-            {
-                game_state_show_no_puzzle_notice();
-                game_state_clear_win_path(state);
-                break;
+            game_state_set_game_mode(state, new_mode);
+            print_game_mode(new_mode);
+            if(!state->is_puzzle_mode) {
+                clear_swap_unavailable();
             }
+            print_current_player(state->board.current_player);
+            print_swap_rule(state->prefs.swap_rule);
+            state->phase = GAME_PHASE_PLAYING;
+        break;
+        
+        case MENU_ICON_NEXT:
+        case MENU_ICON_PREVIOUS:
 
-            state->prefs.current_puzzle_index = (state->prefs.current_puzzle_index + 1u) % collection->count;
-            if (game_state_apply_current_puzzle(state, true))
+            // if in puzzle mode, load next puzzle
+            if (state->is_puzzle_mode)
             {
-                game_state_deselect_piece(state);
-                game_state_update_menu_enables(state);
+                const puzzle_collection_t *collection = get_puzzle_collection();
+
+                if (!collection || collection->count == 0u)
+                {
+                    game_state_clear_win_path(state);
+                    break;
+                }
+                
+                if (icon == MENU_ICON_NEXT) {
+                    state->prefs.current_puzzle_index = (state->prefs.current_puzzle_index + 1u) % collection->count;
+                } else {
+                    // PREVIOUS
+                    if (state->prefs.current_puzzle_index == 0u) {
+                        state->prefs.current_puzzle_index = collection->count - 1u;
+                    } else {
+                        state->prefs.current_puzzle_index = state->prefs.current_puzzle_index - 1u;
+                    }
+                }
+
+
+                if (game_state_apply_current_puzzle(state, true))
+                {
+                    game_state_deselect_piece(state);
+                    game_state_update_menu_enables(state);
+                    print_swap_rule(state->prefs.swap_rule);
+                    state->phase = GAME_PHASE_PLAYING;
+                } 
+            } else {
+                // In freeplay mode, 
+                // Increment layout_id and wrap around
+                state->board.layout_id = (state->board.layout_id +
+                    (icon == MENU_ICON_NEXT ? 1u : -1u)) % NUM_STARTING_LAYOUTS;
+                    board_set_starting_layout(&state->board, state->board.layout_id);
+                    board_clear_all_swapped(&state->board);
+                    game_state_clear_win_path(state);
+                    game_state_deselect_piece(state);
+                    game_state_update_menu_enables(state);
+                    state->phase = GAME_PHASE_PLAYING;
+                    clear_puzzle_info();
+                    clear_puzzle_hint();
+            }
+            print_current_player(state->board.current_player);
+            break;
+            
+        case MENU_ICON_SWAP:
+  
+            game_state_toggle_swap_rule(state);
+            state->phase = GAME_PHASE_PLAYING;
+            break; 
+            
+        case MENU_ICON_DIFFICULTY:
+            // Cycle difficulty
+            state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
+            // Update AI difficulty
+            state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
+            print_ai_difficulty(state->prefs.difficulty_level);
+            break;
+
+        case MENU_ICON_HINT:
+            {
+                // Display the first solution move for the currently selected puzzle (hint)
+                const puzzle_collection_t *collection = get_puzzle_collection();
+                const puzzle_t *puzzle = NULL;
+                if (collection && state->prefs.current_puzzle_index < collection->count)
+                {
+                    puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+                }
+                // If in puzzle mode and puzzle has solution and no moves made, show solution
+                // otherwise, show AI hint for Player A (White)
+                if (state->is_puzzle_mode && state->board.move_count == 0)
+                {
+                    display_puzzle_solution(puzzle);
+                } else {
+                    // Display AI Agent suggested move for Player A (White)
+                    set_mouse_cursor(MOUSE_CURSOR_BUSY);
+                    move_t ai_move;
+                    ai_config_t ai_config = state->ai_config;
+                    ai_config.ai_player = PLAYER_WHITE;
+                    ai_config.swap_rule = state->prefs.swap_rule;
+                    ai_config.use_hint_profile = state->is_puzzle_mode;
+                    bool ai_found = ai_agent_find_best_move(&state->board, &ai_config, &ai_move);
+                    if (ai_found)
+                    {
+                        char ai_hint_buf[26];
+                        format_move_string(ai_hint_buf, sizeof(ai_hint_buf), &ai_move);
+                        print_AI_hint(ai_hint_buf);
+                    }
+                    else
+                    {
+                        print_AI_hint("No AI move available");
+                    }
+                    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+                }
+
                 state->phase = GAME_PHASE_PLAYING;
             }
-        } else {
-            // In freeplay mode, reset to standard starting position
-            // Increment layout_id and wrap around
-            state->board.layout_id = (state->board.layout_id + 1) % NUM_STARTING_LAYOUTS;
-            board_set_starting_layout(&state->board, state->board.layout_id);
-            board_clear_all_swapped(&state->board);
-            game_state_clear_win_path(state);
-            game_state_deselect_piece(state);
-            game_state_update_menu_enables(state);
-            state->phase = GAME_PHASE_PLAYING;
-            clear_puzzle_info();
-            clear_puzzle_hint();
-        }
-    }
-    break;
+            break;
 
-    case MENU_ICON_HISTORY:
-        state->phase = GAME_PHASE_MENU_OVERLAY;
-        break;
+        case MENU_ICON_EXIT:
+            state->phase = GAME_PHASE_EXIT;
+            break;
 
-    case MENU_ICON_EXIT:
-        state->phase = GAME_PHASE_EXIT;
-        break;
-
-    default:
-        break;
+        default:
+            break;
     }
 }
 

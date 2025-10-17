@@ -25,7 +25,7 @@ typedef enum {
 // Menu icons
 typedef enum {
     MENU_ICON_RESET = 0,
-    MENU_ICON_INFO,
+    MENU_ICON_HINT,
     MENU_ICON_DIFFICULTY,
     MENU_ICON_STARTING_BOARD,
     MENU_ICON_HISTORY,

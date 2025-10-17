@@ -73,7 +73,7 @@ void board_reset(board_t *board) {
 }
 
 void board_set_starting_layout(board_t *board, uint8_t layout_id) {
-    const piece_type_t *layout = kStartingLayout0;
+    const piece_type_t *layout = (const piece_type_t *)kStartingLayout0;
     switch (layout_id) {
         case 0:
             layout = (const piece_type_t *)kStartingLayout0;

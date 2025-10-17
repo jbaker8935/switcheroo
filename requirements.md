@@ -299,6 +299,12 @@ Requirements Syntax (EARS) statements. Platform capabilities reference the
 - WHEN the AI overlay image is resident, THE SYSTEM SHALL reuse the loaded
   workspace for subsequent searches instead of duplicating the copy operation
   to preserve headroom for the software stack and global data.
+- WHEN the host puzzle catalog loader probes fallback asset paths, THE SYSTEM SHALL
+  source the candidate path list from static read-only storage so repeated invocations
+  do not duplicate initializer bytes on the stack.
+- WHEN positioning menu icon sprites, THE SYSTEM SHALL reuse a static table of VRAM
+  addresses so the video subsystem avoids reconstructing the lookup list on each call
+  and keeps stack usage minimal.
 
 ### Reliability
 

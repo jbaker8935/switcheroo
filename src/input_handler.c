@@ -4,6 +4,7 @@
  */
 
 #include "../src/input_handler.h"
+#include "../src/mouse_pointer.h"
 #include <string.h>
 
 // Layout constants from video.c
@@ -27,8 +28,8 @@ void input_handler_init(void) {
     
     s_board_x = (SCREEN_WIDTH - board_width) / 2;
     s_board_y = (SCREEN_HEIGHT - board_height) / 2;
-    
-    // Menu icons positioned vertically on right side of board
+
+    // Menu icons positioned in 2 columns by 4 rows on right side of board
     s_icon_x = s_board_x + board_width + 16;
     s_icon_start_y = s_board_y + 8;
 }
@@ -61,20 +62,32 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
         }
     }
     
-    // Check if click is on menu icons (vertical layout on right side)
-    // Icons are 16x16, spaced 24px apart (16 + 8 gap), arranged vertically
+    // Check if click is on menu icons (2 x 4 layout on right side)
+    // Icons are 16x16, spaced 24px apart (16 + 8 gap), arranged in 2 columns by 4 rows
     const int16_t icon_spacing = 24;  // ICON_SIZE (16) + 8 gap
     
-    // Check if X coordinate is in icon area
-    if (screen_x >= s_icon_x && screen_x < s_icon_x + ICON_SIZE) {
+    // Check if X coordinate is in icon area 2 columns wide
+    if (screen_x >= s_icon_x && screen_x < s_icon_x + 2 * ICON_SIZE + 8) {
         // Check if Y coordinate is within icon area
         if (screen_y >= s_icon_start_y) {
+            int16_t rel_x = screen_x - s_icon_x;
             int16_t rel_y = screen_y - s_icon_start_y;
-            uint8_t icon_index = rel_y / icon_spacing;
+            // Determine which column
+            uint8_t col = rel_x / (icon_spacing);
+            if (col > 1) {
+                return result;  // Outside icon columns
+            }
+
+            uint8_t row = rel_y / icon_spacing;
+
+            uint8_t icon_index = row * 2 + col;
             
             // Check if actually on the icon (not in gap between icons)
-            int16_t icon_y = s_icon_start_y + (icon_index * icon_spacing);
-            if (screen_y >= icon_y && screen_y < icon_y + ICON_SIZE && icon_index < MENU_ICON_COUNT) {
+            int16_t icon_y = s_icon_start_y + (row * icon_spacing);
+            int16_t icon_x = s_icon_x + (col * icon_spacing);
+            if (screen_y >= icon_y && screen_y < icon_y + ICON_SIZE &&
+                screen_x >= icon_x && screen_x < icon_x + ICON_SIZE &&
+                icon_index < MENU_ICON_COUNT) {
                 result.type = HIT_MENU_ICON;
                 result.data.icon = (menu_icon_t)icon_index;
                 return result;
@@ -162,41 +175,53 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                     }
                     break;
                     
+                case KEY_M:  // Game Mode Toggle
+                    if (state->menu.enabled[MENU_ICON_GAME_MODE]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_GAME_MODE);
+                    }
+                    break;
+                                        
                 case KEY_R:  // Reset
                     if (state->menu.enabled[MENU_ICON_RESET]) {
                         game_state_activate_menu_icon(state, MENU_ICON_RESET);
                     }
                     break;
                     
-                case KEY_I:  // Info
-                    if (state->menu.enabled[MENU_ICON_INFO]) {
-                        game_state_activate_menu_icon(state, MENU_ICON_INFO);
-                    }
-                    break;
-                    
+                case KEY_P:  // Previous
+                if (state->menu.enabled[MENU_ICON_PREVIOUS]) {
+                    game_state_activate_menu_icon(state, MENU_ICON_PREVIOUS);
+                }
+                break;
+                
+                case KEY_N:  // Next
+                if (state->menu.enabled[MENU_ICON_NEXT]) {
+                    game_state_activate_menu_icon(state, MENU_ICON_NEXT);
+                }
+                break;
+
+                case KEY_S:  // Swap
+                if (state->menu.enabled[MENU_ICON_SWAP]) {
+                    game_state_activate_menu_icon(state, MENU_ICON_SWAP);
+                }
+                break;
+
                 case KEY_D:  // Difficulty
-                    if (state->menu.enabled[MENU_ICON_DIFFICULTY]) {
-                        game_state_activate_menu_icon(state, MENU_ICON_DIFFICULTY);
-                    }
-                    break;
-                    
-                case KEY_S:  // Starting board
-                    if (state->menu.enabled[MENU_ICON_STARTING_BOARD]) {
-                        game_state_activate_menu_icon(state, MENU_ICON_STARTING_BOARD);
-                    }
-                    break;
-                    
-                case KEY_H:  // History
-                    if (state->menu.enabled[MENU_ICON_HISTORY]) {
-                        game_state_activate_menu_icon(state, MENU_ICON_HISTORY);
+                if (state->menu.enabled[MENU_ICON_DIFFICULTY]) {
+                    game_state_activate_menu_icon(state, MENU_ICON_DIFFICULTY);
+                }
+                break;
+                
+                case KEY_H:  // Hint
+                    if (state->menu.enabled[MENU_ICON_HINT]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_HINT);
                     }
                     break;
                     
                 case KEY_X:  // Exit
-                    if (state->menu.enabled[MENU_ICON_EXIT]) {
-                        game_state_activate_menu_icon(state, MENU_ICON_EXIT);
-                    }
-                    break;
+                if (state->menu.enabled[MENU_ICON_EXIT]) {
+                    game_state_activate_menu_icon(state, MENU_ICON_EXIT);
+                }
+                break;
                     
                 case KEY_U:  // Undo
                     // TODO: Implement undo
@@ -237,6 +262,7 @@ void input_handler_move_focus(game_state_t *state, key_code_t direction) {
     
     // Update focus
     input_set_focus(row, col);
+
 }
 
 void input_handler_activate_focused(game_state_t *state) {
@@ -263,5 +289,6 @@ void input_handler_activate_focused(game_state_t *state) {
             // No selection - select focused cell
             game_state_select_piece(state, row, col);
         }
+
     }
 }

@@ -95,8 +95,8 @@ static void ai_format_diag(char *dest, const char *label, uint32_t value) {
 
 static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
     if (!enabled) {
-        print_formatted_text(0, 18, "");
-        print_formatted_text(0, 19, "");
+        print_formatted_text(1, 45, "");
+        print_formatted_text(1, 46, "");
         return;
     }
 
@@ -104,8 +104,8 @@ static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
     char buf_ticks[26];
     ai_format_diag(buf_nodes, "AI NODES:", nodes);
     ai_format_diag(buf_ticks, "AI TICKS:", ticks);
-    print_formatted_text(0, 18, buf_nodes);
-    print_formatted_text(0, 19, buf_ticks);
+    print_formatted_text(1, 45, buf_nodes);
+    print_formatted_text(1, 46, buf_ticks);
 }
 #else
 static void ai_timer0_reset(void) {}
@@ -1895,7 +1895,7 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     if (dynamic_depth > 0u) {
         if (move_volume >= 18u) {
-            if (config->difficulty >= AI_DIFFICULTY_STANDARD) {
+            if (config->difficulty > AI_DIFFICULTY_STANDARD) {
                 dynamic_depth = 1u;
             } else {
                 dynamic_depth = 0u;

@@ -6,6 +6,7 @@
 #include "../src/input.h"
 #include "../src/platform_f256.h"
 #include "../src/text_display.h"
+#include "../src/mouse_pointer.h"
 #include <string.h>
 
 // PS/2 Mouse hardware registers
@@ -25,13 +26,14 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0xB9: return KEY_RIGHT;   // Right arrow
         case 0x94: return KEY_ENTER;   // Enter
         case 0x92: return KEY_ESCAPE;  // Escape
+        case 0x6D: return KEY_M;       // M
         case 0x72: return KEY_R;       // R
-        case 0x69: return KEY_I;       // I
-        case 0x64: return KEY_D;       // D
+        case 0x70: return KEY_P;       // P
+        case 0x6E: return KEY_N;       // N
         case 0x73: return KEY_S;       // S
+        case 0x64: return KEY_D;       // D
         case 0x68: return KEY_H;       // H
         case 0x78: return KEY_X;       // X
-        case 0x6D: return KEY_M;       // M
         case 0x81: return KEY_PLUS;    // F1/F2 (Volume up)
         case 0x83: return KEY_MINUS;   // F3/F4 (Volume down)
         case 0x75: return KEY_U;       // U
@@ -206,6 +208,9 @@ bool input_is_key_down(key_code_t key) {
 }
 
 void input_set_focus(uint8_t row, uint8_t col) {
+
+    disable_mouse();
+
     s_input_state.focus_row = row;
     s_input_state.focus_col = col;
     s_input_state.keyboard_mode = true;

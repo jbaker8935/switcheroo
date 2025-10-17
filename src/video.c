@@ -4,10 +4,7 @@
 #include "../src/board.h"
 #include "../src/mouse_pointer.h"
 
-// PS/2 Mouse hardware registers (not in f256lib.h)
-#define PS2_M_MODE_EN 0xD6E0
-#define PS2_M_X_LO    0xD6E2
-#define PS2_M_Y_LO    0xD6E4
+
 
 // EMBED statements for assets at specific memory addresses
 EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x30000);
@@ -18,12 +15,15 @@ EMBED(piece_bitmap_b_normal, "../assets/generated/piece_bitmap_b_normal.bin", 0x
 EMBED(piece_bitmap_b_swapped, "../assets/generated/piece_bitmap_b_swapped.bin", 0x5a800);
 
 // Icon bitmaps
-EMBED(icon_reset, "../assets/generated/icon_reset.bin", 0x5bc00);
+EMBED(icon_reset, "../assets/generated/reset.bin", 0x5bc00);
 EMBED(icon_info, "../assets/generated/icon_info.bin", 0x5c400);
-EMBED(icon_difficulty, "../assets/generated/icon_difficulty.bin", 0x5cc00);
-EMBED(icon_starting_board, "../assets/generated/icon_starting_board.bin", 0x5d400);
-EMBED(icon_history, "../assets/generated/icon_history.bin", 0x5dc00);
+EMBED(icon_difficulty, "../assets/generated/difficulty_slider.bin", 0x5cc00);
+EMBED(icon_next, "../assets/generated/next.bin", 0x5d400);
+EMBED(icon_swap_mode, "../assets/generated/swap_mode.bin", 0x5dc00);
 EMBED(icon_exit, "../assets/generated/icon_exit.bin", 0x5e400);
+EMBED(icon_game_ai_mode, "../assets/generated/ai_mode.bin", 0x5f100);
+EMBED(icon_game_puzzle_mode, "../assets/generated/icon_puzzle.bin", 0x5f200);
+EMBED(icon_previous, "../assets/generated/previous.bin", 0x5f300);
 
 // Move Highlight sprite bitmaps
 EMBED(highlight_empty_bitmap, "../assets/generated/highlight_empty_bitmap.bin", 0x5e500);
@@ -84,9 +84,15 @@ typedef enum {
 } video_sprite_id_t;
 
 typedef enum {
-    VIDEO_ICON_RESET = 0, VIDEO_ICON_INFO = 1, VIDEO_ICON_DIFFICULTY = 2,
-    VIDEO_ICON_STARTING_BOARD = 3, VIDEO_ICON_HISTORY = 4, VIDEO_ICON_EXIT = 5,
-    VIDEO_ICON_COUNT = 6
+    VIDEO_ICON_GAME_MODE = 0, 
+    VIDEO_ICON_RESET = 1, 
+    VIDEO_ICON_PREVIOUS = 2, 
+    VIDEO_ICON_NEXT = 3, 
+    VIDEO_ICON_SWAP_MODE = 4,
+    IDEO_ICON_DIFFICULTY = 5,
+    VIDEO_ICON_INFO = 6, 
+    VIDEO_ICON_EXIT = 7,
+    VIDEO_ICON_COUNT = 8
 } video_icon_id_t;
 
 // Function declarations 
@@ -116,12 +122,26 @@ void video_reset_all_board_cell_colors(void);
 #define VIDEO_VRAM_PIECE_B_SWAPPED 0x5a800u
 
 #define VIDEO_VRAM_ICON_RESET 0x5bc00u
-#define VIDEO_VRAM_ICON_INFO 0x5c400u
+#define VIDEO_VRAM_ICON_HINT 0x5c400u
 #define VIDEO_VRAM_ICON_DIFFICULTY 0x5cc00u
-#define VIDEO_VRAM_ICON_STARTING_BOARD 0x5d400u
-#define VIDEO_VRAM_ICON_HISTORY 0x5dc00u
-// Icon exit placed at 0x5e400 per user correction
+#define VIDEO_VRAM_ICON_NEXT 0x5d400u
+#define VIDEO_VRAM_ICON_PREVIOUS 0x5f300u
+#define VIDEO_VRAM_ICON_SWAP_MODE 0x5dc00u
+#define VIDEO_VRAM_ICON_GAME_MODE_AI 0x5f100u
+#define VIDEO_VRAM_ICON_GAME_MODE_PUZZLE 0x5f200u
 #define VIDEO_VRAM_ICON_EXIT 0x5e400u
+
+// Order Icons 2 columns by 4 rows
+static const uint32_t s_video_icon_vram_addrs[VIDEO_ICON_COUNT] = {
+    VIDEO_VRAM_ICON_GAME_MODE_AI,  // DEFAULT ICON is AI MODE, BITMAP SWITCHED BASED ON MODE
+    VIDEO_VRAM_ICON_RESET,
+    VIDEO_VRAM_ICON_PREVIOUS,
+    VIDEO_VRAM_ICON_NEXT,
+    VIDEO_VRAM_ICON_SWAP_MODE,
+    VIDEO_VRAM_ICON_DIFFICULTY,
+    VIDEO_VRAM_ICON_HINT,
+    VIDEO_VRAM_ICON_EXIT
+};
 
 // Highlight sprite VRAM addresses (empty and occupied variants)
 #define VIDEO_VRAM_HIGHLIGHT_EMPTY 0x5e500u
@@ -249,6 +269,7 @@ static video_config_t s_video_config = {
     .theme = VIDEO_THEME_DEFAULT,
 };
 
+
 static video_theme_t s_active_theme = VIDEO_THEME_DEFAULT;
 
 // Function prototypes
@@ -266,13 +287,6 @@ void clear_text_matrix(void) {
     POKE(MMU_IO_CTRL, 0); // Restore i/o page to 0
 }
 
-void video_reset() {
-    // Reset video hardware to initial state
-    POKE(MMU_IO_CTRL, 0);
-    POKE(VKY_MSTR_CTRL_0, 1);
-    POKE(VKY_MSTR_CTRL_1, 0);
-    POKE(PS2_M_MODE_EN, 0x00);      // Enable mouse (bit0=enable, bit1=mode)
-}
 
 void video_init(const video_config_t *config) {
     // Set up configuration
@@ -323,9 +337,8 @@ void video_init(const video_config_t *config) {
     // Initialize PS/2 mouse hardware
     // Mouse coordinate system is always 640x480 regardless of video mode
     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
-    POKE(PS2_M_MODE_EN, 0x01);      // Enable mouse (bit0=enable, bit1=mode)
-    POKEW(PS2_M_X_LO, 320);         // Center mouse at 320x240 (center of 640x480)
-    POKEW(PS2_M_Y_LO, 240);
+    enable_mouse();
+    center_mouse();
 
     // Load and position sprites
     // Assets are embedded at fixed addresses using EMBED - no manifest needed
@@ -469,26 +482,16 @@ static void video_position_sprites(void) {
     }
     
     // Define and position icon sprites (right panel) using EMBED addresses
-    const uint16_t icon_x = (uint16_t)(board_x + board_width + 16);
+    // Icons are arranged in 2 columns by 4 rows
     const uint16_t icon_start_y = (uint16_t)(board_y + 8);
     const uint16_t icon_spacing = VIDEO_ICON_SPRITE_SIZE + 8;
-
     
-    // Icon VRAM addresses array
-    const uint32_t icon_addrs[VIDEO_ICON_COUNT] = {
-        VIDEO_VRAM_ICON_RESET,
-        VIDEO_VRAM_ICON_INFO,
-        VIDEO_VRAM_ICON_DIFFICULTY,
-        VIDEO_VRAM_ICON_STARTING_BOARD,
-        VIDEO_VRAM_ICON_HISTORY,
-        VIDEO_VRAM_ICON_EXIT
-    };
-    
-    for (uint32_t i = 0; i < VIDEO_ICON_COUNT; ++i) {
+    for (uint16_t i = 0; i < VIDEO_ICON_COUNT; ++i) {
+        const uint16_t icon_x = (uint16_t)(board_x + board_width + 16) + ((i % 2) ? icon_spacing : 0);
         uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
-        uint16_t y = (uint16_t)(icon_start_y + (i * icon_spacing));
+        uint16_t y = (uint16_t)(icon_start_y + ((i / 2) * icon_spacing));
         
-        spriteDefine(sprite_id, icon_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteDefine(sprite_id, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
         spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + icon_x, VIDEO_SPRITE_OFFSET + y);
         spriteSetVisible(sprite_id, 1);
     }
@@ -530,6 +533,19 @@ void video_set_piece_sprite_swapped(uint8_t sprite_id, uint8_t swapped) {
     
     uint8_t actual_sprite_id = (uint8_t)(VIDEO_SPRITE_PIECE_BASE + sprite_id);
     spriteDefine(actual_sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+}
+
+void video_set_game_mode_icon_bitmap(bool is_puzzle_mode) {
+    uint32_t bitmap_addr = is_puzzle_mode ? VIDEO_VRAM_ICON_GAME_MODE_PUZZLE : VIDEO_VRAM_ICON_GAME_MODE_AI;
+    uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + VIDEO_ICON_GAME_MODE);
+    // Calculate board layout
+    const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11; // Extra for border
+    const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15; // Extra for border
+    const int16_t board_x = (VIDEO_SCREEN_WIDTH - board_width) / 2;
+    const int16_t board_y = (VIDEO_SCREEN_HEIGHT - board_height) / 2;    
+    spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+    spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + board_x + board_width+ 16, VIDEO_SPRITE_OFFSET + board_y + 8);
+    spriteSetVisible(sprite_id, 1);
 }
 
 // Reset board cell CLUT to original checkerboard color
