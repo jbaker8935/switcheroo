@@ -67,6 +67,8 @@ void enable_mouse() {
 
 void disable_mouse() {
     POKE(PS2_M_MODE_EN, 0x00);      // Disable mouse
+    POKEW(PS2_M_X_LO, 639);         // move it out of the way
+    POKEW(PS2_M_Y_LO, 479);
 }
 
 void center_mouse() {

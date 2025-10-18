@@ -114,6 +114,11 @@ void video_reset_all_board_cell_colors(void);
 #define VIDEO_BOARD_COLUMNS 4u
 #define VIDEO_BOARD_ROWS 8u
 
+#define VIDEO_SPRITE_PIECE_LAYER 2
+#define VIDEO_SPRITE_ICON_LAYER 2
+#define VIDEO_SPRITE_HIGHLIGHT_LAYER 1
+#define VIDEO_SPRITE_FOCUS_LAYER 0
+
 // VRAM layout - bitmap and sprite addresses matching EMBED locations
 #define VIDEO_VRAM_BITMAP_BASE 0x44000u
 #define VIDEO_VRAM_PIECE_A_NORMAL 0x56c00u
@@ -151,8 +156,11 @@ static const uint32_t s_video_icon_vram_addrs[VIDEO_ICON_COUNT] = {
 #define VIDEO_VRAM_FOCUS_ICON 0x5f000u
 
 // Sprite ID assignments  
-#define VIDEO_SPRITE_PIECE_BASE 0u
-#define VIDEO_SPRITE_ICON_BASE (VIDEO_SPRITE_PIECE_BASE + VIDEO_SPRITE_PIECE_COUNT)
+#define VIDEO_SPRITE_FOCUS_PIECE 0u
+#define VIDEO_SPRITE_FOCUS_ICON 1u
+#define VIDEO_SPRITE_HIGHLIGHT_BASE 2u  // After focus sprites
+#define VIDEO_SPRITE_PIECE_BASE 18u
+#define VIDEO_SPRITE_ICON_BASE 34u
 #define VIDEO_SPRITE_OFFSET 32u  // Offset to avoid clipping at screen edges
 
 // CLUT indices - per video_assets.md specification
@@ -414,6 +422,8 @@ static void video_setup_clut(const video_palette_t *palette) {
     graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY,
                        palette->highlight_sprite_occupied_secondary.r, palette->highlight_sprite_occupied_secondary.g, palette->highlight_sprite_occupied_secondary.b);
     
+    // Focus outline color (slot 89) - bright yellow
+    graphicsDefineColor(VIDEO_PRIMARY_CLUT, VIDEO_CLUT_FOCUS, 0xff, 0xff, 0x64); // Yellow focus outline
 
 }
 
@@ -436,8 +446,8 @@ static void video_position_sprites(void) {
     // Player A sprites (8 total) use normal bitmap initially
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_PIECE_BASE + VIDEO_SPRITE_A_0 + i);
-        
-        spriteDefine(sprite_id, VIDEO_VRAM_PIECE_A_NORMAL, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+
+        spriteDefine(sprite_id, VIDEO_VRAM_PIECE_A_NORMAL, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
         spriteSetVisible(sprite_id, 0);  // Start hidden
     }
     
@@ -445,7 +455,7 @@ static void video_position_sprites(void) {
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_PIECE_BASE + VIDEO_SPRITE_B_0 + i);
         
-        spriteDefine(sprite_id, VIDEO_VRAM_PIECE_B_NORMAL, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteDefine(sprite_id, VIDEO_VRAM_PIECE_B_NORMAL, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
         spriteSetVisible(sprite_id, 0);  // Start hidden
     }
     
@@ -490,8 +500,8 @@ static void video_position_sprites(void) {
         const uint16_t icon_x = (uint16_t)(board_x + board_width + 16) + ((i % 2) ? icon_spacing : 0);
         uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
         uint16_t y = (uint16_t)(icon_start_y + ((i / 2) * icon_spacing));
-        
-        spriteDefine(sprite_id, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+
+        spriteDefine(sprite_id, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_ICON_LAYER);
         spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + icon_x, VIDEO_SPRITE_OFFSET + y);
         spriteSetVisible(sprite_id, 1);
     }
@@ -532,7 +542,7 @@ void video_set_piece_sprite_swapped(uint8_t sprite_id, uint8_t swapped) {
     }
     
     uint8_t actual_sprite_id = (uint8_t)(VIDEO_SPRITE_PIECE_BASE + sprite_id);
-    spriteDefine(actual_sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+    spriteDefine(actual_sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
 }
 
 void video_set_game_mode_icon_bitmap(bool is_puzzle_mode) {
@@ -542,9 +552,9 @@ void video_set_game_mode_icon_bitmap(bool is_puzzle_mode) {
     const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11; // Extra for border
     const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15; // Extra for border
     const int16_t board_x = (VIDEO_SCREEN_WIDTH - board_width) / 2;
-    const int16_t board_y = (VIDEO_SCREEN_HEIGHT - board_height) / 2;    
-    spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
-    spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + board_x + board_width+ 16, VIDEO_SPRITE_OFFSET + board_y + 8);
+    const int16_t board_y = (VIDEO_SCREEN_HEIGHT - board_height) / 2;
+    spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_ICON_LAYER);
+    spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + board_x + board_width + 16, VIDEO_SPRITE_OFFSET + board_y + 8);
     spriteSetVisible(sprite_id, 1);
 }
 

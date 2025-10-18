@@ -24,9 +24,17 @@ extern void video_reset_all_board_cell_colors(void);
 #define VIDEO_BOARD_COLUMNS 4u
 #define VIDEO_BOARD_ROWS 8u
 
-#define VIDEO_SPRITE_PIECE_BASE 0u
-#define VIDEO_SPRITE_ICON_BASE 16u
-#define VIDEO_SPRITE_HIGHLIGHT_BASE 24u  // After 8 icons
+#define VIDEO_SPRITE_PIECE_LAYER 2
+#define VIDEO_SPRITE_ICON_LAYER 2
+#define VIDEO_SPRITE_HIGHLIGHT_LAYER 1
+#define VIDEO_SPRITE_FOCUS_LAYER 0
+
+
+#define VIDEO_SPRITE_FOCUS_PIECE 0u
+#define VIDEO_SPRITE_FOCUS_ICON 1u
+#define VIDEO_SPRITE_HIGHLIGHT_BASE 2u  // After focus sprites
+#define VIDEO_SPRITE_PIECE_BASE 18u
+#define VIDEO_SPRITE_ICON_BASE 34u
 #define VIDEO_SPRITE_OFFSET 32u
 
 #define VIDEO_VRAM_PIECE_A_NORMAL 0x56c00u
@@ -94,9 +102,6 @@ static move_t s_cache_legal_moves[8];
 // Track whether a winning-path CLUT has been applied (avoids repeated CLUT writes)
 static bool s_win_path_applied = false;
 
-// Focus sprite IDs
-#define VIDEO_SPRITE_FOCUS_PIECE (VIDEO_SPRITE_HIGHLIGHT_BASE + 16)
-#define VIDEO_SPRITE_FOCUS_ICON  (VIDEO_SPRITE_HIGHLIGHT_BASE + 17)
 
 // Helper: snapshot board pieces for change detection
 static void cache_board_snapshot(const board_t *board) {
@@ -125,14 +130,14 @@ void render_init(void) {
     // Define piece sprites (16)
     for (uint8_t i = 0; i < 16; ++i) {
         uint32_t bitmap = (i < 8) ? VIDEO_VRAM_PIECE_A_NORMAL : VIDEO_VRAM_PIECE_B_NORMAL;
-        spriteDefine((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), bitmap, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteDefine((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), bitmap, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
         spriteSetVisible((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), 0);
     }
 
     // Define icon sprites (8)
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
-        spriteDefine(sid, s_icon_bitmap_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+        spriteDefine(sid, s_icon_bitmap_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_ICON_LAYER);
         spriteSetVisible(sid, 1);
     }
 
@@ -140,20 +145,20 @@ void render_init(void) {
     // Empty cell highlight sprites: base..base+7 use the EMPTY bitmap
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + i);
-        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_EMPTY, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 0);
+        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_EMPTY, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
         spriteSetVisible(sid, 0);
     }
     // Occupied cell highlight sprites: base+8..base+15 use the OCCUPIED bitmap
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + 8 + i);
-        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_OCCUPIED, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 0);
+        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_OCCUPIED, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
         spriteSetVisible(sid, 0);
     }
 
     // Define focus sprites (piece and icon) on layer 0
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_VRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_CLUT_FOCUS, 0);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_VRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_VRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_CLUT_FOCUS, 0);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_VRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
 
     // Mark cache initialized
@@ -278,7 +283,7 @@ void render_update_pieces(const board_t *board) {
                 // If piece type changed (especially NORMAL<->SWAPPED), redefine sprite with new bitmap
                 uint8_t prev_piece = s_cache_board_snapshot[row][col];
                 if (force_full_update || prev_piece != (uint8_t)piece) {
-                    spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, 1);
+                    spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
                     
                     // Count swapped->normal transitions
                     if ((prev_piece == PIECE_WHITE_SWAPPED || prev_piece == PIECE_BLACK_SWAPPED) &&

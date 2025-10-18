@@ -62,7 +62,7 @@ typedef struct {
 const puzzle_collection_t *get_puzzle_collection(void);
 
 // Get puzzle by index. Returned pointer remains valid until the next call.
-const puzzle_t *get_puzzle_by_index(uint8_t index);
+const puzzle_t *get_puzzle_by_index(uint16_t index);
 
 // Convert swap rule string to enum
 swap_rule_t swap_rule_from_string(const char *str);

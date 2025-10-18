@@ -240,7 +240,7 @@ const puzzle_collection_t *get_puzzle_collection(void) {
     return &s_puzzle_collection;
 }
 
-const puzzle_t *get_puzzle_by_index(uint8_t index) {
+const puzzle_t *get_puzzle_by_index(uint16_t index) {
     uint16_t expanded_index = (uint16_t)index;
     if (s_puzzle_cache_valid && s_puzzle_cache_index == expanded_index) {
         return &s_puzzle_cache;
