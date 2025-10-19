@@ -8,84 +8,65 @@ categories: ["Architecture"]
 tags: ["Foenix F256", "Project Planning", "Tasks"]
 ai_note: "Drafted with AI assistance based on provided materials."
 summary: "Implementation roadmap and task breakdown for the F256 Switcharoo project."
-post_date: 2025-09-27
+post_date: 2025-10-19
 ---
 
 ## Overview
 
-This plan decomposes the Switcharoo requirements into actionable tasks that can
-be tracked through implementation. Tasks align with the architecture outlined
-in `design.md` and satisfy the EARS requirements captured in `requirements.md`.
-
-**Current Status**: Core game engine is fully implemented and playable. The game
-supports human vs human play with complete board logic, input handling, rendering,
-and win detection. AI implementation and audio system remain as future enhancements.
+This plan decomposes the current Switcharoo requirements into actionable tasks
+that match the implementation recorded on 2025-10-19. The board engine, puzzle
+pipeline, rendering, and AI search are all active on hardware and in the host
+tests. Menu polish, audio, undo, and advanced error handling remain in the
+backlog.
 
 ## Task Board
 
 | ID | Title | Description | Deliverables | Dependencies | Status |
 | --- | --- | --- | --- | --- | --- |
-| T1 | Toolchain Setup | Configure LLVM-MOS, `f256lib`, and asset build tools; verify hardware emulator pipeline. | Build scripts, local linker script, `.pgz` packaging artifacts, validated tool versions. | None | Done |
-| T2 | Video Initialization | Implement video mode, sprite layer setup, and asset loader stubs per `f256jr_ref.pdf`. | Video init module, theme palettes, placeholder assets, VRAM upload routine, smoke test. | T1 | Done |
-| T3 | Input Subsystem | Integrate mouse and keyboard polling with event translation, including deselection via Escape or re-click, keyboard shortcuts, and volume controls. | Input manager module, shortcut handler, diagnostic overlay. | T1 | Done |
-| T4 | Board Model | Implement board data structures, adjacency lookup tables, swap state tracking, and rule enforcement. | Board module, unit tests. | T1 | Done |
-| T5 | Move History & Scoring | Build move logging, score tracking, session score display, and reset logic (clears history, preserves scores). | History buffer module, scoreboard renderer tests. | T4 | Done (Integrated in game_state) |
-| T6 | Rendering Pipeline | Draw checkerboard board bitmap with border, place normal/swapped sprites, render color-coded highlights, disabled icons, and scoreboard strip. | Render pipeline module, visual test. | T2, T4 | Done |
-| T7 | Menu System | Implement icon widgets with enable/disable states, hover suppression for disabled icons, and overlay transitions. | Menu module, UI test. | T3, T6 | Not Started |
-| T8 | AI Engine | Implement deterministic iterative-deepening negamax with alpha-beta pruning, rule-aware heuristics, killer moves, and transposition cache. | Updated `ai_agent.c`, search diagnostics, difficulty profiles. | T4 | In Progress |
-| T9 | Game Loop Integration | Tie together input, rules, AI, rendering, and overlays into the main loop. | Main loop module, integration test. | T2, T3, T4, T6, T7, T8 | Done (Core game loop implemented, AI integration pending) |
-| T10 | Victory & Highlight | Detect winning paths, support simultaneous wins, and animate per-player highlight colors until reset. | Victory detector, highlight routine. | T4, T6 | Done (Detection and CLUT-based highlighting implemented) |
-| T11 | Audio Feedback | Implement enhanced audio service with volume control, priority queuing, hover feedback, and expanded cue set for comprehensive audio experience. | Audio module, volume control, cue asset pack, priority system tests. | T2 | Not Started |
-| T12 | QA & Polishing | Execute test suite, hardware profiling, bug fixes, and documentation updates. | Test reports, updated docs. | T1-T11 | Not Started |
-| T13 | UX Enhancements | Implement undo functionality, tooltips, settings overlay, colorblind support, and AI move explanations. | UX enhancement module, accessibility tests. | T6, T7, T8 | Not Started |
-| T15 | AI Validation Suite | Deliver host-side AI regression tests, self-play tuning harness, and heuristic documentation per agent specification, including the extended 1000-game-per-rule tuning regimen. | `tests/ai_agent_tests.c`, head-to-head metrics, extended tuning reports, `docs/heuristic_tuning.md`, test logs. | T8 | In Progress |
-| T16 | AI Overlay Integration | Move the AI search/evaluation core into a Foenix overlay and stream it into the 0xA000 workspace to resolve the RAM overflow. | Overlay linker script, runtime loader, successful `./build.sh` run. | T8 | In Progress |
-| T14 | Error Handling | Implement comprehensive error recovery, graceful degradation, and diagnostic logging across all subsystems. | Error handling framework, recovery tests. | T1-T12 | Not Started |
-| T17 | AI Search Phase Gating | Implement goal-band occupancy gating so deep search activates only when 4+ rows are occupied and full depth is limited to 5+ rows. | Updated `ai_agent.c`, performance benchmarks, doc updates. | T8 | Done |
-| T18 | AI Timer Diagnostics | Integrate timer0 instrumentation and on-screen diagnostics for AI node counts and elapsed ticks. | Profiling helpers in `ai_agent.c`, documentation refresh. | T8 | Done |
-| T19 | AI Immediate Threat Avoidance | Enhance evaluation to detect and avoid moves allowing opponent instant wins, ensuring AI only chooses such moves when all options permit them. | Updated `ai_agent_evaluate_internal`, regression tests pass. | T8 | Done |
-| T20 | AI Swap Move Safety Filter | Filter out swapping moves that result in immediate opponent wins during heuristic selection. | Updated `ai_select_move_heuristic`, build succeeds. | T8 | Done |
-| T21 | AI Forcing Move Detection | Implement forcing move probes that prioritise guaranteed next-turn wins on Standard/Expert difficulties and expand evaluation guards against opponent forcing lines. | Updated `ai_agent.c`, regression tests covering forcing preference. | T8 | Done |
-| T22 | Puzzle Data High Memory Migration | Serialize puzzles into a fixed-record binary blob, embed it at 0x30000, and stream records into low-memory buffers on demand. | Updated `convert_puzzles.py`, `assets/generated/puzzle_data.bin`, `src/puzzle_data.c`, documentation refresh. | T2, T4 | In Progress |
-| T23 | Puzzle Loader UX Integration | Auto-apply puzzles on resets and new sessions, disable the Starting Board icon when the catalog is empty, and surface fallback messaging. | Updated `src/game_state.c`, requirements & design refresh. | T22 | Done |
-| T24 | Puzzle Catalog Diagnostics | Display on-device diagnostic text for header counts, record loads, and error conditions during puzzle streaming. | Updated `src/puzzle_data.c`, `src/text_display.*`, requirements & design updates. | T22 | Done |
-| T25 | Starting Board Highlight Reset | Ensure Starting Board activation clears winning-path highlights and resets board palette after wins. | Updated docs, `src/game_state.c`. | T10, T23 | Done |
-| T26 | Puzzle Hint Node Cap Bypass | Ensure puzzle hint mode retains the configured depth and node cap by skipping move-volume throttles. | Updated `src/ai_agent.c`, regression test for Example 2 puzzle. | T8, T17 | Done |
-| T27 | Puzzle Hint Move Ordering | Bias move ordering toward swap-preserving lines and defer swap-clearing moves in both puzzle and free play hint contexts. | Updated `src/ai_agent.c`, host regression updated. | T8, T26 | Done |
-| T28 | Puzzle Hint Eval Profile | Introduce a lightweight evaluation profile and disable forcing checks during hint searches to improve responsiveness. | Updated `src/ai_agent.c`, `src/game_state.c`, regression documentation. | T8, T26 | Done |
-| T29 | Puzzle Hint Move Throttles | Reapply move-volume depth/node caps to puzzle hint searches to bound runtime after the first database hint. | Updated `src/ai_agent.c`, documentation refresh. | T26, T28 | Done |
-| T30 | Hint Evaluation Instrumentation | Capture deterministic hint evaluation traces and leverage the math coprocessor for weighted feature products. | Updated `src/ai_agent.c`, `src/ai_agent.h`, docs. | T8, T28, T29 | Done |
-| T31 | Hint Trace Export | Persist captured hint evaluation traces to a CSV log when the game exits so diagnostics survive resets. | Updated `src/main.c`, documentation refresh, build passes. | T30 | Done |
-| T32 | Static Lookup Table Placement | Move puzzle catalog fallback paths and icon VRAM address arrays into static read-only storage to avoid per-call stack copies. | Updated `src/puzzle_data.c`, `src/video.c`, docs refreshed. | T22 | Done |
+| T1 | Toolchain Setup | Configure LLVM-MOS, `f256lib`, and asset generation scripts; validate `.pgz` packaging. | Build scripts, linker script, packaging artefacts. | None | Done |
+| T2 | Video & Asset Bring-Up | Embed board bitmap and sprites, configure palettes, and stage sprite attribute tables. | `video.c` helpers, embedded assets, render smoke test. | T1 | Done |
+| T3 | Input Translation & Focus | Translate mouse/keyboard hardware events and provide selection/focus helpers. | `input.c`, `input_handler.c`, host stubs. | T1 | Done |
+| T4 | Board & Swap Rules | Implement 8x4 board, move validation, swap rule handling, and win detection. | `board.c`, unit coverage in host tests. | T1 | Done |
+| T5 | Game State Orchestration | Manage phases, menu actions, turn switching, and HUD updates. | `game_state.c`, menu activation API. | T2, T3, T4 | Done |
+| T6 | Rendering & HUD | Project board state to sprites, highlight wins, and print HUD text. | `render.c`, `text_display.c`, palette reset helpers. | T2, T4, T5 | Done |
+| T7 | Puzzle Streaming | Stream binary catalog from far memory, apply puzzles, and show diagnostics. | `puzzle_data.c`, catalog embed, text feedback. | T2, T4, T5 | Done |
+| T8 | AI Search Engine | Provide adaptive-depth negamax with heuristic evaluation and diagnostics. | `ai_agent.c`, host regression harness. | T4, T5 | Done |
+| T9 | Diagnostics & Host Harnesses | Maintain hint traces, AI breakdown reporting, and desktop test shims. | `tests/ai_agent_tests.c`, `tests/hint_trace_host.c`, docs. | T8 | Done |
+| T10 | Menu & UX Polish | Implement disabled-icon visuals, hover feedback, and puzzle-aware enables. | Updated sprites, `game_state_update_menu_enables`. | T5, T6 | Not Started |
+| T11 | Audio Layer | Add cue playback, volume/mute controls, and align input bindings. | Audio driver module, assets, HUD indicators. | T1, T5 | Not Started |
+| T12 | Undo & Accessibility | Provide undo stack, keyboard-only UX fixes, and colourblind themes. | Board history snapshots, palette swaps, tests. | T4, T5, T6 | Not Started |
+| T13 | Error Handling Hardening | Centralise error reporting and graceful recovery beyond HUD text. | Error manager, recovery flows, tests. | T5, T7 | Not Started |
+| T14 | Documentation Sync | Keep `requirements.md`, `design.md`, and `tasks.md` aligned with code. | Updated docs, traceability notes. | T1-T9 | In Progress |
+| T15 | Release QA & Packaging | Run regression suite, hardware smoke tests, and finalise build artefacts. | Test logs, release notes, packaged `.pgz`. | T1-T14 | Not Started |
 
 ## Milestones
-
-- **M1: Engine Skeleton (T1-T4)** – Game logic runs in headless harness. ✓ Done
-- **M2: Playable Prototype (T5-T9)** – Complete human vs AI loop with core UI. ✓ Done (AI pending)
-- **M3: Enhanced Experience (T10-T13)** – Audio, visual polish, UX improvements. 🔄 In Progress
-- **M4: Launch Candidate (T14)** – Error handling, validation, final testing. ⏳ Pending
+- **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done
+- **M2: Competitive AI (T8-T9)** – Adaptive search with diagnostics validated on host. ✓ Done
+- **M3: UX & Audio Polish (T10-T12)** – Menu feedback, accessibility, and cue playback. ⏳ Pending
+- **M4: Robustness & Release (T13-T15)** – Error handling, documentation sync, and QA. ⏳ Pending
 
 ## Resource Needs
-
-- Foenix F256K2 hardware unit or emulator for on-device validation.
-- Asset artist for sprite/icon iteration.
-- QA support for usability and heuristic tuning.
+- Foenix F256K2 hardware or emulator to validate VRAM timing and input latency.
+- Asset support for icon states, hover sprites, and future palettes.
+- Time budget for AI tuning runs and documentation upkeep.
 
 ## Risks and Mitigations
-
-- **AI Performance:** Depth 3 search may exceed 500 ms on hardware. Mitigate via
-  iterative deepening with time caps and heuristic pruning.
-- **Input Latency:** Mouse polling may conflict with keyboard scanning. Mitigate
-  by decoupling input updates from render ticks using double-buffered state.
-- **Memory Constraints:** Sprite buffers might exceed bank capacity. Mitigate via
-  asset compression and bank-aware allocator in rendering pipeline.
+- **UX Gaps:** Missing hover/disabled cues may confuse users. Mitigate by
+  prioritising T10 and adding visual assets for menu state.
+- **Audio Silence:** Absent cues make state changes harder to perceive. Mitigate
+  by scheduling T11 work once assets are available.
+- **Error Recovery:** Current HUD-only messaging may be insufficient on failure.
+  Mitigate by introducing central logging and recovery flows (T13).
+- **Documentation Drift:** Active development can desynchronise requirements and
+  design notes. Mitigate by revisiting T14 each sprint.
 
 ## Validation Checklist
-
-- Unit tests pass for rule engine, AI evaluation, history logging, menu enable logic, and error recovery.
-- Rendering verified on real hardware and emulator for alignment, frame rate, swapped piece art, scoreboard layout, and colorblind accessibility.
-- User acceptance tests confirm menu functions, overlays, icon disable behavior, win highlighting longevity, audio cue playback, keyboard shortcuts, and undo functionality.
-- Performance benchmarks meet targets: 30+ FPS rendering, <500ms AI moves on Standard difficulty, <250ms UI response times.
-- Accessibility verification: colorblind testing, audio-off gameplay, keyboard-only navigation.
-- Error handling validation: graceful recovery from hardware failures, memory constraints, and invalid inputs.
-- Documentation updated to reflect any changes in controls, heuristics, or system requirements.
+- Host regression suite (`tests/ai_agent_tests`, `tests/example2_simple_test`) passes with deterministic output.
+- Hardware smoke test verifies rendering alignment, puzzle streaming, and AI move cadence.
+- Menu interactions (reset, puzzle select, difficulty toggle, hint) behave per
+  requirements with clear HUD feedback.
+- Win detection highlights correct paths and clears on reset.
+- Diagnostics output (hint traces, AI breakdown) remains accessible when
+  enabled.
+- Documentation set (`requirements.md`, `design.md`, `tasks.md`) reflects the
+  shipped behaviour after each iteration.

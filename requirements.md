@@ -2,372 +2,221 @@
 post_title: "F256 Switcharoo Requirements Specification"
 author1: "GitHub Copilot"
 post_slug: "f256-switcharoo-requirements"
+microsoft_alias: "copilot"
 featured_image: ""
 categories: ["Architecture"]
 tags: ["Foenix F256", "Game Design", "Requirements"]
-ai_note: "Drafted with AI assistance based on provided materials."
-summary: "Requirements specification for the F256 Switcharoo strategy game."
-post_date: 2025-09-27
+ai_note: "Updated via code audit of the October 2025 C implementation."
+summary: "Requirements aligned with the current Switcharoo C runtime and identified gaps."
+post_date: 2025-10-19
 ---
 
 ## Overview
-
-F256 Switcharoo is a head-to-head abstract strategy game for the Foenix F256K2
-platform. A human player competes against a heuristic-driven AI while managing
-a board of four columns by eight rows. This document translates the game
-concept from `game_design_request.md` into testable Easy Approach to
-Requirements Syntax (EARS) statements. Platform capabilities reference the
-`f256jr_ref.pdf` hardware manual, and runtime services reference the
-`f256lib.pdf` LLVM-MOS library guide.
+This revision reflects the behaviour observed in the C sources under `src/` on
+2025-10-19. Statements below capture what the program presently delivers on the
+Foenix F256K2 and in the host harness while highlighting missing functionality
+in a dedicated discrepancies section.
 
 ## Stakeholders
-
-- Human player using keyboard and/or mouse input
-- AI opponent operating on-device with heuristic evaluation
-- Game developers integrating with Foenix hardware primitives
-- Future maintainers extending rules, assets, or heuristics
+- Human player using keyboard and/or mouse input.
+- AI opponent operating on-device with deterministic heuristics.
+- Game developers integrating with Foenix hardware primitives.
+- Future maintainers extending rules, assets, or heuristics.
 
 ## Functional Requirements
 
-### Board and Pieces
+### Board and Swap Rules
+- WHEN the title screen transitions to gameplay or the Reset icon is triggered
+  while free play is active, THE SYSTEM SHALL call `board_set_starting_layout`
+  with the current `layout_id` and populate the 8x4 grid with the selected
+  starting arrangement.
+- WHEN puzzle mode is entered or a puzzle reset occurs, THE SYSTEM SHALL fetch
+  the active puzzle via `get_puzzle_by_index`, call `apply_puzzle_position`,
+  reset move history, and align the AI configuration with the puzzle's swap
+  rule.
+- WHEN a player completes an empty-cell move, THE SYSTEM SHALL relocate the
+  moving piece, clear the origin cell, and clear swapped status according to
+  the active swap rule (Classic clears all, Clears Own restores the mover's
+  swapped pieces, Swapped Clears clears all only if the mover was swapped, and
+  Swapped Clears Own restores the mover's swapped pieces when that mover was
+  swapped).
+- WHEN a swap move succeeds, THE SYSTEM SHALL exchange the two endpoints and
+  mark both pieces as swapped so subsequent swap attempts recognise their
+  protected state.
+- WHEN `board_execute_move` accepts a move, THE SYSTEM SHALL shift the move
+  history array so the newest entry resides at index zero and maintain at most
+  `MAX_MOVE_HISTORY` entries.
+- WHEN `board_check_win` detects a continuous chain for a player, THE SYSTEM
+  SHALL populate `win_path` with one cell per row and set `has_path` true so
+  rendering can colour the winning path.
 
-- WHEN the title screen transitions to gameplay, THE SYSTEM SHALL initialize an
-  8x4 board with player A pieces placed on rows 7-8 and player B pieces placed
-  on rows 1-2 unless an alternate starting layout is selected.
-- WHEN a player performs an empty cell move, THE SYSTEM SHALL relocate the
-  selected piece to the chosen adjacent empty cell and mark all swapped pieces
-  involved in prior swaps as normal.
-- WHEN a player performs a swap move, THE SYSTEM SHALL exchange the positions
-  of the initiating piece and the targeted opponent normal piece and mark both
-  as swapped.
-- IF a piece is marked as swapped, THEN THE SYSTEM SHALL prevent it from being
-  targeted by opponent swap moves while permitting it to initiate swaps against
-  normal opponent pieces.
-- WHEN a move yields a continuous chain of the active player's pieces connecting
-  any cell in row 2 to any cell in row 7 via 8-way adjacency, THE SYSTEM SHALL
-  declare victory for that player and highlight one cell per row (rows 2-7) in
-  the winning path using CLUT color changes.
-- IF a piece is marked swapped, then the system will display a different piece graphic from the normal piece graphic.
-
-### Turn Management
-
-- WHEN gameplay begins, THE SYSTEM SHALL assign the first turn to the human
-  player controlling the white pieces.
-- WHEN a legal move completes, THE SYSTEM SHALL toggle the active player unless
-  the move ends the game.
-- IF a player has no legal moves on their turn, THEN THE SYSTEM SHALL skip that
-  turn and notify both players.
+### Turn and Phase Flow
+- WHEN `game_state_init` completes, THE SYSTEM SHALL initialise board,
+  preferences, menu, and selection state, set phase to `GAME_PHASE_TITLE`, and
+  set `board.current_player` to `PLAYER_WHITE`.
+- WHEN `game_state_start_new_game` runs, THE SYSTEM SHALL force free play mode,
+  clear highlights, and set phase to `GAME_PHASE_PLAYING`.
+- WHEN `game_state_execute_selected_move` applies a legal move and no win is
+  detected, THE SYSTEM SHALL call `board_switch_turn`, update menu enables, and
+  set phase to `GAME_PHASE_AI_THINKING` whenever the next player is
+  `PLAYER_BLACK`.
+- WHEN `game_state_update` processes `GAME_PHASE_AI_THINKING` and
+  `ai_agent_find_best_move` returns a move, THE SYSTEM SHALL execute it after at
+  least 30 frames, evaluate victory, switch to the opposing player, and restore
+  `GAME_PHASE_PLAYING`; if no move is found, the system prints "AI HAS NO
+  MOVES" and toggles turn.
+- WHEN the Exit icon is activated, THE SYSTEM SHALL set phase to
+  `GAME_PHASE_EXIT` so `main.c` can drive the Foenix soft reset sequence.
 
 ### Input and Selection
+- WHEN `input_translate_event` receives mouse delta data, THE SYSTEM SHALL
+  scale the 640x480 hardware coordinates into the 320x240 playfield and emit
+  `INPUT_EVENT_MOUSE_MOVE` or button transitions while keeping `keyboard_mode`
+  false.
+- WHEN the left mouse button clicks a player-controlled piece with at least one
+  legal move, THE SYSTEM SHALL set `selection.has_selection` true and cache up
+  to eight legal moves via `board_get_legal_moves`.
+- WHEN the left mouse button clicks a cached legal destination, THE SYSTEM
+  SHALL execute the indexed move through `game_state_execute_selected_move` and
+  clear the selection.
+- WHEN the selected piece is clicked again or Escape is pressed while a
+  selection is active, THE SYSTEM SHALL call `game_state_deselect_piece` and
+  hide highlight sprites.
+- WHEN arrow keys are pressed, THE SYSTEM SHALL update the focused board cell
+  via `input_handler_move_focus`, turning on `keyboard_mode`.
+- WHEN Enter or Space is pressed during `keyboard_mode`, THE SYSTEM SHALL
+  either execute the focused legal move or select the focused piece if no legal
+  move is targeted.
 
-- WHEN the user hovers the mouse cursor over a board cell or menu icon, THE
-  SYSTEM SHALL display a hover state sprite consistent with the UI theme.
-- WHEN the user clicks or presses Enter on a highlighted piece, THE SYSTEM
-  SHALL toggle its selection state and highlight all legal destination cells.
-- WHEN the user selects a highlighted destination, THE SYSTEM SHALL execute the
-  associated move, update game state, and refresh highlights.
-- WHEN the user presses Escape while a piece is selected Or clicks the mouse while hovering over the piece, THE SYSTEM SHALL deselect the piece and clear move highlights.
-- IF a piece has no legal moves, THEN THE SYSTEM SHALL prevent it from being selected.
+### Menu Actions
+- WHEN the Game Mode icon or M key toggles, THE SYSTEM SHALL flip
+  `is_puzzle_mode`, apply either the active puzzle or starting layout, reset
+  highlights, refresh puzzle text, and set phase to `GAME_PHASE_PLAYING`.
+- WHEN the Reset icon or R key is activated, THE SYSTEM SHALL reload the
+  current mode's layout or puzzle, clear hints, and resume
+  `GAME_PHASE_PLAYING` without toggling modes.
+- WHEN the Next or Previous icon (or N/P keys) is activated in puzzle mode, THE
+  SYSTEM SHALL wrap `current_puzzle_index` within the catalog count, apply the
+  puzzle, and refresh puzzle metadata; in free play the same actions cycle
+  `board.layout_id` through the four predefined layouts.
+- WHEN the Swap icon or S key is activated, THE SYSTEM SHALL rotate
+  `user_preferences.swap_rule`, reinitialise the AI configuration, and clear the
+  swap lockout message only if free play is active and `move_count` is zero;
+  otherwise it prints the swap unavailable notice.
+- WHEN the Difficulty icon or D key cycles, THE SYSTEM SHALL increment
+  `difficulty_level` modulo four, update `ai_config.difficulty`, and update the
+  HUD before the AI next acts.
+- WHEN the Hint icon or H key is activated, THE SYSTEM SHALL display the first
+  solution move if in puzzle mode with zero moves or run
+  `ai_agent_find_best_move` as `PLAYER_WHITE` and call `print_AI_hint`
+  otherwise.
 
-### Menu and Overlays
+### HUD and Text Output
+- WHEN `text_display_init` runs, THE SYSTEM SHALL configure text callbacks for
+  the widget toolkit and clear baseline HUD rows.
+- WHEN `game_state_apply_current_puzzle` succeeds, THE SYSTEM SHALL call
+  `print_puzzle_info` and `clear_puzzle_hint` so the HUD reflects the selected
+  puzzle.
+- WHEN move history changes, THE SYSTEM SHALL call `print_move_history` and
+  `print_current_player` from the main loop to keep the HUD aligned with board
+  history.
+- WHEN `game_state_check_win` reports a winner, THE SYSTEM SHALL call
+  `print_game_winner` and `print_win_loss` to update scoreboard text and
+  session totals.
+- WHEN the AI provides a hint or puzzle solution, THE SYSTEM SHALL render the
+  suggestion via `print_AI_hint` or `display_puzzle_solution` and allow clearing
+  through `clear_puzzle_hint`.
 
-- WHEN the user activates the Reset icon, THE SYSTEM SHALL restore the board to
-  the currently chosen starting layout and reset swapped states and
-  move history for the active session, loading the selected puzzle layout when
-  puzzle data is available.
-- IF no puzzles are available when the user activates the Reset icon, THEN THE
-  SYSTEM SHALL restore the default gameplay layout and reaffirm that no puzzles
-  are available in the puzzle information panel.
-- WHEN the user activates the Information icon, THE SYSTEM SHALL present an
-  overlay containing the condensed rules and controls until dismissed via mouse
-  click or Escape.
-- WHEN the user activates the Difficulty icon, THE SYSTEM SHALL cycle through
-  available AI difficulty presets and immediately apply the new heuristic
-  configuration.
-- WHEN the user activates the Starting Board icon, THE SYSTEM SHALL reset the
-  board to the selected predefined layout, clear any active winning-path
-  highlights, and render the refreshed layout without exiting the current
-  session.
-- WHEN the user activates the Move History icon, THE SYSTEM SHALL open an
-  overlay list of moves with the newest entry at the top and allow dismissal via
-  mouse click or Escape.
-- WHEN the user activates the Exit icon, THE SYSTEM SHALL prompt for
-  confirmation and quit the application only on affirmative response.
-- WHEN at least one move has been made in the game, THE SYSTEM SHALL disable the Starting Board icon and will enable the Move History icon.
-- WHEN the game is initialized, THE SYSTEM SHALL enable the Starting Board icon if at least one puzzle exists and disable the Move History icon.
-- IF the puzzle catalog contains no entries, THEN THE SYSTEM SHALL disable the Starting Board icon and display the text "No puzzles available" in the puzzle information panel until puzzle data is loaded.
-- WHEN an icon is disabled, THE SYSTEM SHALL display the icon with the disabled state consistent with the UI them and the icon will not display the hover state when the mouse is positioned over the disabled icon
-- THE SYSTEM SHALL provide a Settings menu accessible via long-press or
-  right-click on any menu icon, offering options for color schemes, AI move
-  explanations, keyboard shortcuts display, and animation speed.
-- THE SYSTEM SHALL display context-sensitive tooltips for all menu icons when
-  hovered for more than 1 second, showing the action name and keyboard shortcut.
-- THE SYSTEM SHALL remember user preferences (difficulty, color scheme, AI
-  explanations) within the current session and apply them to new games.
-
-### Move History and Scoring
-
-- WHEN a move completes, THE SYSTEM SHALL append an algebraic notation entry to
-  the move history and scroll older entries as needed.
-- WHEN a player wins, THE SYSTEM SHALL increment their session score and highlight the winning path cells (one per row, rows 2-7) using CLUT color changes until the game is reset.
-- WHEN a game is initialized or a player wins, THE SYSTEM SHALL display the session score as a bitmap graphic positioned under the last menu item as `W: (white wins) B: (black wins)`.
-- WHEN the session resets, THE SYSTEM SHALL clear the move history unless a tournament mode is introduced in future updates.
+### Puzzle Tracking
+- WHEN `get_puzzle_collection` runs on hardware, THE SYSTEM SHALL lazy-load the
+  catalog header from far memory, set the puzzle count, and avoid duplicating
+  the pointer table.
+- WHEN `mark_puzzle_solved` is invoked, THE SYSTEM SHALL write a value of one
+  into the puzzle record's solved flag at `0x30000 + offset` and update the
+  in-memory cache.
+- IF a puzzle index exceeds the stored count, THEN THE SYSTEM SHALL return
+  `NULL` and leave previously cached puzzle data unchanged.
+- WHEN `display_puzzle_solution` is called, THE SYSTEM SHALL format the first
+  solution move into 25 characters, append swap markers when applicable, and
+  print it to the hint row.
 
 ### Artificial Intelligence
+- WHEN the AI takes its turn, THE SYSTEM SHALL copy the root board into a
+  scratch buffer, compute goal-row pressure via `ai_goal_row_pressure`, and
+  derive dynamic depth and node caps using `ai_select_dynamic_depth` and
+  `ai_select_node_cap`.
+- WHEN dynamic depth resolves to zero, THE SYSTEM SHALL choose a move via
+  `ai_select_move_heuristic`, recording node counts when requested.
+- WHEN dynamic depth is positive, THE SYSTEM SHALL run `ai_negamax` with
+  alpha-beta pruning, optional iterative deepening, and transposition caching
+  gated by pressure, halting when `node_limit` or timer thresholds request
+  abort.
+- WHEN a move is evaluated, THE SYSTEM SHALL record killer moves and prefer
+  immediate wins, blocks, swap-preserving options, and forcing moves inside
+  `ai_generate_moves` and `ai_select_move_heuristic`.
+- WHEN `diagnostics_enabled` is true, THE SYSTEM SHALL call
+  `ai_print_diagnostics` with node and tick counts and compute an evaluation
+  breakdown for the chosen move via `ai_agent_evaluate_internal`.
+- WHEN `ai_agent_hint_trace_enable` is true, THE SYSTEM SHALL capture up to
+  sixty-four evaluation records per search and expose them through
+  `ai_agent_hint_trace_get` for host tooling.
 
-- WHEN it is the AI player's turn, THE SYSTEM SHALL enumerate every legal
-  empty-cell and swap move for the active player using the configured swap rule
-  and supply those moves to the search engine.
-- WHEN the AI explores the game tree, THE SYSTEM SHALL execute a deterministic
-  iterative deepening negamax search that evaluates at least four plies and
-  extends depth when the position contains an immediate win or loss threat.
-- WHEN a simulated move results in a win for either side, THE SYSTEM SHALL stop
-  expanding that branch and return the evaluated score to the caller to ensure
-  forced wins and losses are detected.
-- WHEN the search budget in nodes or milliseconds is exhausted before
-  completing the intended depth, THE SYSTEM SHALL return the best move from the
-  deepest fully evaluated iteration.
-- WHEN evaluating a board, THE SYSTEM SHALL combine connection progress, bridge
-  potential, swap pressure, blocking coverage, and mobility features using
-  signed 16-bit arithmetic that respects rule-specific weight tables.
-- WHEN the swap rule changes, THE SYSTEM SHALL load the associated evaluation
-  weights and swap-clearing behaviour so that move selection reflects the
-  current rule set.
-- WHEN ordering candidate moves, THE SYSTEM SHALL prioritise immediate wins,
-  double threats, central advances, blocking replies, and remaining moves in
-  that sequence to improve alpha-beta efficiency.
-- WHEN transposition caching is enabled, THE SYSTEM SHALL store up to 64 recent
-  board positions using Zobrist hashing and reuse cached scores and principal
-  variations for subsequent searches.
-- WHEN operating at Learning or Easy difficulty levels, THE SYSTEM SHALL reduce
-  the maximum search depth or feature weights to honour the selected profile
-  while preserving deterministic move choice.
-- WHEN evaluation diagnostics are requested, THE SYSTEM SHALL produce a
-  breakdown of feature contributions for the chosen move so tuning can be
-  reviewed without altering search determinism.
-- WHEN fewer than four of the rows between 2 and 7 inclusive contain at least
-  one piece from either player, THE SYSTEM SHALL choose AI moves via
-  single-ply heuristic evaluation without invoking recursive search.
-- WHEN exactly four of the rows between 2 and 7 inclusive contain at least one
-  piece from either player, THE SYSTEM SHALL cap the AI search depth at two
-  plies and skip iterative deepening win probes.
-- WHEN five or more of the rows between 2 and 7 inclusive contain at least one
-  piece from either player, THE SYSTEM SHALL enable the configured deep-search
-  depth and win detection routines for the AI player.
-- WHEN AI diagnostics are enabled, THE SYSTEM SHALL reset hardware timer0
-  before AI move selection begins and display the elapsed timer ticks together
-  with node counts using `print_formatted_text` after the move is chosen.
-- WHEN the active player has twelve or more legal moves available, THE SYSTEM
-  SHALL cap the recursive search depth to at most two plies for that turn.
-- WHEN the active player has eighteen or more legal moves available, THE SYSTEM
-  SHALL select a move using single-ply heuristics without invoking recursive
-  search.
-- WHEN the AI provides puzzle hints via search, THE SYSTEM SHALL apply the
-  move-volume throttles and node caps to bound runtime while still using the
-  dedicated hint evaluation profile.
-- WHEN generating puzzle hints, THE SYSTEM SHALL evaluate swap-preserving moves
-  before considering moves that clear swapped pieces so blockade structures are
-  maintained during search.
-- WHEN evaluating puzzle hint positions, THE SYSTEM SHALL use a reduced
-  heuristic profile that favours swap pressure and goal-band progress to keep
-  response time acceptable on the target hardware.
-- WHEN evaluating a board position, THE SYSTEM SHALL treat positions where the
-  current player can win in one move as winning for that player, ensuring the
-  AI avoids moves that allow opponent immediate wins unless all legal moves
-  permit such wins.
-- WHEN selecting moves via heuristic evaluation, THE SYSTEM SHALL filter out
-  AI moves that result in an immediate win for the opponent.
-- WHEN building the AI agent for host-side validation, THE SYSTEM SHALL avoid
-  performing direct Foenix MMU register writes so desktop unit tests run
-  without undefined behaviour.
-- WHEN the heuristic tuning harness executes, THE SYSTEM SHALL drive
-  deterministic AI self-play sessions between configurable weight profiles and
-  emit advancement metrics suitable for regression assertions.
-- WHEN the heuristic tuning harness compares a candidate profile against the
-  baseline profile, THE SYSTEM SHALL report deterministic win, loss, and draw
-  outcomes for each swap rule so automated tests can assert improved play.
-- WHEN the extended heuristic tuning harness executes, THE SYSTEM SHALL run at
-  least 1000 deterministic self-play matches per swap rule using the default
-  starting layout, cap each match at 200 plies as a draw threshold, and output
-  updated rule-specific evaluation weights for regression validation.
-- WHERE the AI difficulty is Standard or Expert, THE SYSTEM SHALL select any
-  move that guarantees an immediate win on the subsequent AI turn ahead of all
-  other non-winning choices.
-- WHEN the heuristic profile is marked aggressive during low-pressure opening
-  states, THE SYSTEM SHALL prefer moves that reduce the distance to the target
-  goal band over lateral or backward moves when scores are otherwise tied.
-- WHEN hint diagnostics are requested, THE SYSTEM SHALL capture the swap,
-  block, and goal-band contributions used during hint evaluation to allow
-  deterministic trace comparison between host and target builds.
-- WHEN the main loop transitions to `GAME_PHASE_EXIT` while hint diagnostics
-  are enabled, THE SYSTEM SHALL persist the recorded hint evaluation trace to
-  a filesystem log for post-run analysis on hardware and host builds.
-
-### Audio Feedback
-
-- WHEN the program finishes initialization and presents the title screen, THE
-  SYSTEM SHALL play a startup audio cue.
-- WHEN a new game session initializes or the board is reset, THE SYSTEM SHALL
-  play a distinct game initialization audio cue.
-- WHEN the user selects or deselects a piece, THE SYSTEM SHALL play a short
-  selection audio cue differentiating the pick-up and put-back actions.
-- WHEN the user activates a menu icon that is enabled, THE SYSTEM SHALL play a
-  menu confirmation audio cue.
-- WHEN the human player wins a game, THE SYSTEM SHALL play a victory jingle.
-- WHEN the human player loses a game, THE SYSTEM SHALL play a defeat jingle.
-- WHEN the user confirms exit from the program, THE SYSTEM SHALL play a program
-  exit audio cue prior to terminating.
-- THE SYSTEM SHALL provide volume control accessible via keyboard shortcuts
-  (+ and - keys) with visual feedback showing current volume level.
-- THE SYSTEM SHALL support audio muting via the M key, with a visual indicator
-  when audio is disabled.
-- WHEN hovering over pieces or menu items, THE SYSTEM SHALL play subtle audio
-  feedback to enhance the tactile feel of the interface.
-
-### Assets and Theming
-
-- WHEN the build pipeline executes, THE SYSTEM SHALL generate placeholder
-  sprite assets measuring 24x24 pixels for pieces and 16x16 pixels for menu
-  icons so rendering features can be validated before final art delivery.
-- WHEN the build pipeline executes, THE SYSTEM SHALL programmatically produce
-  the 320x240 board bitmap using the active UI theme color lookup table to
-  maintain consistency across themes.
-- THE SYSTEM SHALL expose at least three color lookup table themes (default,
-  high contrast, colorblind) that can be selected by the video subsystem to
-  support accessibility.
-- THE SYSTEM SHALL reserve palette index 0 for transparency and ensure that
-  generated bitmap assets and runtime CLUT updates avoid assigning visible
-  colors to that index.
-- WHEN the video subsystem initializes, THE SYSTEM SHALL upload the generated
-  placeholder bitmap and sprite assets into VICKY VRAM so hardware tests can
-  exercise populated bitmap and sprite layers.
-
-### Puzzle Data Management
-
-- WHEN the puzzle conversion script executes, THE SYSTEM SHALL emit a binary
-  catalog whose record layout matches the runtime deserializer contract so the
-  data can be embedded in high memory without further transformation.
-- WHEN gameplay code requests the puzzle count, THE SYSTEM SHALL read the
-  high-memory catalog header via far-memory access and expose the total as an
-  unsigned value without caching the entire dataset in low memory.
-- WHEN a specific puzzle is requested, THE SYSTEM SHALL stream exactly one
-  puzzle record from high memory into dedicated low-memory buffers sized for
-  the identifier, piece list, and solution steps, keeping aggregate low-memory
-  usage bounded regardless of catalog size.
-- WHEN a new play session begins or the board resets while puzzles are
-  available, THE SYSTEM SHALL automatically apply the currently selected puzzle
-  to the board and synchronize swap rules, AI configuration, and puzzle
-  metadata displays.
-- WHEN the puzzle catalog header is read, THE SYSTEM SHALL display diagnostic
-  text reporting the puzzle count and embed base address in the text display
-  region to aid hardware validation.
-- WHEN a puzzle record is streamed from high memory, THE SYSTEM SHALL display
-  diagnostic text containing the one-based puzzle index and identifier in the
-  text display region.
-- IF the puzzle catalog contains zero entries when a new play session begins or
-  the board resets, THEN THE SYSTEM SHALL fall back to the standard gameplay
-  layout and display the "No puzzles available" status message.
-- IF a puzzle request references an index beyond the catalog count, THEN THE
-  SYSTEM SHALL display a diagnostic error message showing the requested index
-  and the available catalog count.
-- IF a puzzle index exceeds the stored puzzle count, THEN THE SYSTEM SHALL
-  return no puzzle and leave previously populated buffers unchanged to prevent
-  the caller from reading invalid data.
+### Diagnostics and Messaging
+- WHEN the player attempts to toggle the swap rule in puzzle mode or after
+  moving, THE SYSTEM SHALL call `print_swap_unavailable` and leave the swap
+  configuration unchanged.
+- WHEN `ai_agent_find_best_move` fails to locate a move during AI thinking, THE
+  SYSTEM SHALL call `print_formatted_text` at row 21 with "AI HAS NO MOVES"
+  before handing the turn back.
+- WHEN puzzle loading fails, THE SYSTEM SHALL print "Puzzle load failed" and
+  leave the board in the free play layout.
+- WHEN `mark_puzzle_solved` succeeds, THE SYSTEM SHALL refresh puzzle info text
+  so the HUD reflects the updated solved status.
 
 ## Non-Functional Requirements
+- THE SYSTEM SHALL wait for the raster to reach the VBLANK window before
+  calling `render_update` to avoid tearing on VICKY hardware.
+- THE SYSTEM SHALL run AI search and evaluation code from far-memory overlays,
+  swapping MMU bank `0x000D` to block 8 or 9 as required and restoring the
+  previous mapping afterwards.
+- THE SYSTEM SHALL stream puzzle catalog bytes directly from `0x30000` without
+  allocating additional buffers beyond the static caches to stay within the
+  low-memory budget.
+- THE SYSTEM SHALL maintain deterministic AI behaviour across hardware and host
+  builds by guarding hardware-specific instructions with `AI_AGENT_HOST_TEST`.
 
-### Performance
-
-- THE SYSTEM SHALL maintain at least 30 frames per second during board
-  rendering transitions on the Foenix F256K2 hardware.
-- THE SYSTEM SHALL compute AI moves within 500 milliseconds under the
-  "Standard" difficulty profile.
-- THE SYSTEM SHALL implement frame-rate adaptive rendering, reducing animation
-  complexity if frame rate drops below 25 FPS for more than 3 consecutive frames.
-- THE SYSTEM SHALL use sprite culling to avoid rendering off-screen elements
-  and batch sprite updates to minimize video memory transfers.
-- THE SYSTEM SHALL precompute and cache winning path connectivity matrices
-  during initialization to accelerate victory detection during gameplay.
-- THE SYSTEM SHALL implement progressive AI evaluation, displaying intermediate
-  move candidates if search exceeds 250ms to maintain responsiveness.
-
-### Memory Management
-
-- WHEN the AI search routine starts on Foenix hardware builds, THE SYSTEM SHALL
-  load the AI overlay image into the reserved 0xA000 execution workspace before
-  evaluating moves so the resident RAM segment remains within the 48 KB limit.
-- WHEN the AI overlay image is resident, THE SYSTEM SHALL reuse the loaded
-  workspace for subsequent searches instead of duplicating the copy operation
-  to preserve headroom for the software stack and global data.
-- WHEN the host puzzle catalog loader probes fallback asset paths, THE SYSTEM SHALL
-  source the candidate path list from static read-only storage so repeated invocations
-  do not duplicate initializer bytes on the stack.
-- WHEN positioning menu icon sprites, THE SYSTEM SHALL reuse a static table of VRAM
-  addresses so the video subsystem avoids reconstructing the lookup list on each call
-  and keeps stack usage minimal.
-
-### Reliability
-
-- THE SYSTEM SHALL recover gracefully to the main menu when detecting sprite or
-  bitmap initialization failures by reloading assets from `f256lib` services.
-- THE SYSTEM SHALL validate input buffers to avoid corruption when switching
-  between mouse and keyboard controls.
-- WHEN the AI engine encounters an infinite loop or exceeds maximum evaluation
-  time, THE SYSTEM SHALL abort the current search and select a random legal move
-  while logging the error condition.
-- IF memory allocation fails during gameplay, THE SYSTEM SHALL attempt to free
-  non-critical resources (audio buffers, move history beyond 10 entries) and
-  continue with reduced functionality.
-- WHEN hardware registers return unexpected values, THE SYSTEM SHALL reinitialize
-  the affected subsystem once per session and fallback to software rendering
-  if reinitialization fails.
-
-### Usability
-
-- THE SYSTEM SHALL provide consistent color-coded highlights for selectable
-  pieces, legal moves, and winning paths for accessibility.
-- THE SYSTEM SHALL provide clear textual feedback for difficulty level, current
-  turn, and prompts.
-- WHEN the AI is evaluating moves, THE SYSTEM SHALL display a thinking indicator
-  (animated sprite or progress bar) to inform the user of system activity.
-- THE SYSTEM SHALL provide keyboard shortcuts for all menu functions (R=Reset,
-  I=Info, D=Difficulty, S=Starting Board, H=History, X=Exit) displayed in menu
-  tooltips.
-- THE SYSTEM SHALL support colorblind-friendly palette options accessible via
-  a configuration overlay, with at least two alternative color schemes.
-- WHEN displaying move history, THE SYSTEM SHALL use clear algebraic notation
-  with from->to coordinates (e.g., "A1->B2 swap", "C3->C4 move") for clarity.
-- THE SYSTEM SHALL provide undo functionality for the human player's last move
-  during their turn, disabled once the AI begins evaluation.
-
-### Compliance and Platform Integration
-
-- THE SYSTEM SHALL initialize video modes, sprite layers, and audio via
-  documented registers from `f256jr_ref.pdf` using helper abstractions supplied
-  by `f256lib.pdf`.
-- THE SYSTEM SHALL remain compatible with the LLVM-MOS toolchain versions cited
-  in `f256lib.pdf`.
+## Functional Discrepancies
+- Audio cues, volume controls, and mute toggles referenced in prior drafts are
+  not implemented; the input bindings remain placeholders.
+- The Info overlay, settings menu, tooltips, and disabled-icon hover
+  suppression are not present in the current code.
+- Menu enable/disable logic does not react to move counts or empty puzzle
+  catalogs; icons remain enabled regardless of state.
+- The move history overlay and scoreboard strip exist only as text output;
+  sprite-layer overlays are not rendered.
+- Undo functionality and keyboard shortcuts for volume control remain
+  unimplemented.
+- Hint trace export to CSV is stubbed out in `main.c`; diagnostics are not
+  persisted automatically on exit.
 
 ## Assumptions and Constraints
-
-- THE SYSTEM SHALL leverage 320x240 graphics mode with 28x28 pixel board cells and 24x24 pixel sprites as specified in the design brief.  Board cells will be separated with a 1 pixel border and the entire board will have a 1 pixel boarder.
-- The SYSTEM SHALL color board cells in a checkerboard pattern consistent with the UI theme
-- THE SYSTEM SHALL color highlighted cells for a winning path in a color consisent with the UI theme
-- THE SYSTEM SHALL use colors for the winning path from each player.
-- THE SYSTEM SHALL display both winning paths if a move creates a simultaneous win for both players.
-- THE SYSTEM SHALL highlight one cell per row (rows 2-7) in the winning path using CLUT color changes.
-- THE SYSTEM SHALL store persistent session stats in volatile memory; long-term
-  persistence is out of scope.
-- THE SYSTEM SHALL operate without network connectivity.
+- THE SYSTEM SHALL operate on a fixed 8x4 board with four predefined starting
+  layouts aligned to the renderer's 26-pixel cell spacing.
+- THE SYSTEM SHALL centre the board within a 320x240 bitmap and render menu
+  icons in a two-by-four grid to the right as assumed by
+  `input_handler_hit_test`.
+- THE SYSTEM SHALL treat `PLAYER_WHITE` as the human-controlled side and
+  `PLAYER_BLACK` as the AI-controlled side in the shipped build.
+- THE SYSTEM SHALL rely on pre-generated asset binaries residing at the VRAM
+  addresses embedded via `EMBED` macros.
 
 ## Traceability Matrix
 
-| Requirement Area | Source Reference | Notes |
+| Requirement Area | Implementation Reference | Notes |
 | --- | --- | --- |
-| Board setup and movement | `game_design_request.md` | Core gameplay rules |
-| Swap rules and states | `game_design_request.md` | Unique mechanic |
-| Victory conditions | `game_design_request.md` | Connectivity check |
-| Menu interactions | `game_design_request.md` | UI specification |
-| AI heuristics | `game_design_request.md` | Difficulty profiles |
-| Hardware integration | `f256jr_ref.pdf` | Video and input subsystems |
-| Library usage | `f256lib.pdf` | LLVM-MOS runtime and helpers |
+| Board setup and swap rules | `src/board.c`, `src/game_state.c` | Move validation, history, swap clearing |
+| Turn and menu flow | `src/game_state.c`, `src/input_handler.c` | Phase control and icon actions |
+| Rendering and HUD | `src/render.c`, `src/text_display.c`, `src/video.c` | Sprites, highlights, text output |
+| AI engine and hints | `src/ai_agent.c`, `tests/ai_agent_tests.c` | Negamax search, hint tracing, host harness |
+| Puzzle streaming | `src/puzzle_data.c`, `assets/generated` | Far-memory catalog access |
+| System integration | `src/main.c`, `src/system.c` | Main loop, Foenix reset sequence |
