@@ -44,7 +44,8 @@ typedef enum {
     KEY_X,      // Exit
     KEY_PLUS,   // Volume up
     KEY_MINUS,  // Volume down
-    KEY_U       // Undo
+    KEY_U,       // Undo
+    KEY_SPACE    // Spacebar
 } key_code_t;
 
 // Mouse buttons

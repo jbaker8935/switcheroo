@@ -165,6 +165,7 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                     break;
                     
                 case KEY_ENTER:
+                case KEY_SPACE:
                     input_handler_activate_focused(state);
                     break;
                     
