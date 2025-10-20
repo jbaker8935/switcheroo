@@ -442,10 +442,6 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
                     out_path->has_path = true;
                     out_path->winner = player;
                     
-                    // Debug: Print which rows connected
-                    extern void textGotoXY(uint8_t x, uint8_t y);
-                    textGotoXY(0, 9);
-                    
                     /* Construct a connected path inside the winning component.
                        Use BFS from any start-row cell in the component to reach
                        any end-row cell in the component and reconstruct the path.
