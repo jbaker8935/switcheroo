@@ -40,6 +40,7 @@ backlog.
 | T15 | Release QA & Packaging | Run regression suite, hardware smoke tests, and finalise build artefacts. | Test logs, release notes, packaged `.pgz`. | T1-T14 | Not Started |
 | T16 | AI Progress Callback | Implement callback mechanism for UI progress updates during AI move search. | Updated `ai_agent.h/.c`, `ui_progress.c/.h`, callback wiring. | T8 | Done |
 | T17 | AI Progress Responsiveness | Boost callback cadence by wiring frequent win-detection helpers into the throttled progress emitter. | Updated `ai_agent.c` helper hook, profiling validation notes. | T16 | Done |
+| T18 | AI Move Generation Optimisation | Inline adjacency walk with ownership LUT to reduce per-move helper calls during search. | `ai_agent.c` direct generator, host/target profiling notes. | T8 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

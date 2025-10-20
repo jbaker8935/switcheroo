@@ -159,6 +159,8 @@ static inline int32_t ai_signed_multiply(int16_t lhs, int16_t rhs) {
 
 static const int8_t kAdjRow[8] = {-1, -1, 0, 1, 1, 1, 0, -1};
 static const int8_t kAdjCol[8] = {0, 1, 1, 1, 0, -1, -1, -1};
+static const uint8_t kPieceOwnerLUT[5] = {PLAYER_NONE, PLAYER_WHITE, PLAYER_WHITE, PLAYER_BLACK, PLAYER_BLACK};
+static const uint8_t kPieceIsNormalLUT[5] = {0u, 1u, 0u, 1u, 0u};
 
 typedef enum { TT_FLAG_NONE = 0, TT_FLAG_EXACT = 1, TT_FLAG_LOWER = 2, TT_FLAG_UPPER = 3 } ai_tt_flag_t;
 
@@ -1208,28 +1210,59 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
     scratch.current_player = board->current_player;
 
     uint8_t count = 0;
-    move_t buffer[8];
+    const player_t current = scratch.current_player;
 
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(&scratch, row, col);
-            if (board_get_piece_owner(piece) != scratch.current_player) {
+            piece_type_t moving_piece = scratch.cells[row][col].piece;
+            if ((player_t)kPieceOwnerLUT[moving_piece] != current) {
                 continue;
             }
 
-            uint8_t generated =
-                board_get_legal_moves(&scratch, row, col, buffer, (uint8_t)(AI_MAX_ORDERED_MOVES - count));
-            for (uint8_t i = 0; i < generated; ++i) {
-                move_t *move = &buffer[i];
+            bool mover_swapped = board_is_piece_swapped(moving_piece);
+
+            for (uint8_t dir = 0; dir < 8; ++dir) {
+                if (count >= AI_MAX_ORDERED_MOVES) {
+                    goto finalize_moves;
+                }
+
+                int8_t next_row = (int8_t)row + kAdjRow[dir];
+                int8_t next_col = (int8_t)col + kAdjCol[dir];
+                if (next_row < 0 || next_row >= BOARD_ROWS || next_col < 0 || next_col >= BOARD_COLS) {
+                    continue;
+                }
+
+                piece_type_t target_piece = scratch.cells[(uint8_t)next_row][(uint8_t)next_col].piece;
+                move_type_t move_type;
+                if (target_piece == PIECE_NONE) {
+                    move_type = MOVE_TYPE_EMPTY;
+                } else {
+                    player_t target_owner = (player_t)kPieceOwnerLUT[target_piece];
+                    if (target_owner == current || target_owner == PLAYER_NONE) {
+                        continue;
+                    }
+                    if (!kPieceIsNormalLUT[target_piece]) {
+                        continue;
+                    }
+                    move_type = MOVE_TYPE_SWAP;
+                }
+
+                ai_ordered_move_t *ordered = &out_moves[count];
+                move_t *move = &ordered->move;
+                move->from_row = row;
+                move->from_col = col;
+                move->to_row = (uint8_t)next_row;
+                move->to_col = (uint8_t)next_col;
+                move->type = move_type;
+                move->player = current;
+
                 int16_t score = 0;
-                piece_type_t moving_piece = board_get_piece(&scratch, move->from_row, move->from_col);
-                bool mover_swapped = board_is_piece_swapped(moving_piece);
                 bool clears_swapped = ai_move_clears_swapped(&scratch, move, ctx->config->swap_rule);
 
                 if (ai_is_killer(ctx, ply, move)) {
                     score += 4000;
                 }
-                if (move->type == MOVE_TYPE_SWAP) {
+                if (move_type == MOVE_TYPE_SWAP) {
                     score += 900;
                     if (!mover_swapped) {
                         score += 500;
@@ -1249,7 +1282,7 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
                 if (move->to_col == 1 || move->to_col == 2) {
                     score += 350;
                 }
-                if (scratch.current_player == PLAYER_WHITE) {
+                if (current == PLAYER_WHITE) {
                     if (move->to_row < move->from_row) {
                         score += 280;
                     }
@@ -1258,22 +1291,23 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
                         score += 280;
                     }
                 }
-                if (move->type == MOVE_TYPE_EMPTY && move->to_row >= WIN_START_ROW && move->to_row <= WIN_END_ROW) {
+                if (move_type == MOVE_TYPE_EMPTY && move->to_row >= WIN_START_ROW && move->to_row <= WIN_END_ROW) {
                     score += 120;
                 }
 
                 if (ctx && ctx->config && ctx->config->enable_forcing_check &&
-                    ctx->config->ai_player == scratch.current_player &&
+                    ctx->config->ai_player == current &&
                     ai_move_creates_forced_immediate_win(board, move, ctx->config, ctx->config->ai_player)) {
                     score += 8000;
                 }
 
-                out_moves[count].move = *move;
-                out_moves[count].order_score = score;
+                ordered->order_score = score;
                 count++;
             }
         }
     }
+
+finalize_moves:
 
     for (uint8_t i = 1; i < count; ++i) {
         ai_ordered_move_t key = out_moves[i];

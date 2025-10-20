@@ -123,6 +123,9 @@ future work can extend the code base confidently.
   blocking coverage, mobility) and direct win/forcing threat detection.
 - Supports Standard host regressions through `AI_AGENT_HOST_TEST`, bypassing
   MMU swaps while preserving move ordering.
+- Generates candidate moves via a single adjacency scan with LUT-backed ownership
+  checks, eliminating repeated `board_*` helper calls and improving 65C02
+  execution efficiency.
 - Captures optional move diagnostics and hint traces to aid tuning and exposes
   host-callable getters for debugging.
 - Allows registration of progress callbacks during iterative deepening search
