@@ -154,6 +154,9 @@ in a dedicated discrepancies section.
   scratch buffer, compute goal-row pressure via `ai_goal_row_pressure`, and
   derive dynamic depth and node caps using `ai_select_dynamic_depth` and
   `ai_select_node_cap`.
+- IF every legal reply still allows the opponent an immediate win on their
+  next turn, THEN THE SYSTEM SHALL bypass deep search and select a move using
+  the shallow heuristic pathway to minimise unnecessary computation.
 - WHEN dynamic depth resolves to zero, THE SYSTEM SHALL choose a move via
   `ai_select_move_heuristic`, recording node counts when requested.
 - WHEN dynamic depth is positive, THE SYSTEM SHALL run `ai_negamax` with
@@ -169,6 +172,26 @@ in a dedicated discrepancies section.
 - WHEN `ai_agent_hint_trace_enable` is true, THE SYSTEM SHALL capture up to
   sixty-four evaluation records per search and expose them through
   `ai_agent_hint_trace_get` for host tooling.
+- WHEN the AI difficulty experiment harness runs, THE SYSTEM SHALL initialise
+  kStartingLayout2 for each game, alternate Easy and Expert colours on
+  successive trials, and report wins, losses, draws, and average half-moves
+  per difficulty.
+- WHEN the experiment harness is configured with an epsilon-random Expert
+  opponent, THE SYSTEM SHALL inject the requested random-move percentage into
+  that opponent's turn selection while keeping the deterministic competitor
+  behaviour unchanged.
+- WHEN the experiment harness starts, THE SYSTEM SHALL seed its deterministic
+  pseudo-random generator from the provided seed value so identical
+  configurations yield reproducible summaries.
+- WHEN the AI difficulty is Learning or Easy, THE SYSTEM SHALL evaluate the
+  top-ranked legal moves and, with a configured probability, select from the
+  highest-ranking subset instead of always choosing the single best move.
+- WHEN the AI difficulty is Standard, THE SYSTEM SHALL apply a low-probability
+  random choice among the top-ranked legal moves to introduce rare but
+  plausible deviations.
+- WHEN the AI difficulty is Expert, THE SYSTEM SHALL always select the
+  highest-ranked legal move as determined by the search without applying any
+  randomisation.
 
 ### Diagnostics and Messaging
 - WHEN the player attempts to toggle the swap rule in puzzle mode or after

@@ -70,6 +70,8 @@ typedef struct {
     bool use_hint_profile;
     ai_progress_callback_t progress_callback;
     void *progress_user_data;
+    uint8_t random_top_k;
+    uint8_t random_epsilon_pct;
 } ai_config_t;
 
 // Initialize AI agent
@@ -94,6 +96,9 @@ void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out);
 void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t callback,
                                     void *user_data);
 
+void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct);
+void ai_agent_set_random_seed(uint32_t seed);
+
 typedef struct {
     uint32_t board_hash;
     player_t perspective;
@@ -108,5 +113,9 @@ typedef struct {
 void ai_agent_hint_trace_enable(bool enabled);
 void ai_agent_hint_trace_clear(void);
 uint8_t ai_agent_hint_trace_get(const ai_hint_eval_record_t **out_records);
+
+#ifdef AI_AGENT_HOST_TEST
+bool ai_agent_detect_unavoidable_loss(const board_t *board, const ai_config_t *config);
+#endif
 
 #endif // AI_AGENT_H

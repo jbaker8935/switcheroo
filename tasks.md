@@ -41,6 +41,8 @@ backlog.
 | T16 | AI Progress Callback | Implement callback mechanism for UI progress updates during AI move search. | Updated `ai_agent.h/.c`, `ui_progress.c/.h`, callback wiring. | T8 | Done |
 | T17 | AI Progress Responsiveness | Boost callback cadence by wiring frequent win-detection helpers into the throttled progress emitter. | Updated `ai_agent.c` helper hook, profiling validation notes. | T16 | Done |
 | T18 | AI Move Generation Optimisation | Inline adjacency walk with ownership LUT to reduce per-move helper calls during search. | `ai_agent.c` direct generator, host/target profiling notes. | T8 | Done |
+| T19 | AI Difficulty Experiment Harness | Build a host-side executable to compare Easy vs Expert matchups on kStartingLayout2, including epsilon-random Expert baselines and summary reporting. | `tests/ai_difficulty_experiments.c`, reproducible output samples. | T8, T18 | Done |
+| T20 | AI Inevitability Shortcut | Detect forced-loss states and fall back to the shallow selector when all replies concede an immediate opponent win. | `ai_agent.c` inevitability helper, host regression assertion. | T8, T18 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

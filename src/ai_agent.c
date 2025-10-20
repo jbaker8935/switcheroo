@@ -134,6 +134,46 @@ static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
 
 #define AI_HINT_TRACE_CAPACITY 64
 
+static uint32_t s_ai_rng_state = 0xC0FFEEu;
+
+static void ai_random_seed_internal(uint32_t seed) {
+    if (seed == 0u) {
+        seed = 1u;
+    }
+    s_ai_rng_state = seed;
+}
+
+void ai_agent_set_random_seed(uint32_t seed) {
+    ai_random_seed_internal(seed);
+}
+
+static uint32_t ai_random_next(void) {
+    s_ai_rng_state = s_ai_rng_state * 1664525u + 1013904223u;
+    return s_ai_rng_state;
+}
+
+static uint32_t ai_random_range(uint32_t limit) {
+    if (limit == 0u) {
+        return 0u;
+    }
+    return ai_random_next() % limit;
+}
+
+static bool ai_random_chance(uint8_t percentage) {
+    if (percentage == 0u) {
+        return false;
+    }
+    if (percentage >= 100u) {
+        return true;
+    }
+    return (ai_random_next() % 100u) < percentage;
+}
+
+static bool ai_pick_random_top_move(board_t *root,
+                                    const ai_config_t *config,
+                                    const move_t *best_move,
+                                    move_t *out_move);
+
 typedef struct {
     int16_t swap;
     int16_t block;
@@ -201,7 +241,7 @@ typedef struct {
     uint8_t trace_ply;
 } ai_search_context_t;
 
-#define AI_PROGRESS_CALLBACK_PERIOD 4u
+#define AI_PROGRESS_CALLBACK_PERIOD 8u
 
 static uint16_t s_progress_throttle = 0u;
 static ai_search_context_t *s_active_search_ctx = NULL;
@@ -1054,6 +1094,73 @@ static bool ai_move_creates_forced_immediate_win(const board_t *board, const mov
     return true;
 }
 
+static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, const ai_config_t *config) {
+    if (!board || !config) {
+        return false;
+    }
+
+    board_t scratch;
+    ai_board_copy(&scratch, board);
+    player_t to_move = scratch.current_player;
+    player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+
+    move_t candidate_moves[AI_MAX_ORDERED_MOVES];
+    uint8_t move_count = 0u;
+
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(&scratch, row, col);
+            if (board_get_piece_owner(piece) != to_move) {
+                continue;
+            }
+            move_count += board_get_legal_moves(&scratch,
+                                                row,
+                                                col,
+                                                &candidate_moves[move_count],
+                                                (uint8_t)(AI_MAX_ORDERED_MOVES - move_count));
+            if (move_count >= AI_MAX_ORDERED_MOVES) {
+                move_count = AI_MAX_ORDERED_MOVES;
+                break;
+            }
+        }
+        if (move_count >= AI_MAX_ORDERED_MOVES) {
+            break;
+        }
+    }
+
+    if (move_count == 0u) {
+        return false;
+    }
+
+    for (uint8_t i = 0; i < move_count; ++i) {
+        ai_emit_progress_with_active_context();
+        board_t after_move;
+        ai_board_copy(&after_move, &scratch);
+        if (!board_execute_move(&after_move, &candidate_moves[i], config->swap_rule)) {
+            continue;
+        }
+
+        if (board_check_win(&after_move, to_move, NULL)) {
+            return false;
+        }
+
+        board_switch_turn(&after_move);
+        after_move.current_player = opponent;
+
+        if (!ai_immediate_win_available(&after_move, opponent, config->swap_rule)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+#if defined(AI_AGENT_HOST_TEST)
+bool ai_agent_detect_unavoidable_loss(const board_t *board, const ai_config_t *config) {
+    return ai_all_replies_allow_opponent_immediate_win(board, config);
+}
+#endif
+
 bool FAR9_ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule);
 
 #if defined(AI_AGENT_HOST_TEST)
@@ -1616,6 +1723,13 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_select_move_heuristic
         return false;
     }
 
+    if (config->random_epsilon_pct > 0u && config->random_top_k > 1u && ai_random_chance(config->random_epsilon_pct)) {
+        move_t randomized;
+        if (ai_pick_random_top_move(root, config, &best_move, &randomized)) {
+            best_move = randomized;
+        }
+    }
+
     if (out_nodes) {
         *out_nodes = nodes;
     }
@@ -1865,6 +1979,8 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
     config->diagnostics_enabled = false;
     config->enable_forcing_check = (difficulty >= AI_DIFFICULTY_STANDARD);
     config->use_hint_profile = false;
+    config->random_top_k = 1u;
+    config->random_epsilon_pct = 0u;
 
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
@@ -1877,6 +1993,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = false;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = false;
+            ai_agent_config_set_randomization(config, 6u, 35u);
             break;
         case AI_DIFFICULTY_EASY:
             config->search.base_depth = 2;
@@ -1888,6 +2005,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = false;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
+            ai_agent_config_set_randomization(config, 4u, 20u);
             break;
         case AI_DIFFICULTY_STANDARD:
             config->search.base_depth = 4;
@@ -1899,6 +2017,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = true;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
+            ai_agent_config_set_randomization(config, 2u, 5u);
             break;
         case AI_DIFFICULTY_EXPERT:
         default:
@@ -1911,6 +2030,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = true;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
+        ai_agent_config_set_randomization(config, 1u, 0u);
             break;
     }
 
@@ -1924,6 +2044,85 @@ void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t 
     }
     config->progress_callback = callback;
     config->progress_user_data = user_data;
+}
+
+void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct) {
+    if (!config) {
+        return;
+    }
+    if (top_k == 0u) {
+        top_k = 1u;
+    }
+    config->random_top_k = top_k;
+    config->random_epsilon_pct = (epsilon_pct > 100u) ? 100u : epsilon_pct;
+}
+
+static bool ai_moves_equal(const move_t *lhs, const move_t *rhs) {
+    if (!lhs || !rhs) {
+        return false;
+    }
+    return lhs->from_row == rhs->from_row && lhs->from_col == rhs->from_col && lhs->to_row == rhs->to_row &&
+           lhs->to_col == rhs->to_col && lhs->type == rhs->type && lhs->player == rhs->player;
+}
+
+static bool ai_pick_random_top_move(board_t *root, const ai_config_t *config, const move_t *best_move,
+                                    move_t *out_move) {
+    if (!root || !config || !out_move) {
+        return false;
+    }
+    if (config->random_top_k <= 1u) {
+        return false;
+    }
+
+    ai_ordered_move_t ordered[AI_MAX_ORDERED_MOVES];
+    ai_search_context_t stub;
+    memset(&stub, 0, sizeof(stub));
+    stub.config = config;
+    stub.use_hint_eval = config->use_hint_profile;
+    if (s_hint_trace.enabled) {
+        stub.hint_trace = &s_hint_trace;
+    }
+
+    uint8_t generated = ai_generate_moves(root, &stub, ordered, 0);
+    if (generated == 0u) {
+        return false;
+    }
+
+    uint8_t limit = config->random_top_k;
+    if (limit > generated) {
+        limit = generated;
+    }
+
+    player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    move_t candidates[AI_MAX_ORDERED_MOVES];
+    uint8_t candidate_count = 0u;
+    bool best_is_immediate_win = false;
+
+    for (uint8_t i = 0u; i < generated && candidate_count < limit; ++i) {
+        board_t child;
+        ai_board_copy(&child, root);
+        if (!board_execute_move(&child, &ordered[i].move, config->swap_rule)) {
+            continue;
+        }
+
+        bool immediate_win = board_check_win(&child, config->ai_player, NULL);
+        if (immediate_win && best_move && ai_moves_equal(&ordered[i].move, best_move)) {
+            best_is_immediate_win = true;
+        }
+        if (board_check_win(&child, opponent, NULL)) {
+            continue;
+        }
+
+        candidates[candidate_count++] = ordered[i].move;
+    }
+
+    if (best_is_immediate_win || candidate_count <= 1u) {
+        return false;
+    }
+
+    uint32_t chosen = ai_random_range(candidate_count);
+    *out_move = candidates[chosen];
+    return true;
 }
 
 bool FAR10_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
@@ -1975,6 +2174,14 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     uint8_t pressure = ai_goal_row_pressure(&root);
     uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
     uint8_t move_volume = ai_count_move_volume(&root, to_move);
+
+     /* Detect forced-loss states upfront so we avoid sinking time into
+         negamax when the opponent can capture immediately regardless of
+         our choice. */
+     if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
+        dynamic_depth = 0u;
+        tuned.enable_forcing_check = false;
+    }
 
 #ifdef AI_AGENT_DEBUG_NEGAMAX
     printf("DEBUG: move_volume=%d, initial_dynamic_depth=%d, pressure=%d\n", move_volume, dynamic_depth, pressure);
@@ -2119,7 +2326,15 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
         return false;
     }
 
-    *out_move = best_move;
+    move_t final_move = best_move;
+    if (tuned.random_epsilon_pct > 0u && tuned.random_top_k > 1u && ai_random_chance(tuned.random_epsilon_pct)) {
+        move_t randomized;
+        if (ai_pick_random_top_move(&root, &tuned, &best_move, &randomized)) {
+            final_move = randomized;
+        }
+    }
+
+    *out_move = final_move;
 
     if (config->diagnostics_enabled) {
         board_t analysed;
