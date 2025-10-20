@@ -11,6 +11,7 @@
 #include "platform_f256.h"
 #include "../src/board.h"
 #include "../src/ai_agent.h"
+#include "../src/ui_progress.h"
 #include <stdint.h>
 
 // Game phases
@@ -83,6 +84,7 @@ typedef struct {
     ai_config_t ai_config;
     uint8_t ai_think_frames;      // Frames spent in AI thinking (for visual delay)
     bool is_puzzle_mode;          // true = PUZZLE mode, false = FREEPLAY mode
+    ui_progress_state_t ui_progress;
 } game_state_t;
 
 // Initialize game state

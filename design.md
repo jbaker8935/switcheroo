@@ -125,6 +125,13 @@ future work can extend the code base confidently.
   MMU swaps while preserving move ordering.
 - Captures optional move diagnostics and hint traces to aid tuning and exposes
   host-callable getters for debugging.
+- Allows registration of progress callbacks during iterative deepening search
+  to enable real-time UI updates with depth and node count information.
+- Maintains an active search context so high-frequency helpers such as
+  `ai_immediate_win_available` can emit throttled progress callbacks, keeping
+  the HUD "thinking" indicator and mouse polling lively during deep searches.
+- Coordinates with `ui_progress.c/.h` to animate the "AI Agent Thinking"
+  message and keep the mouse cursor responsive during search.
 
 ### Diagnostics and Messaging
 - Menu actions that are disallowed (swap after moving, swap in puzzle mode)

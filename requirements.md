@@ -65,6 +65,15 @@ in a dedicated discrepancies section.
   least 30 frames, evaluate victory, switch to the opposing player, and restore
   `GAME_PHASE_PLAYING`; if no move is found, the system prints "AI HAS NO
   MOVES" and toggles turn.
+- WHEN the AI is performing move search, THE SYSTEM SHALL periodically invoke
+  a registered progress callback with current search depth and node count to
+  enable UI progress updates.
+- WHILE the AI evaluates immediate-win opportunities during an active search,
+  THE SYSTEM SHALL reuse the current search context to emit throttled
+  progress callbacks so interface animations remain responsive.
+- WHEN the AI search progress callback is invoked, THE SYSTEM SHALL refresh the
+  "AI Agent Thinking" text with a cycling dot indicator so players see active
+  progress.
 - WHEN the Exit icon is activated, THE SYSTEM SHALL set phase to
   `GAME_PHASE_EXIT` so `main.c` can drive the Foenix soft reset sequence.
 

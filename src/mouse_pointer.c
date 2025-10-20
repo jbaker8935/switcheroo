@@ -75,3 +75,38 @@ void center_mouse() {
     POKEW(PS2_M_X_LO, 320);         // Center mouse at 320x240 (center of 640x480)
     POKEW(PS2_M_Y_LO, 240);
 }
+
+void poll_and_refresh_mouse_postion() {
+
+
+    kernelNextEvent();
+    if (kernelEventData.type == kernelEvent(mouse.DELTA)) {
+
+        int8_t boost_x = 1;
+        int8_t boost_y = 1;
+        int8_t delta_x = (int8_t)kernelEventData.mouse.delta.x;
+        int8_t delta_y = (int8_t)kernelEventData.mouse.delta.y;
+        
+        if (delta_x > 4 || delta_x < -4) boost_x = 2;
+        if (delta_y > 4 || delta_y < -4) boost_y = 2;
+        
+        // Read current position from hardware
+        int16_t hw_x = PEEKW(PS2_M_X_LO);
+        int16_t hw_y = PEEKW(PS2_M_Y_LO);
+        
+        // Apply delta with boost
+        int16_t new_x = hw_x + boost_x * delta_x;
+        int16_t new_y = hw_y + boost_y * delta_y;
+        
+        // Clamp to mouse hardware bounds (640x480 regardless of video mode)
+        // The mouse coordinate system is always 640x480 even in 320x240 mode
+        if (new_x < 0) new_x = 0;
+        if (new_x >= 640) new_x = 639;
+        if (new_y < 0) new_y = 0;
+        if (new_y >= 480) new_y = 479;
+        
+        // Write back to hardware registers
+        POKEW(PS2_M_X_LO, new_x);
+        POKEW(PS2_M_Y_LO, new_y);
+    }
+}

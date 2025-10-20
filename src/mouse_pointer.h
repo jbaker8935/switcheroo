@@ -14,3 +14,4 @@ void set_mouse_cursor(mouse_cursor_t cursor_type);
 void enable_mouse();
 void disable_mouse();
 void center_mouse();
+void poll_and_refresh_mouse_postion();

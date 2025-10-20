@@ -270,6 +270,7 @@ int main(int argc, char *argv[])
     print_swap_rule(g_game_state.ai_config.swap_rule);
     print_current_player(g_game_state.board.current_player);
     print_move_history(g_game_state.board.history, g_game_state.board.history_count);    
+    
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)
     {
         // print_game_mode(g_game_state.is_puzzle_mode);

@@ -80,6 +80,18 @@ static void game_state_clear_win_path(game_state_t *state)
     render_invalidate_cache();
 }
 
+static void game_state_configure_ai(game_state_t *state, swap_rule_t swap_rule, ai_difficulty_t difficulty,
+                                    player_t ai_player)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    ai_agent_init(&state->ai_config, swap_rule, difficulty, ai_player);
+    ui_progress_register(&state->ai_config, &state->ui_progress);
+}
+
 static void game_state_toggle_swap_rule(game_state_t *state)
 {
     if (!state)
@@ -93,8 +105,9 @@ static void game_state_toggle_swap_rule(game_state_t *state)
     
     if (!state->is_puzzle_mode && state->phase == GAME_PHASE_PLAYING && state->board.move_count == 0) {
         state->prefs.swap_rule = (state->prefs.swap_rule + 1) % NUMBER_OF_SWAP_RULES;
-        state->ai_config.swap_rule = state->prefs.swap_rule;
-        ai_agent_init(&state->ai_config, state->prefs.swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+        ai_difficulty_t difficulty = state->ai_config.difficulty;
+        player_t ai_player = state->ai_config.ai_player;
+        game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
         print_swap_rule(state->prefs.swap_rule);
         clear_swap_unavailable();
     } 
@@ -135,8 +148,9 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     state->board.history_count = 0;
 
     state->prefs.swap_rule = puzzle->swap_rule;
-    state->ai_config.swap_rule = puzzle->swap_rule;
-    ai_agent_init(&state->ai_config, puzzle->swap_rule, state->ai_config.difficulty, state->ai_config.ai_player);
+    ai_difficulty_t difficulty = state->ai_config.difficulty;
+    player_t ai_player = state->ai_config.ai_player;
+    game_state_configure_ai(state, puzzle->swap_rule, difficulty, ai_player);
 
     game_state_clear_win_path(state);
 
@@ -156,6 +170,8 @@ void game_state_init(game_state_t *state)
 {
     memset(state, 0, sizeof(game_state_t));
 
+    ui_progress_init(&state->ui_progress);
+
     // Initialize board
     board_init(&state->board);
     state->board.layout_id = 0;
@@ -170,7 +186,7 @@ void game_state_init(game_state_t *state)
     state->prefs.volume_level = 7;
 
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
-    ai_agent_init(&state->ai_config, state->prefs.swap_rule, state->prefs.difficulty_level, PLAYER_BLACK);
+    game_state_configure_ai(state, state->prefs.swap_rule, state->prefs.difficulty_level, PLAYER_BLACK);
 
     // Initialize menu state
     game_state_update_menu_enables(state);

@@ -5,6 +5,7 @@
 #include "../src/mouse_pointer.h"
 #include "../src/twidget.h"
 
+#include <stddef.h>
 #include <string.h>
 
 /*
@@ -113,6 +114,36 @@ void print_current_player(player_t player) {
         set_mouse_cursor(MOUSE_CURSOR_BUSY);
     }
     print_formatted_text(1, 3, player_str);
+}
+
+void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
+    if (dot_count > 3u) {
+        dot_count = 3u;
+    }
+
+    char buffer[26];
+    const char base[] = "AI Agent Thinking";
+    size_t idx = 0;
+
+    while (base[idx] != '\0' && idx < sizeof(buffer) - 1u) {
+        buffer[idx] = base[idx];
+        ++idx;
+    }
+
+    if (idx < sizeof(buffer) - 1u) {
+        buffer[idx++] = ' ';
+    }
+
+    for (uint8_t i = 0; i < dot_count && idx < sizeof(buffer) - 1u; ++i) {
+        buffer[idx++] = '.';
+    }
+
+    while (idx < sizeof(buffer) - 1u) {
+        buffer[idx++] = ' ';
+    }
+
+    buffer[sizeof(buffer) - 1u] = '\0';
+    print_formatted_text(1, 3, buffer);
 }
 
 void print_game_mode(bool is_puzzle_mode) {

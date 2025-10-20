@@ -36,8 +36,10 @@ backlog.
 | T11 | Audio Layer | Add cue playback, volume/mute controls, and align input bindings. | Audio driver module, assets, HUD indicators. | T1, T5 | Not Started |
 | T12 | Undo & Accessibility | Provide undo stack, keyboard-only UX fixes, and colourblind themes. | Board history snapshots, palette swaps, tests. | T4, T5, T6 | Not Started |
 | T13 | Error Handling Hardening | Centralise error reporting and graceful recovery beyond HUD text. | Error manager, recovery flows, tests. | T5, T7 | Not Started |
-| T14 | Documentation Sync | Keep `requirements.md`, `design.md`, and `tasks.md` aligned with code. | Updated docs, traceability notes. | T1-T9 | In Progress |
+| T14 | Documentation Sync | Keep `requirements.md`, `design.md`, and `tasks.md` aligned with code. | Updated docs, traceability notes. | T1-T9, T16 | In Progress |
 | T15 | Release QA & Packaging | Run regression suite, hardware smoke tests, and finalise build artefacts. | Test logs, release notes, packaged `.pgz`. | T1-T14 | Not Started |
+| T16 | AI Progress Callback | Implement callback mechanism for UI progress updates during AI move search. | Updated `ai_agent.h/.c`, `ui_progress.c/.h`, callback wiring. | T8 | Done |
+| T17 | AI Progress Responsiveness | Boost callback cadence by wiring frequent win-detection helpers into the throttled progress emitter. | Updated `ai_agent.c` helper hook, profiling validation notes. | T16 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

@@ -199,6 +199,49 @@ typedef struct {
     uint8_t trace_ply;
 } ai_search_context_t;
 
+#define AI_PROGRESS_CALLBACK_PERIOD 4u
+
+static uint16_t s_progress_throttle = 0u;
+static ai_search_context_t *s_active_search_ctx = NULL;
+static uint8_t s_active_search_depth_hint = 1u;
+
+static void ai_emit_throttled_progress(ai_search_context_t *ctx, uint8_t depth_remaining) {
+    if (!ctx || !ctx->config || !ctx->config->progress_callback) {
+        return;
+    }
+
+    s_active_search_depth_hint = (depth_remaining > 0u) ? depth_remaining : 1u;
+
+    ++s_progress_throttle;
+    if (s_progress_throttle < AI_PROGRESS_CALLBACK_PERIOD) {
+        return;
+    }
+
+    s_progress_throttle = 0u;
+
+    const ai_search_settings_t *search = &ctx->config->search;
+    uint8_t reported_depth = depth_remaining;
+    if (search->max_depth > 0u && depth_remaining <= search->max_depth) {
+        uint8_t computed = (uint8_t)(search->max_depth - depth_remaining + 1u);
+        if (computed == 0u) {
+            computed = 1u;
+        }
+        reported_depth = computed;
+    } else if (reported_depth == 0u) {
+        reported_depth = 1u;
+    }
+
+    ctx->config->progress_callback(reported_depth, ctx->nodes, ctx->config->progress_user_data);
+}
+
+static void ai_emit_progress_with_active_context(void) {
+    if (!s_active_search_ctx) {
+        return;
+    }
+
+    ai_emit_throttled_progress(s_active_search_ctx, s_active_search_depth_hint);
+}
+
 static bool s_zobrist_ready = false;
 static uint16_t s_zobrist_board[BOARD_CELLS][5];
 static uint16_t s_zobrist_player[2];
@@ -908,6 +951,8 @@ __attribute__((noinline)) bool ai_immediate_win_available(const board_t *board, 
 
 __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_available(const board_t *board,
                                                                                    player_t player, swap_rule_t rule) {
+    ai_emit_progress_with_active_context();
+
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -926,6 +971,7 @@ __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_availab
     }
 
     for (uint8_t i = 0; i < count; ++i) {
+        ai_emit_progress_with_active_context();
         board_t test;
         ai_board_copy(&test, &scratch);
         if (!board_execute_move(&test, &moves[i], rule)) {
@@ -1612,6 +1658,7 @@ __attribute__((noinline, section(".block8"))) int16_t FAR8_ai_negamax(board_t *b
     }
 
     ctx->nodes++;
+    ai_emit_throttled_progress(ctx, depth);
     player_t to_move = board->current_player;
     player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
@@ -1837,6 +1884,14 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
     s_last_breakdown = (ai_eval_breakdown_t){0};
 }
 
+void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t callback, void *user_data) {
+    if (!config) {
+        return;
+    }
+    config->progress_callback = callback;
+    config->progress_user_data = user_data;
+}
+
 bool FAR10_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
 
 #if defined(AI_AGENT_HOST_TEST)
@@ -1872,6 +1927,7 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     root.current_player = to_move;
 
     ai_timer0_reset();
+    s_progress_throttle = 0u;
 
     if (!board_has_legal_moves(&root, to_move)) {
         uint32_t ticks = ai_timer0_read();
@@ -1959,6 +2015,8 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
         ai_search_context_t ctx;
         memset(&ctx, 0, sizeof(ctx));
+        ai_search_context_t *previous_active_ctx = s_active_search_ctx;
+        s_active_search_ctx = &ctx;
         ctx.config = &tuned;
         ctx.node_limit = tuned.search.node_limit ? tuned.search.node_limit : AI_NODE_LIMIT_FALLBACK;
         ctx.use_hint_eval = tuned.use_hint_profile;
@@ -1996,6 +2054,11 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
             best_move = iteration_best;
             move_found = true;
 
+            // Invoke progress callback if registered
+            if (config->progress_callback) {
+                config->progress_callback(depth, ctx.nodes, config->progress_user_data);
+            }
+
             if (!tuned.search.use_iterative_deepening) {
                 break;
             }
@@ -2010,6 +2073,8 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
                 nodes_recorded += heuristic_nodes;
             }
         }
+
+        s_active_search_ctx = previous_active_ctx;
     }
 
     uint32_t elapsed_ticks = ai_timer0_read();

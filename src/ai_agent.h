@@ -19,6 +19,9 @@
 
 #include "../src/board.h"
 
+// Callback type for AI search progress updates
+typedef void (*ai_progress_callback_t)(uint8_t current_depth, uint32_t nodes_searched, void *user_data);
+
 // Difficulty levels
 typedef enum {
     AI_DIFFICULTY_LEARNING = 0,  // Random moves
@@ -65,6 +68,8 @@ typedef struct {
     bool diagnostics_enabled;
     bool enable_forcing_check;
     bool use_hint_profile;
+    ai_progress_callback_t progress_callback;
+    void *progress_user_data;
 } ai_config_t;
 
 // Initialize AI agent
@@ -84,6 +89,10 @@ int16_t ai_agent_evaluate_board(const board_t *board, player_t player,
 // Retrieve the feature breakdown for the most recent move selection.
 // If diagnostics are disabled, all fields are set to zero.
 void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out);
+
+// Register a callback for search progress updates
+void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t callback,
+                                    void *user_data);
 
 typedef struct {
     uint32_t board_hash;
