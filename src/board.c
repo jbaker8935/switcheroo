@@ -3,7 +3,7 @@
  * @brief Game board model implementation for F256 Switcharoo
  * 
  * Implements board state management, move validation, and win detection
- * using Union-Find for connectivity checks per design.md.
+ * using a BFS connectivity check per design.md guidance.
  */
 
 #include "../src/board.h"
@@ -369,183 +369,109 @@ void board_clear_all_swapped(board_t *board) {
     }
 }
 
-// Union-Find helper for connectivity
-static uint8_t find_root(uint8_t *parent, uint8_t x) {
-    if (parent[x] != x) {
-        parent[x] = find_root(parent, parent[x]); // Path compression
-    }
-    return parent[x];
-}
-
-static void union_cells(uint8_t *parent, uint8_t x, uint8_t y) {
-    uint8_t root_x = find_root(parent, x);
-    uint8_t root_y = find_root(parent, y);
-    if (root_x != root_y) {
-        parent[root_x] = root_y;
-    }
-}
-
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path) {
-    // Union-Find to detect connected components
-    uint8_t parent[BOARD_CELLS];
-    bool belongs_to_player[BOARD_CELLS];
-    
-    // Initialize
-    for (uint8_t i = 0; i < BOARD_CELLS; ++i) {
-        parent[i] = i;
-        belongs_to_player[i] = false;
-    }
-    
-    // Mark cells belonging to player
-    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
-            uint8_t idx = row * BOARD_COLS + col;
-            belongs_to_player[idx] = (board_get_piece_owner(piece) == player);
-        }
-    }
-    
-    // Union adjacent cells belonging to same player
-    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            uint8_t idx = row * BOARD_COLS + col;
-            if (!belongs_to_player[idx]) continue;
-            
-            // Check all 8 directions
-            for (uint8_t dir = 0; dir < 8; ++dir) {
-                int8_t new_row = (int8_t)row + kDirRow[dir];
-                int8_t new_col = (int8_t)col + kDirCol[dir];
-                
-                if (new_row >= 0 && new_row < BOARD_ROWS && 
-                    new_col >= 0 && new_col < BOARD_COLS) {
-                    uint8_t adj_idx = (uint8_t)new_row * BOARD_COLS + (uint8_t)new_col;
-                    if (belongs_to_player[adj_idx]) {
-                        union_cells(parent, idx, adj_idx);
-                    }
-                }
-            }
-        }
-    }
-    
-    // Check if any cell in row 2 connects to any cell in row 7
-    for (uint8_t c1 = 0; c1 < BOARD_COLS; ++c1) {
-        uint8_t idx1 = WIN_START_ROW * BOARD_COLS + c1;
-        if (!belongs_to_player[idx1]) continue;
-        
-        for (uint8_t c2 = 0; c2 < BOARD_COLS; ++c2) {
-            uint8_t idx2 = WIN_END_ROW * BOARD_COLS + c2;
-            if (!belongs_to_player[idx2]) continue;
-            
-            if (find_root(parent, idx1) == find_root(parent, idx2)) {
-                // Found winning connection
-                if (out_path) {
-                    out_path->has_path = true;
-                    out_path->winner = player;
-                    
-                    /* Construct a connected path inside the winning component.
-                       Use BFS from any start-row cell in the component to reach
-                       any end-row cell in the component and reconstruct the path.
-                    */
-                    uint8_t root = find_root(parent, idx1);
-                    out_path->path_length = 0;
-
-                    // Build list of start and target indices within the component
-                    uint8_t start_indices[BOARD_COLS];
-                    uint8_t start_count = 0;
-                    uint8_t target_indices[BOARD_COLS];
-                    uint8_t target_count = 0;
-
-                    for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-                        uint8_t sidx = WIN_START_ROW * BOARD_COLS + col;
-                        if (belongs_to_player[sidx] && find_root(parent, sidx) == root) {
-                            start_indices[start_count++] = sidx;
-                        }
-                        uint8_t tidx = WIN_END_ROW * BOARD_COLS + col;
-                        if (belongs_to_player[tidx] && find_root(parent, tidx) == root) {
-                            target_indices[target_count++] = tidx;
-                        }
-                    }
-
-                    if (start_count == 0 || target_count == 0) {
-                        // Fallback: no proper endpoints found, mark as generic path
-                        out_path->path_length = 0;
-                    } else {
-                        // BFS over component cells
-                        uint8_t queue[BOARD_CELLS];
-                        uint8_t parent_idx[BOARD_CELLS];
-                        for (uint8_t i = 0; i < BOARD_CELLS; ++i) parent_idx[i] = 0xFF;
-                        uint8_t qh = 0, qt = 0;
-
-                        // Enqueue all start nodes
-                        for (uint8_t i = 0; i < start_count; ++i) {
-                            uint8_t si = start_indices[i];
-                            queue[qt++] = si;
-                            parent_idx[si] = si; // root marker
-                        }
-
-                        int found_target = -1;
-                        while (qh < qt) {
-                            uint8_t cur = queue[qh++];
-                            // Check if cur is a target
-                            for (uint8_t ti = 0; ti < target_count; ++ti) {
-                                if (cur == target_indices[ti]) {
-                                    found_target = (int)cur;
-                                    break;
-                                }
-                            }
-                            if (found_target >= 0) break;
-
-                            uint8_t row = cur / BOARD_COLS;
-                            uint8_t col = cur % BOARD_COLS;
-
-                            // Explore 8 neighbors
-                            for (int8_t dr = -1; dr <= 1; ++dr) {
-                                for (int8_t dc = -1; dc <= 1; ++dc) {
-                                    if (dr == 0 && dc == 0) continue;
-                                    int8_t nr = (int8_t)row + dr;
-                                    int8_t nc = (int8_t)col + dc;
-                                    if (nr < 0 || nr >= BOARD_ROWS || nc < 0 || nc >= BOARD_COLS) continue;
-                                    uint8_t nidx = (uint8_t)nr * BOARD_COLS + (uint8_t)nc;
-                                    if (!belongs_to_player[nidx]) continue;
-                                    if (find_root(parent, nidx) != root) continue;
-                                    if (parent_idx[nidx] != 0xFF) continue; // visited
-                                    parent_idx[nidx] = cur;
-                                    queue[qt++] = nidx;
-                                }
-                            }
-                        }
-
-                        if (found_target >= 0) {
-                            // Reconstruct path from target back to a start node
-                            uint8_t rev_path[BOARD_CELLS];
-                            uint8_t rev_len = 0;
-                            uint8_t cur = (uint8_t)found_target;
-                            while (parent_idx[cur] != cur && rev_len < BOARD_CELLS) {
-                                rev_path[rev_len++] = cur;
-                                cur = parent_idx[cur];
-                            }
-                            // add the start node
-                            rev_path[rev_len++] = cur;
-
-                            // Reverse into out_path in start->target order
-                            for (int i = (int)rev_len - 1; i >= 0; --i) {
-                                out_path->path_cells[out_path->path_length++] = rev_path[i];
-                            }
-                        } else {
-                            out_path->path_length = 0; // no path found
-                        }
-                    }
-                }
-                return true;
-            }
-        }
-    }
-    
     if (out_path) {
         out_path->has_path = false;
         out_path->path_length = 0;
+        out_path->winner = PLAYER_NONE;
     }
-    return false;
+
+    if (!board || player == PLAYER_NONE) {
+        return false;
+    }
+
+    /* BFS traversal inspired by alt_impl/game-logic.js checkWinCondition and
+       alt_impl/env_util.py _check_win_condition_jit. Tracks parent indices to
+       reconstruct a winning path once WIN_END_ROW is reached. */
+    uint8_t queue[BOARD_CELLS];
+    uint8_t parent[BOARD_CELLS];
+    uint8_t visited[BOARD_CELLS];
+    for (uint8_t i = 0; i < BOARD_CELLS; ++i) {
+        parent[i] = 0xFF;
+        visited[i] = 0;
+    }
+
+    uint8_t q_front = 0;
+    uint8_t q_back = 0;
+
+    // Seed queue with player's pieces in WIN_START_ROW
+    for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+        uint8_t idx = (uint8_t)(WIN_START_ROW * BOARD_COLS + col);
+        piece_type_t piece = board_get_piece(board, WIN_START_ROW, col);
+        if (board_get_piece_owner(piece) == player) {
+            queue[q_back++] = idx;
+            visited[idx] = 1;
+            parent[idx] = idx;
+        }
+    }
+
+    bool win = false;
+    uint8_t target_idx = 0xFF;
+
+    while (q_front < q_back) {
+        uint8_t current = queue[q_front++];
+        uint8_t current_row = current / BOARD_COLS;
+
+        if (current_row == WIN_END_ROW) {
+            win = true;
+            target_idx = current;
+            break;
+        }
+
+        uint8_t current_col = current % BOARD_COLS;
+
+        for (uint8_t dir = 0; dir < 8; ++dir) {
+            int8_t next_row = (int8_t)current_row + kDirRow[dir];
+            int8_t next_col = (int8_t)current_col + kDirCol[dir];
+            if (next_row < 0 || next_row >= BOARD_ROWS ||
+                next_col < 0 || next_col >= BOARD_COLS) {
+                continue;
+            }
+
+            uint8_t neighbor_idx = (uint8_t)next_row * BOARD_COLS + (uint8_t)next_col;
+            if (visited[neighbor_idx]) {
+                continue;
+            }
+
+            piece_type_t neighbor_piece = board_get_piece(board, (uint8_t)next_row, (uint8_t)next_col);
+            if (board_get_piece_owner(neighbor_piece) != player) {
+                continue;
+            }
+
+            visited[neighbor_idx] = 1;
+            parent[neighbor_idx] = current;
+            queue[q_back++] = neighbor_idx;
+        }
+    }
+
+    if (!win) {
+        return false;
+    }
+
+    if (out_path) {
+        out_path->has_path = true;
+        out_path->winner = player;
+        out_path->path_length = 0;
+
+        uint8_t reversed[BOARD_CELLS];
+        uint8_t length = 0;
+        uint8_t cursor = target_idx;
+
+        while (cursor < BOARD_CELLS && length < BOARD_CELLS) {
+            reversed[length++] = cursor;
+            if (parent[cursor] == cursor) {
+                break;
+            }
+            cursor = parent[cursor];
+        }
+
+        while (length > 0) {
+            --length;
+            out_path->path_cells[out_path->path_length++] = reversed[length];
+        }
+    }
+
+    return true;
 }
 
 bool board_has_legal_moves(const board_t *board, player_t player) {
