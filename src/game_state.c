@@ -297,6 +297,7 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
 
     if (board_execute_move(&state->board, move, state->prefs.swap_rule))
     {
+        clear_made_blunder();
         game_state_deselect_piece(state);
 
         // Check for win

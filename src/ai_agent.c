@@ -10,6 +10,7 @@
 
 #include "../src/board.h"
 #include "../src/input.h"
+#include "../src/text_display.h"
 
 #ifdef AI_AGENT_ENABLE_TIMER
 #include <time.h>
@@ -2000,6 +2001,8 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = false;
             ai_agent_config_set_randomization(config, 6u, 35u);
+            config->blunder_chance_pct = 20u;
+            config->blunder_enabled = true;
             break;
         case AI_DIFFICULTY_EASY:
             config->search.base_depth = 2;
@@ -2012,6 +2015,8 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
             ai_agent_config_set_randomization(config, 4u, 20u);
+            config->blunder_chance_pct = 15u;
+            config->blunder_enabled = true;            
             break;
         case AI_DIFFICULTY_STANDARD:
             config->search.base_depth = 4;
@@ -2024,6 +2029,8 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
             ai_agent_config_set_randomization(config, 2u, 5u);
+            config->blunder_chance_pct = 10u;
+            config->blunder_enabled = true;                
             break;
         case AI_DIFFICULTY_EXPERT:
         default:
@@ -2036,7 +2043,9 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = true;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
-        ai_agent_config_set_randomization(config, 1u, 0u);
+            ai_agent_config_set_randomization(config, 1u, 0u);
+            config->blunder_chance_pct = 0u;
+            config->blunder_enabled = false;            
             break;
     }
 
@@ -2226,6 +2235,10 @@ static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_
         return false;
     }
     if (config->difficulty == AI_DIFFICULTY_EXPERT || config->blunder_type == AI_BLUNDER_NONE) {
+        return false;
+    }
+    // Don't apply blunders in puzzle mode
+    if (config->use_hint_profile) {
         return false;
     }
 
@@ -2447,6 +2460,10 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     move_t final_move = best_move;
     bool applied_blunder = ai_try_apply_blunder(&root, &tuned, &final_move);
+
+    if (applied_blunder) {
+        print_made_blunder();
+    }
 
     if (!applied_blunder && tuned.random_epsilon_pct > 0u && tuned.random_top_k > 1u &&
         ai_random_chance(tuned.random_epsilon_pct)) {

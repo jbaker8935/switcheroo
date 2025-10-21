@@ -42,3 +42,6 @@ void print_AI_hint(const char *hint);
 void text_display_init(void);
 void print_swap_unavailable(void);
 void clear_swap_unavailable(void);
+void print_made_blunder(void);
+void clear_made_blunder(void); 
+

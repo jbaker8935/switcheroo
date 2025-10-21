@@ -249,6 +249,13 @@ void clear_swap_unavailable(void) {
     print_formatted_text(1, 31, "                         ");
 }
 
+void print_made_blunder(void) {
+    print_formatted_text(1, 32, "AI Agent made a blunder!");
+}  
+void clear_made_blunder(void) {
+    print_formatted_text(1, 32, "                         ");
+}
+
 void print_AI_hint(const char *hint) {
     char *buf = "Hint:                ";
     char * hint_str = hint ? (char *)hint : (char *)"No hint available";
