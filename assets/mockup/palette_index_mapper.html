@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Switcharoo - Indexed Palette Mapper</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            font-family: 'Courier New', monospace;
+            color: #fff;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+        
+        .description {
+            text-align: center;
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        select, button {
+            padding: 8px 16px;
+            background: #2a2a2a;
+            color: #fff;
+            border: 1px solid #4a9eff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        button:hover {
+            background: #3a3a3a;
+        }
+        
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+        }
+        
+        .section-title {
+            color: #4a9eff;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #4a9eff;
+            padding-bottom: 5px;
+        }
+        
+        .palette-visual {
+            display: grid;
+            grid-template-columns: repeat(16, 30px);
+            gap: 2px;
+            margin-bottom: 20px;
+        }
+        
+        .palette-swatch {
+            width: 30px;
+            height: 30px;
+            border: 1px solid #000;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .palette-swatch:hover::after {
+            content: attr(data-index);
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.9);
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 10px;
+            white-space: nowrap;
+            z-index: 100;
+        }
+        
+        .index-range {
+            margin-bottom: 20px;
+            padding: 12px;
+            background: #1a1a1a;
+            border-radius: 4px;
+            border-left: 4px solid #4a9eff;
+        }
+        
+        .index-range-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        
+        .index-range-name {
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        
+        .index-range-indices {
+            color: #ffa502;
+            font-size: 12px;
+        }
+        
+        .index-range-colors {
+            display: flex;
+            gap: 3px;
+            margin-top: 8px;
+        }
+        
+        .mini-swatch {
+            width: 20px;
+            height: 20px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        .export-section {
+            grid-column: 1 / -1;
+        }
+        
+        .code-block {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #7eff4a;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        .comparison-table th {
+            background: #1a1a1a;
+            padding: 10px;
+            text-align: left;
+            border-bottom: 2px solid #4a9eff;
+        }
+        
+        .comparison-table td {
+            padding: 8px 10px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+        
+        .comparison-table tr:hover {
+            background: #1a1a1a;
+        }
+        
+        .color-preview {
+            width: 40px;
+            height: 20px;
+            display: inline-block;
+            border: 1px solid #000;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <h1>Switcharoo - Indexed Palette Mapper</h1>
+    <div class="description">
+        Design tool for creating indexed color palettes that can be swapped via color lookup table changes
+    </div>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label>Theme:</label>
+            <select id="themeSelect" onchange="updatePalette()">
+                <option value="classic">Classic Blue & Purple</option>
+                <option value="forest">Forest Green</option>
+                <option value="sunset">Sunset Orange</option>
+                <option value="midnight">Midnight Navy</option>
+            </select>
+        </div>
+        <button onclick="exportPalette()">Export C Array</button>
+        <button onclick="exportAsepriteGPL()">Download Aseprite Palette (.gpl)</button>
+        <button onclick="exportAllPalettes()">Download All Themes (.gpl)</button>
+        <button onclick="showComparison()">Compare All Themes</button>
+    </div>
+    
+    <div class="content">
+        <div class="section">
+            <div class="section-title">256-Color Palette Preview</div>
+            <div id="paletteVisual" class="palette-visual"></div>
+        </div>
+        
+        <div class="section">
+            <div class="section-title">Index Range Assignments</div>
+            <div id="indexRanges"></div>
+        </div>
+        
+        <div class="section export-section">
+            <div class="section-title">Palette Export Data</div>
+            <div id="exportData" class="code-block">
+                Select "Export Palette Data" to generate C/binary format...
+            </div>
+        </div>
+        
+        <div class="section export-section" id="comparisonSection" style="display: none;">
+            <div class="section-title">Theme Comparison Table</div>
+            <table class="comparison-table" id="comparisonTable"></table>
+        </div>
+    </div>
+
+    <script>
+        // Color palette definitions
+        const themes = {
+            classic: {
+                name: "Classic Blue & Purple",
+                background: "#666666",
+                uiText: "#ffffff",
+                uiAccent: "#4a9eff",
+                boardBg: "#a8c5d8",
+                boardBorder: "#7a9fb5",
+                cellLight: "#b8d5e8",
+                cellDark: "#5a6e7f",
+                piece1: ["#c89ddf", "#b58dd0", "#a17dc1", "#8b4fb8", "#7a45a3", "#693a8e"],
+                piece2: ["#7abaed", "#6aaee0", "#5aa2d3", "#3d7fc7", "#3570b0", "#2d619a"],
+                legalEmpty: "#7eff4a",
+                legalSwap: "#ffd700",
+                focusColor: "#ffff64",
+                buttonBg: "#2563eb",
+                buttonBorder: "#1e40af",
+                winColor: "#4eff4a",
+                lossColor: "#ff6b6b"
+            },
+            forest: {
+                name: "Forest Green",
+                background: "#4a5c4a",
+                uiText: "#e8f5e8",
+                uiAccent: "#7ed957",
+                boardBg: "#8fb88f",
+                boardBorder: "#5a7a5a",
+                cellLight: "#a8d5a8",
+                cellDark: "#567856",
+                piece1: ["#e8b5d8", "#d8a5c8", "#c895b8", "#b558a0", "#a04e90", "#8b4480"],
+                piece2: ["#ffd97d", "#f0cd70", "#e1c163", "#d4a83a", "#c59933", "#b68a2c"],
+                legalEmpty: "#a8ff3a",
+                legalSwap: "#ffa726",
+                focusColor: "#ffd764",
+                buttonBg: "#5a9e47",
+                buttonBorder: "#3d6e2f",
+                winColor: "#a8ff3a",
+                lossColor: "#ff5252"
+            },
+            sunset: {
+                name: "Sunset Orange",
+                background: "#6b4a3a",
+                uiText: "#ffe8d6",
+                uiAccent: "#ff8c42",
+                boardBg: "#d4a88a",
+                boardBorder: "#8d6850",
+                cellLight: "#e8c4a8",
+                cellDark: "#9d7d68",
+                piece1: ["#ff6b9d", "#f05b8d", "#e14b7d", "#d63384", "#c72974", "#b81f64"],
+                piece2: ["#42d4ff", "#32c4f0", "#22b4e1", "#0ea5e9", "#0c95d2", "#0a85bb"],
+                legalEmpty: "#7ed957",
+                legalSwap: "#ffd700",
+                focusColor: "#ffd700",
+                buttonBg: "#ff6f3c",
+                buttonBorder: "#c7522a",
+                winColor: "#7ed957",
+                lossColor: "#ff4444"
+            },
+            midnight: {
+                name: "Midnight Navy",
+                background: "#2d3561",
+                uiText: "#e3f2fd",
+                uiAccent: "#64b5f6",
+                boardBg: "#5c6bc0",
+                boardBorder: "#3949ab",
+                cellLight: "#7986cb",
+                cellDark: "#3f51b5",
+                piece1: ["#ce93d8", "#c183cc", "#b473c0", "#9c27b0", "#8d22a0", "#7e1d90"],
+                piece2: ["#4dd0e1", "#3dc0d1", "#2db0c1", "#00acc1", "#009bb1", "#008aa1"],
+                legalEmpty: "#69f0ae",
+                legalSwap: "#ffd54f",
+                focusColor: "#ffd54f",
+                buttonBg: "#5c6bc0",
+                buttonBorder: "#3949ab",
+                winColor: "#69f0ae",
+                lossColor: "#ff5252"
+            }
+        };
+        
+        // Index range definitions - Full 256 color allocation (0 = transparent)
+        const indexRanges = [
+            { name: "Transparent", start: 0, count: 1, colors: 'transparent' },
+            { name: "System/Background", start: 1, count: 15, colors: ['background', 'uiText', 'uiAccent', 'boardBg', 'boardBorder'] },
+            { name: "Board Cells Light + Shades", start: 16, count: 24, colors: ['cellLight'] },
+            { name: "Board Cells Dark + Shades", start: 40, count: 24, colors: ['cellDark'] },
+            { name: "Player 1 Pieces (Full Gradient)", start: 64, count: 32, colors: 'piece1' },
+            { name: "Player 2 Pieces (Full Gradient)", start: 96, count: 32, colors: 'piece2' },
+            { name: "Legal Move Indicators", start: 128, count: 16, colors: ['legalEmpty', 'legalSwap', 'focusColor'] },
+            { name: "UI Buttons + Gradients", start: 144, count: 24, colors: ['buttonBg', 'buttonBorder'] },
+            { name: "Status Colors + Shades", start: 168, count: 16, colors: ['winColor', 'lossColor'] },
+            { name: "Shadows (Black to Transparent)", start: 184, count: 32, colors: 'shadows' },
+            { name: "Highlights (White to Transparent)", start: 216, count: 24, colors: 'highlights' },
+            { name: "Reserved/Special Effects", start: 240, count: 16, colors: [] }
+        ];
+        
+        let currentTheme = 'classic';
+        
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+        }
+        
+        function lighten(hex, percent) {
+            const rgb = hexToRgb(hex);
+            const r = Math.min(255, Math.floor(rgb.r + (255 - rgb.r) * percent));
+            const g = Math.min(255, Math.floor(rgb.g + (255 - rgb.g) * percent));
+            const b = Math.min(255, Math.floor(rgb.b + (255 - rgb.b) * percent));
+            return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+        }
+        
+        function darken(hex, percent) {
+            const rgb = hexToRgb(hex);
+            const r = Math.floor(rgb.r * (1 - percent));
+            const g = Math.floor(rgb.g * (1 - percent));
+            const b = Math.floor(rgb.b * (1 - percent));
+            return `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`;
+        }
+        
+        function generateGradient(startColor, endColor, steps) {
+            const start = hexToRgb(startColor);
+            const end = hexToRgb(endColor);
+            const gradient = [];
+            
+            for (let i = 0; i < steps; i++) {
+                const ratio = i / (steps - 1);
+                const r = Math.floor(start.r + (end.r - start.r) * ratio);
+                const g = Math.floor(start.g + (end.g - start.g) * ratio);
+                const b = Math.floor(start.b + (end.b - start.b) * ratio);
+                gradient.push(`#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`);
+            }
+            
+            return gradient;
+        }
+        
+        function generatePalette(themeName) {
+            const theme = themes[themeName];
+            const palette = new Array(256).fill('#000000');
+            
+            indexRanges.forEach(range => {
+                for (let i = 0; i < range.count; i++) {
+                    const paletteIndex = range.start + i;
+                    
+                    if (range.colors === 'transparent') {
+                        // Index 0 is reserved for transparency - use magenta as placeholder
+                        palette[paletteIndex] = '#ff00ff';
+                    } else if (range.colors.length === 0) {
+                        // Reserved space - keep black
+                        palette[paletteIndex] = '#000000';
+                    } else if (range.colors === 'shadows') {
+                        // Generate shadow gradient (black to transparent via alpha, shown as black to gray)
+                        const alpha = i / (range.count - 1);
+                        const gray = Math.floor(alpha * 128);
+                        palette[paletteIndex] = `#${gray.toString(16).padStart(2,'0').repeat(3)}`;
+                    } else if (range.colors === 'highlights') {
+                        // Generate highlight gradient (white to mid-tone)
+                        const alpha = i / (range.count - 1);
+                        const val = Math.floor(255 - alpha * 128);
+                        palette[paletteIndex] = `#${val.toString(16).padStart(2,'0').repeat(3)}`;
+                    } else if (Array.isArray(theme[range.colors])) {
+                        // Gradient array (like piece colors) - expand to fill range
+                        const sourceColors = theme[range.colors];
+                        const gradient = generateGradient(sourceColors[0], sourceColors[sourceColors.length - 1], range.count);
+                        palette[paletteIndex] = gradient[i];
+                    } else if (typeof range.colors === 'string') {
+                        // Single property that's an array (piece1, piece2)
+                        const sourceColors = theme[range.colors];
+                        if (Array.isArray(sourceColors)) {
+                            const gradient = generateGradient(sourceColors[0], sourceColors[sourceColors.length - 1], range.count);
+                            palette[paletteIndex] = gradient[i];
+                        }
+                    } else {
+                        // Cycle through color list with variations
+                        const colorIndex = i % range.colors.length;
+                        const colorName = range.colors[colorIndex];
+                        const baseColor = theme[colorName];
+                        
+                        // Create shades for each color
+                        const shadeCount = Math.floor(range.count / range.colors.length);
+                        const shadeIndex = Math.floor(i / range.colors.length);
+                        const shadeFactor = (shadeIndex / Math.max(1, shadeCount - 1)) * 0.4 - 0.2;
+                        
+                        if (shadeFactor > 0) {
+                            palette[paletteIndex] = lighten(baseColor, shadeFactor);
+                        } else if (shadeFactor < 0) {
+                            palette[paletteIndex] = darken(baseColor, Math.abs(shadeFactor));
+                        } else {
+                            palette[paletteIndex] = baseColor;
+                        }
+                    }
+                }
+            });
+            
+            return palette;
+        }
+        
+        function updatePalette() {
+            currentTheme = document.getElementById('themeSelect').value;
+            const palette = generatePalette(currentTheme);
+            
+            // Update visual
+            const visual = document.getElementById('paletteVisual');
+            visual.innerHTML = '';
+            palette.forEach((color, index) => {
+                const swatch = document.createElement('div');
+                swatch.className = 'palette-swatch';
+                swatch.style.backgroundColor = color;
+                swatch.setAttribute('data-index', `${index}: ${color}`);
+                visual.appendChild(swatch);
+            });
+            
+            // Update index ranges display
+            const rangesDiv = document.getElementById('indexRanges');
+            rangesDiv.innerHTML = '';
+            indexRanges.forEach(range => {
+                const rangeDiv = document.createElement('div');
+                rangeDiv.className = 'index-range';
+                
+                const header = document.createElement('div');
+                header.className = 'index-range-header';
+                header.innerHTML = `
+                    <span class="index-range-name">${range.name}</span>
+                    <span class="index-range-indices">Indices ${range.start}-${range.start + range.count - 1}</span>
+                `;
+                rangeDiv.appendChild(header);
+                
+                const colorsDiv = document.createElement('div');
+                colorsDiv.className = 'index-range-colors';
+                for (let i = 0; i < Math.min(range.count, 16); i++) {
+                    const miniSwatch = document.createElement('div');
+                    miniSwatch.className = 'mini-swatch';
+                    miniSwatch.style.backgroundColor = palette[range.start + i];
+                    colorsDiv.appendChild(miniSwatch);
+                }
+                rangeDiv.appendChild(colorsDiv);
+                
+                rangesDiv.appendChild(rangeDiv);
+            });
+        }
+        
+        function exportPalette() {
+            const palette = generatePalette(currentTheme);
+            const theme = themes[currentTheme];
+            
+            let output = `// ${theme.name} Palette\n`;
+            output += `// Total: 256 colors\n\n`;
+            
+            // C-style array
+            output += `const uint8_t palette_${currentTheme}[256][3] = {\n`;
+            palette.forEach((color, index) => {
+                const rgb = hexToRgb(color);
+                output += `    {${rgb.r}, ${rgb.g}, ${rgb.b}}`;
+                if (index < 255) output += ',';
+                
+                // Add comment for named ranges
+                const range = indexRanges.find(r => index >= r.start && index < r.start + r.count);
+                if (range && index === range.start) {
+                    output += ` // ${range.name}`;
+                }
+                output += '\n';
+            });
+            output += `};\n\n`;
+            
+            // Index mapping reference
+            output += `// Index Range Reference:\n`;
+            indexRanges.forEach(range => {
+                output += `// ${range.start.toString().padStart(3)}-${(range.start + range.count - 1).toString().padStart(3)}: ${range.name}\n`;
+            });
+            
+            document.getElementById('exportData').textContent = output;
+        }
+        
+        function exportAsepriteGPL() {
+            const palette = generatePalette(currentTheme);
+            const theme = themes[currentTheme];
+            
+            let output = `GIMP Palette\n`;
+            output += `Name: Switcharoo ${theme.name}\n`;
+            output += `Columns: 16\n`;
+            output += `#\n`;
+            
+            palette.forEach((color, index) => {
+                const rgb = hexToRgb(color);
+                const range = indexRanges.find(r => index >= r.start && index < r.start + r.count);
+                const label = range ? range.name : 'Reserved';
+                output += `${rgb.r.toString().padStart(3)} ${rgb.g.toString().padStart(3)} ${rgb.b.toString().padStart(3)}\t${label}_${index}\n`;
+            });
+            
+            // Create download
+            const blob = new Blob([output], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `switcharoo_${currentTheme}.gpl`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('exportData').textContent = output;
+        }
+        
+        function exportAllPalettes() {
+            let allPalettes = '';
+            
+            Object.keys(themes).forEach(themeName => {
+                const palette = generatePalette(themeName);
+                const theme = themes[themeName];
+                
+                allPalettes += `GIMP Palette\n`;
+                allPalettes += `Name: Switcharoo ${theme.name}\n`;
+                allPalettes += `Columns: 16\n`;
+                allPalettes += `#\n`;
+                
+                palette.forEach((color, index) => {
+                    const rgb = hexToRgb(color);
+                    const range = indexRanges.find(r => index >= r.start && index < r.start + r.count);
+                    const label = range ? range.name.replace(/\s+/g, '_') : 'Reserved';
+                    allPalettes += `${rgb.r.toString().padStart(3)} ${rgb.g.toString().padStart(3)} ${rgb.b.toString().padStart(3)}\t${label}_${index}\n`;
+                });
+                
+                allPalettes += '\n\n';
+            });
+            
+            // Create download
+            const blob = new Blob([allPalettes], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `switcharoo_all_palettes.gpl`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            document.getElementById('exportData').textContent = 'All palettes exported! Check your downloads folder.';
+        }
+        
+        function showComparison() {
+            const section = document.getElementById('comparisonSection');
+            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            
+            if (section.style.display === 'block') {
+                const table = document.getElementById('comparisonTable');
+                let html = '<tr><th>Index Range</th><th>Indices</th>';
+                Object.keys(themes).forEach(themeKey => {
+                    html += `<th>${themes[themeKey].name}</th>`;
+                });
+                html += '</tr>';
+                
+                indexRanges.forEach(range => {
+                    if (range.colors.length > 0) {
+                        html += `<tr><td><strong>${range.name}</strong></td>`;
+                        html += `<td>${range.start}-${range.start + range.count - 1}</td>`;
+                        
+                        Object.keys(themes).forEach(themeKey => {
+                            const palette = generatePalette(themeKey);
+                            html += '<td>';
+                            for (let i = 0; i < Math.min(8, range.count); i++) {
+                                const color = palette[range.start + i];
+                                html += `<span class="color-preview" style="background: ${color}"></span>`;
+                            }
+                            html += '</td>';
+                        });
+                        html += '</tr>';
+                    }
+                });
+                
+                table.innerHTML = html;
+            }
+        }
+        
+        // Initialize
+        updatePalette();
+    </script>
+</body>
+</html>

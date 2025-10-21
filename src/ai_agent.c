@@ -174,6 +174,9 @@ static bool ai_pick_random_top_move(board_t *root,
                                     const move_t *best_move,
                                     move_t *out_move);
 
+static ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
+static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_t *out_move);
+
 typedef struct {
     int16_t swap;
     int16_t block;
@@ -1981,6 +1984,9 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
     config->use_hint_profile = false;
     config->random_top_k = 1u;
     config->random_epsilon_pct = 0u;
+    config->blunder_enabled = false;
+    config->blunder_chance_pct = 0u;
+    config->blunder_type = ai_allowed_blunder_type(difficulty);
 
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
@@ -2046,6 +2052,18 @@ void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t 
     config->progress_user_data = user_data;
 }
 
+static ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty) {
+    switch (difficulty) {
+        case AI_DIFFICULTY_LEARNING:
+        case AI_DIFFICULTY_EASY:
+            return AI_BLUNDER_ALLOW_IMMEDIATE_WIN;
+        case AI_DIFFICULTY_STANDARD:
+            return AI_BLUNDER_ALLOW_FORCING_MOVE;
+        default:
+            return AI_BLUNDER_NONE;
+    }
+}
+
 void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct) {
     if (!config) {
         return;
@@ -2055,6 +2073,25 @@ void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8
     }
     config->random_top_k = top_k;
     config->random_epsilon_pct = (epsilon_pct > 100u) ? 100u : epsilon_pct;
+}
+
+void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_type_t type, uint8_t chance_pct) {
+    if (!config) {
+        return;
+    }
+
+    ai_blunder_type_t allowed = ai_allowed_blunder_type(config->difficulty);
+    if (allowed == AI_BLUNDER_NONE) {
+        config->blunder_type = AI_BLUNDER_NONE;
+        config->blunder_enabled = false;
+        config->blunder_chance_pct = 0u;
+        return;
+    }
+
+    config->blunder_type = (type == allowed) ? type : allowed;
+    uint8_t clamped = (chance_pct > 100u) ? 100u : chance_pct;
+    config->blunder_chance_pct = clamped;
+    config->blunder_enabled = enabled && clamped > 0u;
 }
 
 static bool ai_moves_equal(const move_t *lhs, const move_t *rhs) {
@@ -2125,6 +2162,88 @@ static bool ai_pick_random_top_move(board_t *root, const ai_config_t *config, co
     return true;
 }
 
+static uint8_t ai_collect_blunder_candidates(const board_t *root, const ai_config_t *config, move_t *out_moves,
+                                             uint8_t capacity) {
+    if (!root || !config || !out_moves || capacity == 0u) {
+        return 0u;
+    }
+
+    ai_ordered_move_t ordered[AI_MAX_ORDERED_MOVES];
+    ai_search_context_t stub;
+    memset(&stub, 0, sizeof(stub));
+    stub.config = config;
+    stub.use_hint_eval = config->use_hint_profile;
+    if (s_hint_trace.enabled) {
+        stub.hint_trace = &s_hint_trace;
+    }
+
+    board_t generation_board;
+    ai_board_copy(&generation_board, root);
+    uint8_t generated = ai_generate_moves(&generation_board, &stub, ordered, 0u);
+    if (generated == 0u) {
+        return 0u;
+    }
+
+    player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    uint8_t count = 0u;
+
+    for (uint8_t i = 0u; i < generated && count < capacity; ++i) {
+        board_t candidate;
+        ai_board_copy(&candidate, root);
+        if (!board_execute_move(&candidate, &ordered[i].move, config->swap_rule)) {
+            continue;
+        }
+
+        if (board_check_win(&candidate, config->ai_player, NULL)) {
+            continue;
+        }
+
+        board_switch_turn(&candidate);
+        candidate.current_player = opponent;
+
+        bool qualifies = false;
+        if (config->blunder_type == AI_BLUNDER_ALLOW_IMMEDIATE_WIN) {
+            qualifies = ai_immediate_win_available(&candidate, opponent, config->swap_rule);
+        } else if (config->blunder_type == AI_BLUNDER_ALLOW_FORCING_MOVE) {
+            qualifies = ai_forcing_move_available(&candidate, opponent, config->swap_rule);
+        }
+
+        if (!qualifies) {
+            continue;
+        }
+
+        out_moves[count++] = ordered[i].move;
+    }
+
+    return count;
+}
+
+static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_t *out_move) {
+    if (!root || !config || !out_move) {
+        return false;
+    }
+    if (!config->blunder_enabled || config->blunder_chance_pct == 0u) {
+        return false;
+    }
+    if (config->difficulty == AI_DIFFICULTY_EXPERT || config->blunder_type == AI_BLUNDER_NONE) {
+        return false;
+    }
+
+    move_t candidates[AI_MAX_ORDERED_MOVES];
+    uint8_t candidate_count = ai_collect_blunder_candidates(root, config, candidates, AI_MAX_ORDERED_MOVES);
+    if (candidate_count == 0u) {
+        return false;
+    }
+
+    if (!ai_random_chance(config->blunder_chance_pct)) {
+        return false;
+    }
+
+    uint32_t idx = ai_random_range(candidate_count);
+    *out_move = candidates[idx];
+    return true;
+}
+
 bool FAR10_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
 
 #if defined(AI_AGENT_HOST_TEST)
@@ -2175,10 +2294,10 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
     uint8_t move_volume = ai_count_move_volume(&root, to_move);
 
-     /* Detect forced-loss states upfront so we avoid sinking time into
-         negamax when the opponent can capture immediately regardless of
-         our choice. */
-     if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
+    /* Detect forced-loss states upfront so we avoid sinking time into
+       negamax when the opponent can capture immediately regardless of
+       our choice. */
+    if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
         dynamic_depth = 0u;
         tuned.enable_forcing_check = false;
     }
@@ -2327,7 +2446,10 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     }
 
     move_t final_move = best_move;
-    if (tuned.random_epsilon_pct > 0u && tuned.random_top_k > 1u && ai_random_chance(tuned.random_epsilon_pct)) {
+    bool applied_blunder = ai_try_apply_blunder(&root, &tuned, &final_move);
+
+    if (!applied_blunder && tuned.random_epsilon_pct > 0u && tuned.random_top_k > 1u &&
+        ai_random_chance(tuned.random_epsilon_pct)) {
         move_t randomized;
         if (ai_pick_random_top_move(&root, &tuned, &best_move, &randomized)) {
             final_move = randomized;

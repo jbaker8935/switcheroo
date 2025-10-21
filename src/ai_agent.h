@@ -30,6 +30,12 @@ typedef enum {
     AI_DIFFICULTY_EXPERT = 3     // Full heuristics + lookahead
 } ai_difficulty_t;
 
+typedef enum {
+    AI_BLUNDER_NONE = 0,
+    AI_BLUNDER_ALLOW_IMMEDIATE_WIN = 1,
+    AI_BLUNDER_ALLOW_FORCING_MOVE = 2
+} ai_blunder_type_t;
+
 typedef struct {
     int16_t connection_progress;
     int16_t bridge_potential;
@@ -72,6 +78,9 @@ typedef struct {
     void *progress_user_data;
     uint8_t random_top_k;
     uint8_t random_epsilon_pct;
+    bool blunder_enabled;
+    uint8_t blunder_chance_pct;
+    ai_blunder_type_t blunder_type;
 } ai_config_t;
 
 // Initialize AI agent
@@ -97,6 +106,7 @@ void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t 
                                     void *user_data);
 
 void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct);
+void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_type_t type, uint8_t chance_pct);
 void ai_agent_set_random_seed(uint32_t seed);
 
 typedef struct {

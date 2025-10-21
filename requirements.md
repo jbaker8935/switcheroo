@@ -157,6 +157,18 @@ in a dedicated discrepancies section.
 - IF every legal reply still allows the opponent an immediate win on their
   next turn, THEN THE SYSTEM SHALL bypass deep search and select a move using
   the shallow heuristic pathway to minimise unnecessary computation.
+- WHERE blunder mode is configured, THE SYSTEM SHALL store a percentage
+  probability that is evaluated once per AI turn.
+- WHEN blunder mode is enabled for Learning or Easy difficulty and the
+  blunder probability triggers, THE SYSTEM SHALL choose a legal move that
+  allows the opponent to win on their following turn.
+- WHEN blunder mode is enabled for Standard difficulty and the blunder
+  probability triggers, THE SYSTEM SHALL choose a legal move that allows the
+  opponent to establish a forcing move on their following turn.
+- WHEN Expert difficulty is active, THE SYSTEM SHALL ignore blunder
+  configuration and select moves using the normal search pipeline.
+- WHEN blunder mode is disabled or the probability check does not trigger,
+  THE SYSTEM SHALL select moves using the normal heuristics/search pipeline.
 - WHEN dynamic depth resolves to zero, THE SYSTEM SHALL choose a move via
   `ai_select_move_heuristic`, recording node counts when requested.
 - WHEN dynamic depth is positive, THE SYSTEM SHALL run `ai_negamax` with

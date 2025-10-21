@@ -43,6 +43,7 @@ backlog.
 | T18 | AI Move Generation Optimisation | Inline adjacency walk with ownership LUT to reduce per-move helper calls during search. | `ai_agent.c` direct generator, host/target profiling notes. | T8 | Done |
 | T19 | AI Difficulty Experiment Harness | Build a host-side executable to compare Easy vs Expert matchups on kStartingLayout2, including epsilon-random Expert baselines and summary reporting. | `tests/ai_difficulty_experiments.c`, reproducible output samples. | T8, T18 | Done |
 | T20 | AI Inevitability Shortcut | Detect forced-loss states and fall back to the shallow selector when all replies concede an immediate opponent win. | `ai_agent.c` inevitability helper, host regression assertion. | T8, T18 | Done |
+| T21 | AI Blunder Behaviour | Enable difficulty-specific blunders with configurable probability, allowing immediate-win or forcing-line mistakes per difficulty rules. | `ai_agent.c` blunder helper, config API, host regression coverage. | T8, T18, T20 | In Progress |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

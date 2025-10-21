@@ -135,6 +135,32 @@ future work can extend the code base confidently.
   the HUD "thinking" indicator and mouse polling lively during deep searches.
 - Coordinates with `ui_progress.c/.h` to animate the "AI Agent Thinking"
   message and keep the mouse cursor responsive during search.
+- Detects shallow inevitability states by scanning the current player's legal
+  replies; when every option concedes an opponent immediate win, the engine
+  skips negamax and relies on the existing heuristic selector so losing
+  positions resolve without unnecessary deep search overhead.
+- Supports optional blunder behaviour controlled by configuration: Learning
+  and Easy difficulties can intentionally allow an opponent immediate win,
+  while Standard can allow an opponent forcing line. A per-turn percentage
+  controls whether a blunder overrides the search result, and Expert ignores
+  the feature entirely.
+- Supports difficulty-specific randomness by sampling from the top-ranked move
+  list using a seeded LCG; Learning/Easy favour larger candidate sets with
+  higher epsilon, Standard applies a small epsilon across two best moves, and
+  Expert always plays the highest-ranked move.
+
+#### Difficulty Experiment Harness (Host)
+- Implemented as a standalone host executable under `tests/` that links
+  directly against `board.c` and `ai_agent.c` with `AI_AGENT_HOST_TEST` stubs.
+- Uses a lightweight competitor profile (difficulty, random epsilon, label) to
+  drive alternating-colour self-play on kStartingLayout2 for a configurable
+  number of games and half-move caps.
+- Shares the deterministic linear-congruential RNG from the tuning harness so
+  experiment seeds are reproducible across runs and platforms.
+- Collects per-competitor win/loss/draw counts, cumulative half-moves, and
+  advancement/frontier metrics to make difficulty deltas easy to compare.
+- Reports random-move utilisation per competitor so epsilon baselines can be
+  correlated directly with upset rates when analysing difficulty gaps.
 
 ### Diagnostics and Messaging
 - Menu actions that are disallowed (swap after moving, swap in puzzle mode)
