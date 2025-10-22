@@ -2616,6 +2616,20 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     ai_print_diagnostics(nodes_recorded, elapsed_ticks, config->diagnostics_enabled);
 
     if (!move_found) {
+        // Pick a random legal move since no good move was found
+        ai_ordered_move_t random_moves[AI_MAX_ORDERED_MOVES];
+        ai_search_context_t stub;
+        memset(&stub, 0, sizeof(stub));
+        stub.config = &tuned;
+        uint8_t random_count = ai_generate_moves(&root, &stub, random_moves, 0);
+        if (random_count > 0) {
+            uint8_t chosen = ai_random_range(random_count);
+            best_move = random_moves[chosen].move;
+            move_found = true;
+        }
+    }
+
+    if (!move_found) {
         s_last_breakdown = (ai_eval_breakdown_t){0};
         return false;
     }
