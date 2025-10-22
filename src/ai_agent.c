@@ -251,6 +251,60 @@ static uint16_t s_progress_throttle = 0u;
 static ai_search_context_t *s_active_search_ctx = NULL;
 static uint8_t s_active_search_depth_hint = 1u;
 
+static void ai_emit_progress_with_active_context(void);
+
+static bool ai_progress_attach(ai_search_context_t *stub, ai_config_t *config,
+                               ai_search_context_t **out_previous) {
+    if (!stub || !config || !config->progress_callback) {
+        if (out_previous) {
+            *out_previous = NULL;
+        }
+        return false;
+    }
+
+    memset(stub, 0, sizeof(*stub));
+    stub->config = config;
+
+    ai_search_context_t *previous = s_active_search_ctx;
+    if (out_previous) {
+        *out_previous = previous;
+    }
+
+    s_active_search_ctx = stub;
+    s_active_search_depth_hint = 1u;
+    return true;
+}
+
+static void ai_progress_detach(bool attached, ai_search_context_t *previous) {
+    if (!attached) {
+        return;
+    }
+    s_active_search_ctx = previous;
+}
+
+static void ai_progress_step(uint32_t nodes, uint8_t depth_hint) {
+    if (!s_active_search_ctx || !s_active_search_ctx->config ||
+        !s_active_search_ctx->config->progress_callback) {
+        return;
+    }
+
+    s_active_search_ctx->nodes = nodes;
+    if (depth_hint > 0u) {
+        s_active_search_depth_hint = depth_hint;
+    }
+    ai_emit_progress_with_active_context();
+}
+
+static void ai_progress_step_increment(uint8_t depth_hint) {
+    if (!s_active_search_ctx || !s_active_search_ctx->config ||
+        !s_active_search_ctx->config->progress_callback) {
+        return;
+    }
+
+    uint32_t next_nodes = s_active_search_ctx->nodes + 1u;
+    ai_progress_step(next_nodes, depth_hint);
+}
+
 static void ai_emit_throttled_progress(ai_search_context_t *ctx, uint8_t depth_remaining) {
     if (!ctx || !ctx->config || !ctx->config->progress_callback) {
         return;
@@ -1680,6 +1734,7 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_select_move_heuristic
         }
 
         ++nodes;
+        ai_progress_step_increment(1u);
 
         if (board_check_win(&child, config->ai_player, NULL)) {
             if (out_nodes) {
@@ -2151,6 +2206,8 @@ static bool ai_pick_random_top_move(board_t *root, const ai_config_t *config, co
             continue;
         }
 
+        ai_progress_step_increment(1u);
+
         bool immediate_win = board_check_win(&child, config->ai_player, NULL);
         if (immediate_win && best_move && ai_moves_equal(&ordered[i].move, best_move)) {
             best_is_immediate_win = true;
@@ -2202,6 +2259,8 @@ static uint8_t ai_collect_blunder_candidates(const board_t *root, const ai_confi
         if (!board_execute_move(&candidate, &ordered[i].move, config->swap_rule)) {
             continue;
         }
+
+        ai_progress_step_increment(1u);
 
         if (board_check_win(&candidate, config->ai_player, NULL)) {
             continue;
@@ -2364,7 +2423,14 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     int16_t best_score = AI_SCORE_LOSS;
 
     if (dynamic_depth == 0u) {
+        ai_search_context_t heuristic_progress_ctx;
+        ai_search_context_t *heuristic_prev_ctx = NULL;
+        bool heuristic_progress_attached =
+            ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
+
         move_found = ai_select_move_heuristic(&root, &tuned, &best_move, &nodes_recorded);
+
+        ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
     } else {
         if (pressure == 4u) {
             tuned.search.base_depth = dynamic_depth;
@@ -2441,10 +2507,17 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
         if (!move_found) {
             uint32_t heuristic_nodes = 0u;
+            ai_search_context_t heuristic_progress_ctx;
+            ai_search_context_t *heuristic_prev_ctx = NULL;
+            bool heuristic_progress_attached =
+                ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
+
             if (ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes)) {
                 move_found = true;
                 nodes_recorded += heuristic_nodes;
             }
+
+            ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
         }
 
         s_active_search_ctx = previous_active_ctx;
@@ -2456,6 +2529,13 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     if (!move_found) {
         s_last_breakdown = (ai_eval_breakdown_t){0};
         return false;
+    }
+
+    ai_search_context_t post_progress_ctx;
+    ai_search_context_t *post_prev_ctx = NULL;
+    bool post_progress_attached = ai_progress_attach(&post_progress_ctx, &tuned, &post_prev_ctx);
+    if (post_progress_attached) {
+        post_progress_ctx.nodes = nodes_recorded;
     }
 
     move_t final_move = best_move;
@@ -2472,6 +2552,8 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
             final_move = randomized;
         }
     }
+
+    ai_progress_detach(post_progress_attached, post_prev_ctx);
 
     *out_move = final_move;
 
