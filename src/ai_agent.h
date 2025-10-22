@@ -126,6 +126,14 @@ uint8_t ai_agent_hint_trace_get(const ai_hint_eval_record_t **out_records);
 
 #ifdef AI_AGENT_HOST_TEST
 bool ai_agent_detect_unavoidable_loss(const board_t *board, const ai_config_t *config);
+bool ai_agent_move_creates_forced_immediate_win(const board_t *board,
+                                                const move_t *move,
+                                                const ai_config_t *config,
+                                                player_t ai_player);
+bool ai_agent_move_allows_opponent_immediate_win(const board_t *board,
+                                                 const move_t *move,
+                                                 const ai_config_t *config,
+                                                 player_t ai_player);
 #endif
 
 #endif // AI_AGENT_H

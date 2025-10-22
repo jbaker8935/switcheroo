@@ -44,6 +44,9 @@ backlog.
 | T19 | AI Difficulty Experiment Harness | Build a host-side executable to compare Easy vs Expert matchups on kStartingLayout2, including epsilon-random Expert baselines and summary reporting. | `tests/ai_difficulty_experiments.c`, reproducible output samples. | T8, T18 | Done |
 | T20 | AI Inevitability Shortcut | Detect forced-loss states and fall back to the shallow selector when all replies concede an immediate opponent win. | `ai_agent.c` inevitability helper, host regression assertion. | T8, T18 | Done |
 | T21 | AI Blunder Behaviour | Enable difficulty-specific blunders with configurable probability, allowing immediate-win or forcing-line mistakes per difficulty rules. | `ai_agent.c` blunder helper, config API, host regression coverage. | T8, T18, T20 | In Progress |
+| T22 | Expert Forced-Loss Regression | Add host regression to confirm the Expert AI avoids `kStartingLayout2` sequences that hand White a forced win and captures documentation updates. | `tests/ai_agent_tests.c`, requirements/design sync. | T8, T9, T20 | Done |
+| T23 | Forced Immediate Win Diagnostics | Expose host helper and expand regression logging to enumerate forced-win detection across legal moves. | `src/ai_agent.c`, `tests/ai_agent_tests.c` | T8, T9, T22 | Done |
+| T24 | Immediate Loss Guard | Penalise or discard AI moves that allow the opponent an immediate win and document the behaviour. | `src/ai_agent.c`, docs | T8, T20, T22 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

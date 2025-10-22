@@ -1152,6 +1152,27 @@ static bool ai_move_creates_forced_immediate_win(const board_t *board, const mov
     return true;
 }
 
+static bool ai_move_allows_opponent_immediate_win(const board_t *board,
+                                                  const move_t *move,
+                                                  const ai_config_t *config,
+                                                  player_t ai_player) {
+    if (!config || !move) {
+        return false;
+    }
+
+    board_t after_ai;
+    ai_board_copy(&after_ai, board);
+    if (!board_execute_move(&after_ai, move, config->swap_rule)) {
+        return false;
+    }
+
+    player_t opponent = (ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    board_switch_turn(&after_ai);
+    after_ai.current_player = opponent;
+
+    return ai_immediate_win_available(&after_ai, opponent, config->swap_rule);
+}
+
 static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, const ai_config_t *config) {
     if (!board || !config) {
         return false;
@@ -1216,6 +1237,20 @@ static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, co
 #if defined(AI_AGENT_HOST_TEST)
 bool ai_agent_detect_unavoidable_loss(const board_t *board, const ai_config_t *config) {
     return ai_all_replies_allow_opponent_immediate_win(board, config);
+}
+
+bool ai_agent_move_creates_forced_immediate_win(const board_t *board,
+                                                const move_t *move,
+                                                const ai_config_t *config,
+                                                player_t ai_player) {
+    return ai_move_creates_forced_immediate_win(board, move, config, ai_player);
+}
+
+bool ai_agent_move_allows_opponent_immediate_win(const board_t *board,
+                                                 const move_t *move,
+                                                 const ai_config_t *config,
+                                                 player_t ai_player) {
+    return ai_move_allows_opponent_immediate_win(board, move, config, ai_player);
 }
 #endif
 
@@ -1464,6 +1499,11 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
                     ctx->config->ai_player == current &&
                     ai_move_creates_forced_immediate_win(board, move, ctx->config, ctx->config->ai_player)) {
                     score += 8000;
+                }
+
+                if (ctx && ctx->config && ctx->config->ai_player == current &&
+                    ai_move_allows_opponent_immediate_win(board, move, ctx->config, ctx->config->ai_player)) {
+                    score -= 12000;
                 }
 
                 ordered->order_score = score;
@@ -1728,6 +1768,10 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_select_move_heuristic
             continue;
         }
 
+        if (ai_move_allows_opponent_immediate_win(root, &moves[i].move, config, config->ai_player)) {
+            continue;
+        }
+
         bool forcing_move = false;
         if (config->enable_forcing_check && !use_hint_eval) {
             forcing_move = ai_move_creates_forced_immediate_win(root, &moves[i].move, config, config->ai_player);
@@ -1920,12 +1964,25 @@ __attribute__((noinline, section(".block8"))) int16_t FAR8_ai_negamax(board_t *b
         return ai_eval_position(board, board->current_player, ctx);
     }
 
+    bool hazardous[AI_MAX_ORDERED_MOVES];
+    uint8_t safe_moves = 0u;
+    for (uint8_t i = 0; i < move_count; ++i) {
+        hazardous[i] = ai_move_allows_opponent_immediate_win(board, &moves[i].move, ctx->config, to_move);
+        if (!hazardous[i]) {
+            ++safe_moves;
+        }
+    }
+
     move_t best_move = moves[0].move;
     bool has_move = false;
     int16_t value = AI_SCORE_LOSS;
     int16_t original_alpha = alpha;
 
     for (uint8_t i = 0; i < move_count; ++i) {
+        if (hazardous[i] && safe_moves > 0u) {
+            continue;
+        }
+
         board_t child;
         ai_board_copy(&child, board);
         if (!board_execute_move(&child, &moves[i].move, ctx->config->swap_rule)) {
@@ -1980,9 +2037,41 @@ __attribute__((noinline, section(".block8"))) int16_t FAR8_ai_negamax(board_t *b
     }
 
     if (!has_move) {
-        ctx->trace_depth = depth;
-        ctx->trace_ply = ply;
-        return ai_eval_position(board, board->current_player, ctx);
+        if (safe_moves > 0u) {
+            for (uint8_t i = 0; i < move_count; ++i) {
+                if (hazardous[i]) {
+                    board_t child;
+                    ai_board_copy(&child, board);
+                    if (!board_execute_move(&child, &moves[i].move, ctx->config->swap_rule)) {
+                        continue;
+                    }
+
+                    board_switch_turn(&child);
+                    move_t response;
+                    value = (int16_t)(-ai_negamax(&child,
+                                                  ctx,
+                                                  (uint8_t)(depth - 1),
+                                                  (uint8_t)(ply + 1),
+                                                  extensions_used,
+                                                  (int16_t)(-beta),
+                                                  (int16_t)(-alpha),
+                                                  &response));
+                    if (ctx->abort) {
+                        return 0;
+                    }
+
+                    best_move = moves[i].move;
+                    has_move = true;
+                    break;
+                }
+            }
+        }
+
+        if (!has_move) {
+            ctx->trace_depth = depth;
+            ctx->trace_ply = ply;
+            return ai_eval_position(board, board->current_player, ctx);
+        }
     }
 
     if (out_move) {

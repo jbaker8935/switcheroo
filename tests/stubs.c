@@ -16,3 +16,5 @@ void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
     (void)y;
     (void)text;
 }
+
+void print_made_blunder(void) {}

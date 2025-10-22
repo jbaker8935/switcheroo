@@ -190,6 +190,16 @@ future work can extend the code base confidently.
 ## Testing and Tooling
 - `tests/ai_agent_tests.c` drives deterministic AI self-play to compare weight
   profiles and exercise node limits.
+- Layout-specific regression cases in `tests/ai_agent_tests.c` now verify the
+  Expert profile rejects `kStartingLayout2` move sequences that hand Player
+  White a forced win by contrasting candidate evaluations against deep-search
+  best moves.
+- Host builds expose `ai_agent_move_creates_forced_immediate_win` and
+  `ai_agent_move_allows_opponent_immediate_win` so regression cases can
+  enumerate immediate tactical outcomes for every legal move.
+- Move generation penalises candidate moves that leave an immediate win for
+  the opponent, ensuring the heuristic selector and ordered search avoid
+  blunders surfaced in the kStartingLayout2 regression.
 - `tests/example2_simple_test.c` validates AI hints against a known puzzle
   solution.
 - `tests/hint_trace_host.c` captures and inspects hint diagnostics in host

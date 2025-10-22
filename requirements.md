@@ -159,6 +159,16 @@ in a dedicated discrepancies section.
   the shallow heuristic pathway to minimise unnecessary computation.
 - WHERE blunder mode is configured, THE SYSTEM SHALL store a percentage
   probability that is evaluated once per AI turn.
+- WHEN Expert difficulty evaluates a candidate move from `kStartingLayout2`
+  and deep search reveals that move allows Player White to force a win within
+  the configured search horizon, THE SYSTEM SHALL treat the candidate as
+  losing and prefer an alternate move that preserves parity or advantage.
+- WHEN the AI considers a candidate move that allows the opponent an
+  immediate win on their next turn, THE SYSTEM SHALL deprioritise or discard
+  the move unless every legal reply shares the same outcome.
+- WHEN host diagnostics analyse an Expert sequence for forced losses, THE
+  SYSTEM SHALL expose a host-test helper that reports whether a legal move
+  creates a forced immediate win so regressions can inspect every option.
 - WHEN blunder mode is enabled for Learning or Easy difficulty and the
   blunder probability triggers, THE SYSTEM SHALL choose a legal move that
   allows the opponent to win on their following turn.

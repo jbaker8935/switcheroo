@@ -16,6 +16,7 @@ import struct
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
+import traceback
 
 PUZZLE_ID_BYTES = 32
 PUZZLE_MAX_PIECES = 16
@@ -281,6 +282,47 @@ def serialise_puzzle(puzzle: PuzzleDict) -> bytes:
 
     return bytes(record)
 
+def puzzle_to_string(puzzle: PuzzleDict) -> str:
+    """Output single puzzle dictionary into text board representation."""
+
+    board = [['..'] * 4 for _ in range(8)]  # 8 rows x 4 cols
+
+    puzzle_id = puzzle.get("id", "")
+    if not isinstance(puzzle_id, str):
+        raise ValueError("Puzzle id must be a string")
+    encoded_id = puzzle_id.encode("ascii")
+    if len(encoded_id) >= PUZZLE_ID_BYTES:
+        raise ValueError(
+            f"Puzzle id '{puzzle_id}' exceeds {PUZZLE_ID_BYTES - 1} characters"
+        )
+
+
+    starting_position = puzzle.get("startingPosition", [])
+    if not isinstance(starting_position, list):
+        raise ValueError(
+            f"startingPosition must be a list in puzzle '{puzzle_id}'"
+        )
+    if len(starting_position) > PUZZLE_MAX_PIECES:
+        raise ValueError(
+            f"Puzzle '{puzzle_id}' has {len(starting_position)} pieces; "
+            f"max is {PUZZLE_MAX_PIECES}"
+        )
+
+    for index, piece in enumerate(starting_position):
+        try:
+            row_idx = int(piece["row"]) - 1
+            col_idx = col_to_index(piece["col"])
+            player = piece["player"]
+        except KeyError as exc:
+            raise ValueError(
+                f"Missing '{exc.args[0]}' in startingPosition for "
+                f"puzzle '{puzzle_id}'"
+            ) from exc
+
+        swapped = bool(piece.get("swapped", False))
+        board[row_idx][col_idx] = f"{player}{'s' if swapped else ' '}"
+    board_str = "\n".join("|".join(row) for row in reversed(board))
+    return board_str
 
 def serialise_catalog(puzzles: Iterable[PuzzleDict]) -> bytes:
     """Serialise all puzzles into a binary blob with a puzzle-count header."""
@@ -305,6 +347,7 @@ def main() -> None:
     """Parse arguments, serialise puzzles, and emit the binary catalog."""
 
     if len(sys.argv) < 3:
+
         print(
             "Usage: python3 convert_puzzles.py output.bin "
             "input1.json [input2.json ...]"
@@ -329,6 +372,14 @@ def main() -> None:
             f"Wrote {len(puzzles)} puzzles (catalog size {len(catalog)} bytes) "
             f"to {output_path}"
         )
+
+        with output_path.with_suffix(".txt").open("w", encoding="utf-8") as text_handle:
+            for puzzle in puzzles:
+                board_str = puzzle_to_string(puzzle)
+                text_handle.write(f"Puzzle ID: {puzzle.get('id', '')}\n")
+                text_handle.write(board_str)
+                text_handle.write("\n\n")
+
     except FileNotFoundError as exc:
         print(f"Input file not found: {exc}")
         sys.exit(1)
@@ -336,7 +387,7 @@ def main() -> None:
         print(f"Invalid JSON: {exc}")
         sys.exit(1)
     except Exception as exc:  # pragma: no cover - CLI entry point
-        print(f"Error: {exc}")
+        traceback.print_exc()
         sys.exit(1)
 
 
