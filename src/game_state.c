@@ -237,6 +237,11 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     game_state_deselect_piece(state);
     game_state_update_menu_enables(state);
 
+    // Disable blunders in puzzle mode
+    if (state->is_puzzle_mode) {
+        state->ai_config.blunder_enabled = false;
+    }
+
     // Reset board cell colors to original checkerboard pattern
     video_reset_all_board_cell_colors();
     video_set_game_mode_icon_bitmap(state->is_puzzle_mode);
