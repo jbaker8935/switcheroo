@@ -5,53 +5,30 @@
 
 #include "../src/input_handler.h"
 #include "../src/mouse_pointer.h"
+#include "../src/video.h"
 #include <string.h>
 
-// Layout constants from video.c
-#define SCREEN_WIDTH 320u
-#define SCREEN_HEIGHT 240u
-#define BOARD_CELL_SIZE 26u
-#define BOARD_CELL_SEPARATOR 1u
-#define ICON_SIZE 16u
-#define BOARD_BORDER 4u
-
-// Calculate board position (centered on screen)
-static int16_t s_board_x;
-static int16_t s_board_y;
-static int16_t s_icon_x;       // Menu icons on right side
-static int16_t s_icon_start_y; // First icon Y position
 
 void input_handler_init(void) {
 
-    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + (3 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
-    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + (7 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
-    
-    s_board_x = (SCREEN_WIDTH - board_width) / 2;
-    s_board_y = (SCREEN_HEIGHT - board_height) / 2;
-
-    // Menu icons positioned in 2 columns by 4 rows on right side of board
-    s_icon_x = s_board_x + board_width + 16;
-    s_icon_start_y = s_board_y + 8;
 }
 
 hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
     hit_result_t result;
     result.type = HIT_NONE;
     
-    // Check if click is within board area
-    const int16_t board_width = (BOARD_COLS * BOARD_CELL_SIZE) + (3 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
-    const int16_t board_height = (BOARD_ROWS * BOARD_CELL_SIZE) + (7 * BOARD_CELL_SEPARATOR) + (2 * BOARD_BORDER);
-    
-    if (screen_x >= s_board_x && screen_x < s_board_x + board_width &&
-        screen_y >= s_board_y && screen_y < s_board_y + board_height) {
-        
+
+
+    if (screen_x >= VIDEO_BOARD_FIRST_CELL_X && screen_x < VIDEO_BOARD_FIRST_CELL_X + VIDEO_BOARD_INSIDE_WIDTH &&
+        screen_y >= VIDEO_BOARD_FIRST_CELL_Y && screen_y < VIDEO_BOARD_FIRST_CELL_Y + VIDEO_BOARD_INSIDE_HEIGHT) {
+
         // Inside board - determine which cell
-        int16_t rel_x = screen_x - s_board_x - BOARD_BORDER;
-        int16_t rel_y = screen_y - s_board_y - BOARD_BORDER;
+        int16_t rel_x = screen_x - VIDEO_BOARD_FIRST_CELL_X;
+        int16_t rel_y = screen_y - VIDEO_BOARD_FIRST_CELL_Y;
         
         if (rel_x >= 0 && rel_y >= 0) {
-            uint8_t col = rel_x / (BOARD_CELL_SIZE + BOARD_CELL_SEPARATOR);
-            uint8_t row = rel_y / (BOARD_CELL_SIZE + BOARD_CELL_SEPARATOR);
+            uint8_t col = rel_x / (VIDEO_BOARD_CELL_SIZE + VIDEO_BOARD_CELL_SEPARATOR);
+            uint8_t row = rel_y / (VIDEO_BOARD_CELL_SIZE + VIDEO_BOARD_CELL_SEPARATOR);
             
             if (col < BOARD_COLS && row < BOARD_ROWS) {
                 result.type = HIT_BOARD_CELL;
@@ -62,31 +39,28 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
         }
     }
     
-    // Check if click is on menu icons (2 x 4 layout on right side)
-    // Icons are 16x16, spaced 24px apart (16 + 8 gap), arranged in 2 columns by 4 rows
-    const int16_t icon_spacing = 24;  // ICON_SIZE (16) + 8 gap
-    
+
     // Check if X coordinate is in icon area 2 columns wide
-    if (screen_x >= s_icon_x && screen_x < s_icon_x + 2 * ICON_SIZE + 8) {
+    if (screen_x >= VIDEO_MENU_FIRST_ICON_X && screen_x < VIDEO_MENU_FIRST_ICON_X + VIDEO_MENU_SPACING_HORIZONTAL + VIDEO_ICON_SELECT_SIZE) {
         // Check if Y coordinate is within icon area
-        if (screen_y >= s_icon_start_y) {
-            int16_t rel_x = screen_x - s_icon_x;
-            int16_t rel_y = screen_y - s_icon_start_y;
+        if (screen_y >= VIDEO_MENU_FIRST_ICON_Y) {
+            int16_t rel_x = screen_x - VIDEO_MENU_FIRST_ICON_X;
+            int16_t rel_y = screen_y - VIDEO_MENU_FIRST_ICON_Y;
             // Determine which column
-            uint8_t col = rel_x / (icon_spacing);
+            uint8_t col = rel_x / (VIDEO_MENU_SPACING_HORIZONTAL);
             if (col > 1) {
                 return result;  // Outside icon columns
             }
 
-            uint8_t row = rel_y / icon_spacing;
+            uint8_t row = rel_y / VIDEO_MENU_SPACING_VERTICAL;
 
             uint8_t icon_index = row * 2 + col;
             
             // Check if actually on the icon (not in gap between icons)
-            int16_t icon_y = s_icon_start_y + (row * icon_spacing);
-            int16_t icon_x = s_icon_x + (col * icon_spacing);
-            if (screen_y >= icon_y && screen_y < icon_y + ICON_SIZE &&
-                screen_x >= icon_x && screen_x < icon_x + ICON_SIZE &&
+            int16_t icon_x = VIDEO_MENU_FIRST_ICON_X + (col * VIDEO_MENU_SPACING_HORIZONTAL);
+            int16_t icon_y = VIDEO_MENU_FIRST_ICON_Y + (row * VIDEO_MENU_SPACING_VERTICAL);
+            if (screen_y >= icon_y && screen_y < icon_y + VIDEO_ICON_SELECT_SIZE &&
+                screen_x >= icon_x && screen_x < icon_x + VIDEO_ICON_SELECT_SIZE &&
                 icon_index < MENU_ICON_COUNT) {
                 result.type = HIT_MENU_ICON;
                 result.data.icon = (menu_icon_t)icon_index;

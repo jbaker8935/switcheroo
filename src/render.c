@@ -9,79 +9,12 @@
 #include "../src/text_display.h"
 #include "../src/mouse_pointer.h"
 #include <string.h>
+#include "../src/video.h"
 
 // External functions from video.c
 extern void video_reset_board_cell_color(uint8_t row, uint8_t col);
 extern void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player);
 extern void video_reset_all_board_cell_colors(void);
-
-// Constants from video.c (should eventually be in a shared header)
-#define VIDEO_SCREEN_WIDTH 320u
-#define VIDEO_SCREEN_HEIGHT 240u
-#define VIDEO_BOARD_CELL_SIZE 26u
-#define VIDEO_PIECE_SPRITE_SIZE 24u
-#define VIDEO_ICON_SPRITE_SIZE 16u
-#define VIDEO_BOARD_COLUMNS 4u
-#define VIDEO_BOARD_ROWS 8u
-
-#define VIDEO_SPRITE_PIECE_LAYER 2
-#define VIDEO_SPRITE_ICON_LAYER 2
-#define VIDEO_SPRITE_HIGHLIGHT_LAYER 1
-#define VIDEO_SPRITE_FOCUS_LAYER 0
-
-
-#define VIDEO_SPRITE_FOCUS_PIECE 0u
-#define VIDEO_SPRITE_FOCUS_ICON 1u
-#define VIDEO_SPRITE_HIGHLIGHT_BASE 2u  // After focus sprites
-#define VIDEO_SPRITE_PIECE_BASE 18u
-#define VIDEO_SPRITE_ICON_BASE 34u
-#define VIDEO_SPRITE_OFFSET 32u
-
-#define VIDEO_VRAM_PIECE_A_NORMAL 0x56c00u
-#define VIDEO_VRAM_PIECE_A_SWAPPED 0x58000u
-#define VIDEO_VRAM_PIECE_B_NORMAL 0x59400u
-#define VIDEO_VRAM_PIECE_B_SWAPPED 0x5a800u
-
-#define VIDEO_VRAM_ICON_RESET 0x5bc00u
-#define VIDEO_VRAM_ICON_HINT 0x5c400u
-#define VIDEO_VRAM_ICON_DIFFICULTY 0x5cc00u
-#define VIDEO_VRAM_ICON_NEXT 0x5d400u
-#define VIDEO_VRAM_ICON_PREVIOUS 0x5f300u
-#define VIDEO_VRAM_ICON_SWAP_MODE 0x5dc00u
-#define VIDEO_VRAM_ICON_GAME_MODE_AI 0x5f100u
-#define VIDEO_VRAM_ICON_GAME_MODE_PUZZLE 0x5f200u
-#define VIDEO_VRAM_ICON_EXIT 0x5e400u
-
-#define VIDEO_PRIMARY_CLUT 0
-
-// Highlight sprite CLUT indices (defined in video.c)
-#define VIDEO_VRAM_HIGHLIGHT 0x5e500u
-#define VIDEO_VRAM_HIGHLIGHT_EMPTY 0x5e500u
-#define VIDEO_VRAM_HIGHLIGHT_OCCUPIED 0x5e800u
-#define VIDEO_CLUT_HIGHLIGHT_PRIMARY 35
-#define VIDEO_CLUT_HIGHLIGHT_SECONDARY 36
-// Highlight sprite CLUT slots (distinct from board highlight CLUTs)
-#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_PRIMARY 85
-#define VIDEO_CLUT_HIGHLIGHT_SPRITE_EMPTY_SECONDARY 86
-#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_PRIMARY 87
-#define VIDEO_CLUT_HIGHLIGHT_SPRITE_OCCUPIED_SECONDARY 88
-
-// Focus CLUT/Vram (mirrors video.c defs used by render)
-#define VIDEO_CLUT_FOCUS 89
-#define VIDEO_VRAM_FOCUS_PIECE 0x5ec00u
-#define VIDEO_VRAM_FOCUS_ICON 0x5ee00u
-
-// Icon bitmap addresses
-static const uint32_t s_icon_bitmap_addrs[8] = {
-    VIDEO_VRAM_ICON_GAME_MODE_AI,  // DEFAULT ICON is AI MODE, BITMAP SWITCHED BASED ON MODE
-    VIDEO_VRAM_ICON_RESET,
-    VIDEO_VRAM_ICON_PREVIOUS,
-    VIDEO_VRAM_ICON_NEXT,
-    VIDEO_VRAM_ICON_SWAP_MODE,
-    VIDEO_VRAM_ICON_DIFFICULTY,
-    VIDEO_VRAM_ICON_HINT,
-    VIDEO_VRAM_ICON_EXIT
-};
 
 // Board layout (calculated once)
 static int16_t s_board_x;
@@ -101,7 +34,6 @@ static move_t s_cache_legal_moves[8];
 
 // Track whether a winning-path CLUT has been applied (avoids repeated CLUT writes)
 static bool s_win_path_applied = false;
-
 
 // Helper: snapshot board pieces for change detection
 static void cache_board_snapshot(const board_t *board) {
@@ -123,21 +55,21 @@ void render_init(void) {
     // (no diagnostic output)
     
     // Icon panel position
-    s_icon_x = s_board_x + board_width + 16;
-    s_icon_start_y = s_board_y + 8;
+    s_icon_x = VIDEO_MENU_FIRST_ICON_X;
+    s_icon_start_y = VIDEO_MENU_FIRST_ICON_Y;
 
     // Initialize and define sprites once (bitmaps + CLUTs). Positions are updated at runtime.
     // Define piece sprites (16)
     for (uint8_t i = 0; i < 16; ++i) {
-        uint32_t bitmap = (i < 8) ? VIDEO_VRAM_PIECE_A_NORMAL : VIDEO_VRAM_PIECE_B_NORMAL;
-        spriteDefine((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), bitmap, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
+        uint32_t bitmap = (i < 8) ? SRAM_PIECE_A_NORMAL_LIGHT : SRAM_PIECE_B_NORMAL_LIGHT;
+        spriteDefine((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), bitmap, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_PIECE_LAYER);
         spriteSetVisible((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), 0);
     }
 
     // Define icon sprites (8)
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
-        spriteDefine(sid, s_icon_bitmap_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_ICON_LAYER);
+        spriteDefine(sid, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_ICON_LAYER);
         spriteSetVisible(sid, 1);
     }
 
@@ -145,20 +77,20 @@ void render_init(void) {
     // Empty cell highlight sprites: base..base+7 use the EMPTY bitmap
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + i);
-        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_EMPTY, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
+        spriteDefine(sid, SRAM_HIGHLIGHT_EMPTY, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
         spriteSetVisible(sid, 0);
     }
     // Occupied cell highlight sprites: base+8..base+15 use the OCCUPIED bitmap
     for (uint8_t i = 0; i < 8; ++i) {
         uint8_t sid = (uint8_t)(VIDEO_SPRITE_HIGHLIGHT_BASE + 8 + i);
-        spriteDefine(sid, VIDEO_VRAM_HIGHLIGHT_OCCUPIED, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
+        spriteDefine(sid, SRAM_HIGHLIGHT_OCCUPIED, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_HIGHLIGHT_LAYER);
         spriteSetVisible(sid, 0);
     }
 
     // Define focus sprites (piece and icon) on layer 0
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_VRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, SRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_VRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, SRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
 
     // Mark cache initialized
@@ -173,12 +105,10 @@ void render_invalidate_cache(void) {
 }
 
 void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y) {
-    const int16_t first_cell_x = s_board_x + 4;
-    const int16_t first_cell_y = s_board_y + 4;
+    const int16_t first_cell_x = VIDEO_BOARD_FIRST_CELL_X;
+    const int16_t first_cell_y = VIDEO_BOARD_FIRST_CELL_Y;
     const uint16_t cell_offset = (VIDEO_BOARD_CELL_SIZE - VIDEO_PIECE_SPRITE_SIZE) / 2;
-    // Use the board definition: first cell is at (s_board_x + 4, s_board_y + 4).
-    // Each cell is VIDEO_BOARD_CELL_SIZE pixels with a 1px separator, so
-    // stride = VIDEO_BOARD_CELL_SIZE + 1. Center piece within cell.
+
     const int16_t cell_x = first_cell_x + (col * (VIDEO_BOARD_CELL_SIZE + 1)) + cell_offset;
     const int16_t cell_y = first_cell_y + (row * (VIDEO_BOARD_CELL_SIZE + 1)) + cell_offset;
 
@@ -187,8 +117,8 @@ void render_cell_to_screen(uint8_t row, uint8_t col, uint16_t *x, uint16_t *y) {
 }
 
 bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col) {
-    const int16_t first_cell_x = s_board_x + 4;
-    const int16_t first_cell_y = s_board_y + 4;
+    const int16_t first_cell_x = VIDEO_BOARD_FIRST_CELL_X;
+    const int16_t first_cell_y = VIDEO_BOARD_FIRST_CELL_Y;
     
     // Check if within board bounds
     if (x < (uint16_t)first_cell_x || y < (uint16_t)first_cell_y) {
@@ -216,7 +146,6 @@ void render_update_pieces(const board_t *board) {
     // Track which sprites we've used for each player
     uint8_t white_sprite_count = 0;
     uint8_t black_sprite_count = 0;
-    uint8_t unswap_count = 0;  // Track how many pieces changed from swapped to normal
 
     // If cache not initialized, snapshot board and mark all for update
     bool force_full_update = false;
@@ -232,6 +161,8 @@ void render_update_pieces(const board_t *board) {
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
             piece_type_t piece = board_get_piece(board, row, col);
+
+            bool is_light = (row + col) % 2 == 0;
             
             if (piece == PIECE_NONE) {
                 continue;  // Empty cell
@@ -239,74 +170,38 @@ void render_update_pieces(const board_t *board) {
             
             uint8_t sprite_id = 0;
             uint32_t bitmap_addr = 0;
-            bool is_white = false;
             
             // Determine sprite and bitmap based on piece type
             if (piece == PIECE_WHITE_NORMAL) {
-                if (white_sprite_count < 8) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + white_sprite_count;
-                    bitmap_addr = VIDEO_VRAM_PIECE_A_NORMAL;
+                    bitmap_addr = is_light ? SRAM_PIECE_A_NORMAL_LIGHT : SRAM_PIECE_A_NORMAL_DARK;
                     white_sprite_count++;
-                    is_white = true;
-                }
             } else if (piece == PIECE_WHITE_SWAPPED) {
-                if (white_sprite_count < 8) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + white_sprite_count;
-                    bitmap_addr = VIDEO_VRAM_PIECE_A_SWAPPED;
+                    bitmap_addr = is_light ? SRAM_PIECE_A_SWAPPED_LIGHT : SRAM_PIECE_A_SWAPPED_DARK;
                     white_sprite_count++;
-                    is_white = true;
-                }
             } else if (piece == PIECE_BLACK_NORMAL) {
-                if (black_sprite_count < 8) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + 8 + black_sprite_count;
-                    bitmap_addr = VIDEO_VRAM_PIECE_B_NORMAL;
+                    bitmap_addr = is_light ? SRAM_PIECE_B_NORMAL_LIGHT : SRAM_PIECE_B_NORMAL_DARK;
                     black_sprite_count++;
-                }
             } else if (piece == PIECE_BLACK_SWAPPED) {
-                if (black_sprite_count < 8) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + 8 + black_sprite_count;
-                    bitmap_addr = VIDEO_VRAM_PIECE_B_SWAPPED;
+                    bitmap_addr = is_light ? SRAM_PIECE_B_SWAPPED_LIGHT : SRAM_PIECE_B_SWAPPED_DARK;
                     black_sprite_count++;
-                }
             }
             
-            if (is_white || black_sprite_count > 0) {
-                // Always ensure piece sprites are visible when pieces exist
-                spriteSetVisible(sprite_id, 1);
-                
-                // Always position the sprite when assigned to a piece
-                uint16_t x, y;
-                render_cell_to_screen(row, col, &x, &y);
-                // (no diagnostic output)
-                spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
-                
-                // If piece type changed (especially NORMAL<->SWAPPED), redefine sprite with new bitmap
-                uint8_t prev_piece = s_cache_board_snapshot[row][col];
-                if (force_full_update || prev_piece != (uint8_t)piece) {
-                    spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PRIMARY_CLUT, VIDEO_SPRITE_PIECE_LAYER);
-                    
-                    // Count swapped->normal transitions
-                    if ((prev_piece == PIECE_WHITE_SWAPPED || prev_piece == PIECE_BLACK_SWAPPED) &&
-                        (piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL)) {
-                        unswap_count++;
-                    }
-                }
-            }
+            uint16_t x, y;
+            render_cell_to_screen(row, col, &x, &y);
+
+            spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
+
+            spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_PIECE_LAYER);
+
+            spriteSetVisible(sprite_id, 1);
+            
         }
     }
     
-    (void)unswap_count; // Debug-only metric suppressed in release builds
-    
-    // Hide unused white sprites
-    for (uint8_t i = white_sprite_count; i < 8; ++i) {
-        spriteSetVisible(VIDEO_SPRITE_PIECE_BASE + i, 0);
-    }
-    
-    // Hide unused black sprites  
-    for (uint8_t i = black_sprite_count; i < 8; ++i) {
-        spriteSetVisible(VIDEO_SPRITE_PIECE_BASE + 8 + i, 0);
-    }
-
     // Update cache of board pieces after positioning
     cache_board_snapshot(board);
 }
@@ -508,10 +403,4 @@ void render_update(const game_state_t *state) {
 
     }
     
-    // Update menu icons
-    // render_update_menu(&state->menu);
-    
-
-
-
 }

@@ -8,6 +8,7 @@
 #include "../src/text_display.h"
 #include "../src/puzzle_data.h"
 #include "../src/ai_agent.h"
+#include "../src/video.h"
 #include "stddef.h"
 #include <stdio.h>
 #include <stdint.h>
@@ -16,7 +17,6 @@
 // Forward declarations
 extern void platform_bootstrap(void);
 extern void platform_idle(void);
-extern void video_init(const void *config);
 extern void video_reset(void);
 extern void display_test(void);
 // Global game state
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
     // Initialize f256lib (includes kernelReset and all subsystems)
     f256Init();
     // Initialize subsystems
-    video_init(NULL); // Use default config
+    video_init(); // Use default config
     text_display_init();
     input_init();
     input_handler_init();
