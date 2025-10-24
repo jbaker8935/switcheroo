@@ -107,6 +107,7 @@ void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t 
 
 void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct);
 void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_type_t type, uint8_t chance_pct);
+ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
 void ai_agent_set_random_seed(uint32_t seed);
 
 typedef struct {

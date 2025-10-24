@@ -175,7 +175,7 @@ static bool ai_pick_random_top_move(board_t *root,
                                     const move_t *best_move,
                                     move_t *out_move);
 
-static ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
+ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
 static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_t *out_move);
 
 typedef struct {
@@ -245,7 +245,7 @@ typedef struct {
     uint8_t trace_ply;
 } ai_search_context_t;
 
-#define AI_PROGRESS_CALLBACK_PERIOD 8u
+#define AI_PROGRESS_CALLBACK_PERIOD 4u
 
 static uint16_t s_progress_throttle = 0u;
 static ai_search_context_t *s_active_search_ctx = NULL;
@@ -2144,7 +2144,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = false;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = false;
-            ai_agent_config_set_randomization(config, 6u, 35u);
+            ai_agent_config_set_randomization(config, 3u, 20u);
             config->blunder_chance_pct = 20u;
             config->blunder_enabled = true;
             break;
@@ -2158,7 +2158,7 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
             config->search.use_transposition = false;
             config->search.use_move_ordering = true;
             config->search.use_killer_moves = true;
-            ai_agent_config_set_randomization(config, 4u, 20u);
+            ai_agent_config_set_randomization(config, 3u, 10u);
             config->blunder_chance_pct = 15u;
             config->blunder_enabled = true;            
             break;
@@ -2205,7 +2205,7 @@ void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t 
     config->progress_user_data = user_data;
 }
 
-static ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty) {
+ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty) {
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
         case AI_DIFFICULTY_EASY:

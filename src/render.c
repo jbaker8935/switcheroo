@@ -45,7 +45,7 @@ static void cache_board_snapshot(const board_t *board) {
 }
 
 void render_init(void) {
-    // Calculate board layout (matching video_position_sprites logic)
+    
     const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11;
     const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15;
     
@@ -66,12 +66,12 @@ void render_init(void) {
         spriteSetVisible((uint8_t)(VIDEO_SPRITE_PIECE_BASE + i), 0);
     }
 
-    // Define icon sprites (8)
-    for (uint8_t i = 0; i < 8; ++i) {
-        uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
-        spriteDefine(sid, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_ICON_LAYER);
-        spriteSetVisible(sid, 1);
-    }
+    // // Define icon sprites (8)
+    // for (uint8_t i = 0; i < 8; ++i) {
+    //     uint8_t sid = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
+    //     spriteDefine(sid, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_ICON_LAYER);
+    //     spriteSetVisible(sid, 1);
+    // }
 
     // Define highlight sprites (8 empty + 8 occupied) - one per direction each.
     // Empty cell highlight sprites: base..base+7 use the EMPTY bitmap
@@ -142,7 +142,7 @@ bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col) {
 }
 
 
-void render_update_pieces(const board_t *board) {
+void render_update_pieces(const board_t *board, const win_path_t *path) {
     // Track which sprites we've used for each player
     uint8_t white_sprite_count = 0;
     uint8_t black_sprite_count = 0;
@@ -163,6 +163,7 @@ void render_update_pieces(const board_t *board) {
             piece_type_t piece = board_get_piece(board, row, col);
 
             bool is_light = (row + col) % 2 == 0;
+            bool in_path = false;
             
             if (piece == PIECE_NONE) {
                 continue;  // Empty cell
@@ -170,32 +171,53 @@ void render_update_pieces(const board_t *board) {
             
             uint8_t sprite_id = 0;
             uint32_t bitmap_addr = 0;
-            
+
+            // in winning path?            
+            if (path->has_path) {
+                for (uint8_t p = 0; p < path->path_length; ++p) {
+                    uint8_t cell_index = path->path_cells[p];
+                    uint8_t path_row = cell_index / BOARD_COLS;
+                    uint8_t path_col = cell_index % BOARD_COLS;
+                    if (path_row == row && path_col == col) {
+                        in_path = true;
+                        break;
+                    }
+                }
+            }
+
             // Determine sprite and bitmap based on piece type
+            // future will support rendering win path differently
             if (piece == PIECE_WHITE_NORMAL) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + white_sprite_count;
-                    bitmap_addr = is_light ? SRAM_PIECE_A_NORMAL_LIGHT : SRAM_PIECE_A_NORMAL_DARK;
+                    bitmap_addr = is_light || in_path ? SRAM_PIECE_A_NORMAL_LIGHT : SRAM_PIECE_A_NORMAL_DARK;
                     white_sprite_count++;
             } else if (piece == PIECE_WHITE_SWAPPED) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + white_sprite_count;
-                    bitmap_addr = is_light ? SRAM_PIECE_A_SWAPPED_LIGHT : SRAM_PIECE_A_SWAPPED_DARK;
+                    bitmap_addr = is_light || in_path ? SRAM_PIECE_A_SWAPPED_LIGHT : SRAM_PIECE_A_SWAPPED_DARK;
                     white_sprite_count++;
             } else if (piece == PIECE_BLACK_NORMAL) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + 8 + black_sprite_count;
-                    bitmap_addr = is_light ? SRAM_PIECE_B_NORMAL_LIGHT : SRAM_PIECE_B_NORMAL_DARK;
+                    bitmap_addr = is_light || in_path ? SRAM_PIECE_B_NORMAL_LIGHT : SRAM_PIECE_B_NORMAL_DARK;
                     black_sprite_count++;
             } else if (piece == PIECE_BLACK_SWAPPED) {
                     sprite_id = VIDEO_SPRITE_PIECE_BASE + 8 + black_sprite_count;
-                    bitmap_addr = is_light ? SRAM_PIECE_B_SWAPPED_LIGHT : SRAM_PIECE_B_SWAPPED_DARK;
+                    bitmap_addr = is_light || in_path ? SRAM_PIECE_B_SWAPPED_LIGHT : SRAM_PIECE_B_SWAPPED_DARK;
                     black_sprite_count++;
             }
             
+
+            // Check if piece has changed since last frame
+            if (!force_full_update && s_cache_board_snapshot[row][col] == (uint8_t)piece) {
+                // No change — just reposition sprite
+            } else {
+                // Piece has changed — update sprite definition
+                spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_PIECE_LAYER);
+            }
+
             uint16_t x, y;
             render_cell_to_screen(row, col, &x, &y);
 
             spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
-
-            spriteDefine(sprite_id, bitmap_addr, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_PIECE_LAYER);
 
             spriteSetVisible(sprite_id, 1);
             
@@ -387,7 +409,7 @@ void render_update(const game_state_t *state) {
     // Update all rendering based on current game state
     
     // Update piece positions and sprites
-    render_update_pieces(&state->board);
+    render_update_pieces(&state->board, &state->win_path);
     
     // Update highlights for selection
     render_update_highlights(&state->selection);

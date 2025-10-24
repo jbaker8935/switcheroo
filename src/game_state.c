@@ -213,6 +213,15 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 
     if (state->is_puzzle_mode)
     {
+        // Set AI difficulty to Expert when entering puzzle mode
+        state->prefs.difficulty_level = AI_DIFFICULTY_EXPERT;
+        state->ai_config.difficulty = AI_DIFFICULTY_EXPERT;
+        state->ai_config.blunder_enabled = false;
+        state->ai_config.blunder_chance_pct = 0u;
+        state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EXPERT);
+        
+        print_ai_difficulty(state->prefs.difficulty_level);
+
         // PUZZLE mode: initialize board to current puzzle
         if (!game_state_apply_current_puzzle(state, true))
         {
@@ -226,6 +235,15 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     }
     else
     {
+        // Set AI difficulty to Easy when entering Free Play mode
+        state->prefs.difficulty_level = AI_DIFFICULTY_EASY;
+        state->ai_config.difficulty = AI_DIFFICULTY_EASY;
+        state->ai_config.blunder_enabled = true;
+        state->ai_config.blunder_chance_pct = 15u;
+        state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EASY);
+        
+        print_ai_difficulty(state->prefs.difficulty_level);        
+
         // FREEPLAY mode: standard initial position
         board_set_starting_layout(&state->board, state->board.layout_id);
         board_clear_all_swapped(&state->board);
@@ -240,6 +258,9 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     // Disable blunders in puzzle mode
     if (state->is_puzzle_mode) {
         state->ai_config.blunder_enabled = false;
+        state->ai_config.use_hint_profile = true;
+    } else {
+        state->ai_config.use_hint_profile = false;
     }
 
     // Reset board cell colors to original checkerboard pattern
@@ -428,6 +449,27 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
             // Update AI difficulty
             state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
+            // Update blunder settings based on new difficulty
+            switch (state->prefs.difficulty_level) {
+                case AI_DIFFICULTY_LEARNING:
+                    state->ai_config.blunder_enabled = true;
+                    state->ai_config.blunder_chance_pct = 20u;
+                    break;
+                case AI_DIFFICULTY_EASY:
+                    state->ai_config.blunder_enabled = true;
+                    state->ai_config.blunder_chance_pct = 15u;
+                    break;
+                case AI_DIFFICULTY_STANDARD:
+                    state->ai_config.blunder_enabled = true;
+                    state->ai_config.blunder_chance_pct = 10u;
+                    break;
+                case AI_DIFFICULTY_EXPERT:
+                default:
+                    state->ai_config.blunder_enabled = false;
+                    state->ai_config.blunder_chance_pct = 0u;
+                    break;
+            }
+            state->ai_config.blunder_type = ai_allowed_blunder_type(state->ai_config.difficulty);
             print_ai_difficulty(state->prefs.difficulty_level);
             break;
 

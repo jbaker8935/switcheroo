@@ -27,7 +27,7 @@ void render_init(void);
 void render_update(const game_state_t *state);
 
 // Update piece sprites to match board state
-void render_update_pieces(const board_t *board);
+void render_update_pieces(const board_t *board, const win_path_t *path);
 
 // Update highlights for selected piece and legal moves
 void render_update_highlights(const selection_state_t *selection);
