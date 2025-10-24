@@ -4,41 +4,42 @@
 #include "../src/board.h"
 #include "../src/mouse_pointer.h"
 #include "../src/video.h"
+#include "../src/text_display.h"
 
 // EMBED statements for assets at specific memory addresses
-EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", SRAM_PUZZLE_CATALOG);
-EMBED(board_bitmap, "../assets/ui/ui_board.bin", SRAM_BITMAP_BASE);
-EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", SRAM_PIECE_A_NORMAL_LIGHT);
-EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", SRAM_PIECE_A_SWAPPED_LIGHT);
-EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", SRAM_PIECE_B_NORMAL_LIGHT);
-EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", SRAM_PIECE_B_SWAPPED_LIGHT);
-EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", SRAM_PIECE_A_NORMAL_DARK);
-EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", SRAM_PIECE_A_SWAPPED_DARK);
-EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", SRAM_PIECE_B_NORMAL_DARK);
-EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", SRAM_PIECE_B_SWAPPED_DARK);
+EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x30000);
+EMBED(board_bitmap, "../assets/ui/ui_board.bin", 0x44000);
+EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", 0x56c00);
+EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", 0x56e40);
+EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", 0x57080);
+EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", 0x572c0);
+EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", 0x57500);
+EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", 0x57740);
+EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", 0x57980);
+EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x57bc0);
 
 // Icon bitmaps
-EMBED(icon_game_ai_mode, "../assets/ui/ui_menu_robot_32x32.bin", SRAM_ICON_GAME_MODE_AI);
-EMBED(icon_game_puzzle_mode, "../assets/ui/ui_menu_puzzle_32x32.bin", SRAM_ICON_GAME_MODE_PUZZLE);
-EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", SRAM_ICON_RESET);
-EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", SRAM_ICON_PREVIOUS);
-EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", SRAM_ICON_NEXT);
-EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", SRAM_ICON_SWAP_MODE);
-EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", SRAM_ICON_DIFFICULTY);
-EMBED(icon_info, "../assets/ui/ui_menu_hint_32x32.bin", SRAM_ICON_HINT);
-EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", SRAM_ICON_EXIT);
+EMBED(icon_game_ai_mode, "../assets/ui/ui_menu_robot_32x32.bin", 0x57e00);
+EMBED(icon_game_puzzle_mode, "../assets/ui/ui_menu_puzzle_32x32.bin", 0x58200);
+EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", 0x58600);
+EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", 0x58a00);
+EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", 0x58e00);
+EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", 0x59200);
+EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", 0x59600);
+EMBED(icon_info, "../assets/ui/ui_menu_hint_32x32.bin", 0x59a00);
+EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", 0x59e00);
 
 // Move Highlight sprite bitmaps
-EMBED(highlight_empty_bitmap, "../assets/ui/highlight_empty.bin", SRAM_HIGHLIGHT_EMPTY);
-EMBED(highlight_occupied_bitmap, "../assets/ui/highlight_occupied.bin", SRAM_HIGHLIGHT_OCCUPIED);
+EMBED(highlight_empty_bitmap, "../assets/ui/highlight_empty.bin", 0x5a200);
+EMBED(highlight_occupied_bitmap, "../assets/ui/highlight_occupied.bin", 0x5a440);
 // Focus indicator bitmaps
-EMBED(focus_piece_bitmap, "../assets/ui/cell_focus.bin", SRAM_FOCUS_PIECE);
-EMBED(focus_icon_bitmap, "../assets/generated/focus_icon_bitmap.bin", SRAM_FOCUS_ICON);
+EMBED(focus_piece_bitmap, "../assets/ui/cell_focus.bin", 0x5a680);
+EMBED(focus_icon_bitmap, "../assets/generated/focus_icon_bitmap.bin", 0x5aa80);
 
 // Palette VRAM areas
-EMBED(board_palette_data, "../assets/ui/ui_board_palette.bin", SRAM_BOARD_PALETTE);
-EMBED(pieces_palette_data, "../assets/ui/ui_pieces_palette.bin", SRAM_PIECES_PALETTE);
-EMBED(menu_palette_data, "../assets/ui/ui_menu_palette.bin", SRAM_MENU_PALETTE);
+EMBED(board_palette_data, "../assets/ui/ui_board_palette.bin", 0x5ae80);
+EMBED(pieces_palette_data, "../assets/ui/ui_pieces_palette.bin", 0x5b280);
+EMBED(menu_palette_data, "../assets/ui/ui_menu_palette.bin", 0x5b680);
 
 
 // Function declarations 
@@ -68,7 +69,6 @@ uint8_t video_board_palette_index(uint8_t row, uint8_t col) {
 
 // Function prototypes
 static void video_setup_clut(void);
-static void video_position_sprites(void);
 
 void clear_text_matrix(void) {
     // set i/o page to 2
@@ -117,20 +117,21 @@ void video_init(void) {
     const uint16_t icon_spacing_horizontal = VIDEO_MENU_SPACING_HORIZONTAL;
     const uint16_t icon_spacing_vertical = VIDEO_MENU_SPACING_VERTICAL;
     
-    for (uint16_t i = 0; i < VIDEO_ICON_COUNT; ++i) {
-        const uint16_t icon_x = icon_start_x + ((i % 2) ? icon_spacing_horizontal : 0);
-        uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + i);
+    for (uint8_t i = 0; i < VIDEO_ICON_COUNT; ++i) {
+        uint16_t icon_x = icon_start_x + ((i % 2) ? icon_spacing_horizontal : 0);
+        uint8_t sprite_id = (VIDEO_SPRITE_ICON_BASE + i);
         uint16_t icon_y = (uint16_t)(icon_start_y + ((i / 2) * icon_spacing_vertical));
 
         spriteDefine(sprite_id, s_video_icon_vram_addrs[i], VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_ICON_LAYER);
         spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + icon_x, VIDEO_SPRITE_OFFSET + icon_y);
         spriteSetVisible(sprite_id, 1);
-    }    
 
-    // Force black graphics background
-    POKE(0xD00D, 0x00);
-    POKE(0xD00E, 0x00);
-    POKE(0xD00F, 0x00);
+    }
+
+    // White graphics background
+    POKE(0xD00D, 0xFF);
+    POKE(0xD00E, 0xFF);
+    POKE(0xD00F, 0xFF);
 
     // Initialize PS/2 mouse hardware
     // Mouse coordinate system is always 640x480 regardless of video mode
@@ -181,13 +182,9 @@ void video_wait_vblank(void) {
 void video_set_game_mode_icon_bitmap(bool is_puzzle_mode) {
     uint32_t bitmap_addr = is_puzzle_mode ? SRAM_ICON_GAME_MODE_PUZZLE : SRAM_ICON_GAME_MODE_AI;
     uint8_t sprite_id = (uint8_t)(VIDEO_SPRITE_ICON_BASE + VIDEO_ICON_GAME_MODE);
-    // Calculate board layout
-    const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11; // Extra for border
-    const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15; // Extra for border
-    const int16_t board_x = (VIDEO_SCREEN_WIDTH - board_width) / 2;
-    const int16_t board_y = (VIDEO_SCREEN_HEIGHT - board_height) / 2;
-    spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_ICON_LAYER);
-    spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + board_x + board_width + 16, VIDEO_SPRITE_OFFSET + board_y + 8);
+
+    spriteDefine(sprite_id, bitmap_addr, VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_ICON_LAYER);
+    spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + VIDEO_MENU_FIRST_ICON_X, VIDEO_SPRITE_OFFSET + VIDEO_MENU_FIRST_ICON_Y);
     spriteSetVisible(sprite_id, 1);
 }
 

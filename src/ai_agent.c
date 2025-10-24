@@ -245,7 +245,7 @@ typedef struct {
     uint8_t trace_ply;
 } ai_search_context_t;
 
-#define AI_PROGRESS_CALLBACK_PERIOD 4u
+#define AI_PROGRESS_CALLBACK_PERIOD 8u
 
 static uint16_t s_progress_throttle = 0u;
 static ai_search_context_t *s_active_search_ctx = NULL;
@@ -306,6 +306,7 @@ static void ai_progress_step_increment(uint8_t depth_hint) {
 }
 
 static void ai_emit_throttled_progress(ai_search_context_t *ctx, uint8_t depth_remaining) {
+
     if (!ctx || !ctx->config || !ctx->config->progress_callback) {
         return;
     }
