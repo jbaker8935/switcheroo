@@ -181,6 +181,9 @@ in a dedicated discrepancies section.
   THE SYSTEM SHALL select moves using the normal heuristics/search pipeline.
 - WHEN dynamic depth resolves to zero, THE SYSTEM SHALL choose a move via
   `ai_select_move_heuristic`, recording node counts when requested.
+- WHEN the AI starts a turn with available legal moves, THE SYSTEM SHALL
+  evaluate each candidate for an immediate win before invoking heuristic or
+  deep search so that forced victories resolve without full search.
 - WHEN dynamic depth is positive, THE SYSTEM SHALL run `ai_negamax` with
   alpha-beta pruning, optional iterative deepening, and transposition caching
   gated by pressure, halting when `node_limit` or timer thresholds request

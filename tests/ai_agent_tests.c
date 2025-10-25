@@ -185,6 +185,9 @@ static void configure_self_play_profile(ai_config_t *config,
     config->search.use_transposition = true;
     config->search.use_move_ordering = true;
     config->search.use_killer_moves = true;
+    ai_agent_config_set_randomization(config, 1u, 0u);
+    config->blunder_enabled = false;
+    config->blunder_chance_pct = 0u;
 }
 
 static void configure_tuning_profile(ai_config_t *config,

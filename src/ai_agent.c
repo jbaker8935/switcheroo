@@ -1374,6 +1374,52 @@ static bool ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
     return false;
 }
 
+static bool ai_try_select_immediate_win(board_t *root, const ai_config_t *config, move_t *out_move,
+                                        uint32_t *out_nodes) {
+    if (!root || !config || !out_move) {
+        return false;
+    }
+
+    player_t to_move = root->current_player;
+    move_t moves[8];
+    uint32_t nodes = 0u;
+
+    for (uint8_t row = 0u; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0u; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(root, row, col);
+            if (board_get_piece_owner(piece) != to_move) {
+                continue;
+            }
+
+            uint8_t move_count = board_get_legal_moves(root, row, col, moves,
+                                                       (uint8_t)(sizeof(moves) / sizeof(moves[0])));
+            for (uint8_t idx = 0u; idx < move_count; ++idx) {
+                board_t candidate;
+                ai_board_copy(&candidate, root);
+                if (!board_execute_move(&candidate, &moves[idx], config->swap_rule)) {
+                    continue;
+                }
+
+                ++nodes;
+                ai_progress_step_increment(1u);
+
+                if (board_check_win(&candidate, to_move, NULL)) {
+                    *out_move = moves[idx];
+                    if (out_nodes) {
+                        *out_nodes = nodes;
+                    }
+                    return true;
+                }
+            }
+        }
+    }
+
+    if (out_nodes) {
+        *out_nodes = nodes;
+    }
+    return false;
+}
+
 uint8_t FAR9_ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, ai_ordered_move_t *out_moves,
                                uint8_t ply);
 
@@ -2452,56 +2498,6 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     ai_config_t tuned = *config;
     tuned.ai_player = to_move;
-    uint8_t pressure = ai_goal_row_pressure(&root);
-    uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
-    uint8_t move_volume = ai_count_move_volume(&root, to_move);
-
-    /* Detect forced-loss states upfront so we avoid sinking time into
-       negamax when the opponent can capture immediately regardless of
-       our choice. */
-    if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
-        dynamic_depth = 0u;
-        tuned.enable_forcing_check = false;
-    }
-
-#ifdef AI_AGENT_DEBUG_NEGAMAX
-    printf("DEBUG: move_volume=%d, initial_dynamic_depth=%d, pressure=%d\n", move_volume, dynamic_depth, pressure);
-#endif
-
-    // Check if this is puzzle hint mode (use lightweight profile)
-    bool is_puzzle_hint = tuned.use_hint_profile;
-
-    if (dynamic_depth > 0u) {
-        if (move_volume >= 18u) {
-            if (config->difficulty > AI_DIFFICULTY_STANDARD) {
-                dynamic_depth = 1u;
-            } else {
-                dynamic_depth = 0u;
-            }
-        } else if (move_volume >= 12u && dynamic_depth > 2u) {
-            dynamic_depth = 2u;
-        } else if (move_volume >= 9u && dynamic_depth > 3u) {
-            dynamic_depth = 3u;
-        }
-    }
-
-#ifdef AI_AGENT_DEBUG_NEGAMAX
-    printf(
-        "DEBUG: is_puzzle_hint=%d, final_dynamic_depth=%d (0 means 1-ply "
-        "heuristic only)\n",
-        is_puzzle_hint, dynamic_depth);
-#endif
-
-    uint32_t node_cap = ai_select_node_cap(config, pressure);
-    if (move_volume >= 18u && node_cap > 3000u) {
-        node_cap = 3000u;
-    } else if (move_volume >= 12u && node_cap > 5000u) {
-        node_cap = 5000u;
-    }
-
-    if (is_puzzle_hint) {
-        tuned.enable_forcing_check = false;
-    }
 
     move_t best_move = (move_t){0};
     if (s_hint_trace.enabled) {
@@ -2512,105 +2508,167 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     uint32_t nodes_recorded = 0u;
     int16_t best_score = AI_SCORE_LOSS;
 
-    if (dynamic_depth == 0u) {
-        ai_search_context_t heuristic_progress_ctx;
-        ai_search_context_t *heuristic_prev_ctx = NULL;
-        bool heuristic_progress_attached =
-            ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
-
-        move_found = ai_select_move_heuristic(&root, &tuned, &best_move, &nodes_recorded);
-
-        ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
-    } else {
-        if (pressure == 4u) {
-            tuned.search.base_depth = dynamic_depth;
-            tuned.search.max_depth = dynamic_depth;
-            tuned.search.use_iterative_deepening = false;
-            tuned.search.use_transposition = false;
-        } else {
-            tuned.search.max_depth = dynamic_depth;
-            if (tuned.search.base_depth > tuned.search.max_depth) {
-                tuned.search.base_depth = tuned.search.max_depth;
-            }
-            if (dynamic_depth <= 2u) {
-                tuned.search.use_iterative_deepening = false;
-                tuned.search.use_transposition = false;
-            } else {
-                tuned.search.use_iterative_deepening = config->search.use_iterative_deepening;
-                tuned.search.use_transposition = config->search.use_transposition;
-            }
-        }
-        tuned.search.node_limit = node_cap;
-
-        ai_search_context_t ctx;
-        memset(&ctx, 0, sizeof(ctx));
-        ai_search_context_t *previous_active_ctx = s_active_search_ctx;
-        s_active_search_ctx = &ctx;
-        ctx.config = &tuned;
-        ctx.node_limit = tuned.search.node_limit ? tuned.search.node_limit : AI_NODE_LIMIT_FALLBACK;
-        ctx.use_hint_eval = tuned.use_hint_profile;
-        if (s_hint_trace.enabled) {
-            ctx.hint_trace = &s_hint_trace;
-        }
-#ifdef AI_AGENT_ENABLE_TIMER
-        if (tuned.search.time_limit_ms) {
-            ctx.deadline = clock() + (clock_t)((tuned.search.time_limit_ms * CLOCKS_PER_SEC) / 1000u);
-        }
+#ifndef AI_AGENT_DISABLE_ROOT_IMMEDIATE_WIN
+    if (ai_try_select_immediate_win(&root, &tuned, &best_move, &nodes_recorded)) {
+        move_found = true;
+    }
 #endif
 
-        uint8_t target_depth = tuned.search.use_iterative_deepening ? tuned.search.max_depth : tuned.search.base_depth;
-        if (target_depth == 0u) {
-            target_depth = 1u;
-        }
-        uint8_t min_depth = tuned.search.base_depth ? tuned.search.base_depth : 1u;
+    if (!move_found) {
+        uint8_t pressure = ai_goal_row_pressure(&root);
+        uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
+        uint8_t move_volume = ai_count_move_volume(&root, to_move);
 
-        uint8_t start_depth = tuned.search.use_iterative_deepening ? 1u : min_depth;
-        for (uint8_t depth = start_depth; depth <= target_depth; ++depth) {
-            if (!tuned.search.use_iterative_deepening && depth != min_depth) {
-                continue;
-            }
-            if (depth < min_depth) {
-                continue;
-            }
-
-            move_t iteration_best = (move_t){0};
-            int16_t score = ai_negamax(&root, &ctx, depth, 0, 0, AI_SCORE_LOSS, AI_SCORE_WIN, &iteration_best);
-            if (ctx.abort) {
-                break;
-            }
-
-            best_score = score;
-            best_move = iteration_best;
-            move_found = true;
-
-            // Invoke progress callback if registered
-            if (config->progress_callback) {
-                config->progress_callback(depth, ctx.nodes, config->progress_user_data);
-            }
-
-            if (!tuned.search.use_iterative_deepening) {
-                break;
-            }
+        /* Detect forced-loss states upfront so we avoid sinking time into
+           negamax when the opponent can capture immediately regardless of
+           our choice. */
+        if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
+            dynamic_depth = 0u;
+            tuned.enable_forcing_check = false;
         }
 
-        nodes_recorded = ctx.nodes;
+#ifdef AI_AGENT_DEBUG_NEGAMAX
+        printf("DEBUG: move_volume=%d, initial_dynamic_depth=%d, pressure=%d\n", move_volume, dynamic_depth,
+               pressure);
+#endif
 
-        if (!move_found) {
-            uint32_t heuristic_nodes = 0u;
+        // Check if this is puzzle hint mode (use lightweight profile)
+        bool is_puzzle_hint = tuned.use_hint_profile;
+
+        if (dynamic_depth > 0u) {
+            if (move_volume >= 18u) {
+                if (config->difficulty > AI_DIFFICULTY_STANDARD) {
+                    dynamic_depth = 1u;
+                } else {
+                    dynamic_depth = 0u;
+                }
+            } else if (move_volume >= 12u && dynamic_depth > 2u) {
+                dynamic_depth = 2u;
+            } else if (move_volume >= 9u && dynamic_depth > 3u) {
+                dynamic_depth = 3u;
+            }
+        }
+
+#ifdef AI_AGENT_DEBUG_NEGAMAX
+        printf(
+            "DEBUG: is_puzzle_hint=%d, final_dynamic_depth=%d (0 means 1-ply "
+            "heuristic only)\n",
+            is_puzzle_hint, dynamic_depth);
+#endif
+
+        uint32_t node_cap = ai_select_node_cap(config, pressure);
+        if (move_volume >= 18u && node_cap > 3000u) {
+            node_cap = 3000u;
+        } else if (move_volume >= 12u && node_cap > 5000u) {
+            node_cap = 5000u;
+        }
+
+        if (is_puzzle_hint) {
+            tuned.enable_forcing_check = false;
+        }
+
+        if (dynamic_depth == 0u) {
             ai_search_context_t heuristic_progress_ctx;
             ai_search_context_t *heuristic_prev_ctx = NULL;
             bool heuristic_progress_attached =
                 ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
 
-            if (ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes)) {
-                move_found = true;
-                nodes_recorded += heuristic_nodes;
-            }
+            uint32_t heuristic_nodes = 0u;
+            move_found = ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes);
+            nodes_recorded += heuristic_nodes;
 
             ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
-        }
+        } else {
+            if (pressure == 4u) {
+                tuned.search.base_depth = dynamic_depth;
+                tuned.search.max_depth = dynamic_depth;
+                tuned.search.use_iterative_deepening = false;
+                tuned.search.use_transposition = false;
+            } else {
+                tuned.search.max_depth = dynamic_depth;
+                if (tuned.search.base_depth > tuned.search.max_depth) {
+                    tuned.search.base_depth = tuned.search.max_depth;
+                }
+                if (dynamic_depth <= 2u) {
+                    tuned.search.use_iterative_deepening = false;
+                    tuned.search.use_transposition = false;
+                } else {
+                    tuned.search.use_iterative_deepening = config->search.use_iterative_deepening;
+                    tuned.search.use_transposition = config->search.use_transposition;
+                }
+            }
+            tuned.search.node_limit = node_cap;
 
-        s_active_search_ctx = previous_active_ctx;
+            ai_search_context_t ctx;
+            memset(&ctx, 0, sizeof(ctx));
+            ai_search_context_t *previous_active_ctx = s_active_search_ctx;
+            s_active_search_ctx = &ctx;
+            ctx.config = &tuned;
+            ctx.node_limit = tuned.search.node_limit ? tuned.search.node_limit : AI_NODE_LIMIT_FALLBACK;
+            ctx.use_hint_eval = tuned.use_hint_profile;
+            if (s_hint_trace.enabled) {
+                ctx.hint_trace = &s_hint_trace;
+            }
+#ifdef AI_AGENT_ENABLE_TIMER
+            if (tuned.search.time_limit_ms) {
+                ctx.deadline = clock() + (clock_t)((tuned.search.time_limit_ms * CLOCKS_PER_SEC) / 1000u);
+            }
+#endif
+
+            uint8_t target_depth = tuned.search.use_iterative_deepening ? tuned.search.max_depth : tuned.search.base_depth;
+            if (target_depth == 0u) {
+                target_depth = 1u;
+            }
+            uint8_t min_depth = tuned.search.base_depth ? tuned.search.base_depth : 1u;
+
+            uint8_t start_depth = tuned.search.use_iterative_deepening ? 1u : min_depth;
+            for (uint8_t depth = start_depth; depth <= target_depth; ++depth) {
+                if (!tuned.search.use_iterative_deepening && depth != min_depth) {
+                    continue;
+                }
+                if (depth < min_depth) {
+                    continue;
+                }
+
+                move_t iteration_best = (move_t){0};
+                int16_t score = ai_negamax(&root, &ctx, depth, 0, 0, AI_SCORE_LOSS, AI_SCORE_WIN, &iteration_best);
+                if (ctx.abort) {
+                    break;
+                }
+
+                best_score = score;
+                best_move = iteration_best;
+                move_found = true;
+
+                // Invoke progress callback if registered
+                if (config->progress_callback) {
+                    config->progress_callback(depth, ctx.nodes, config->progress_user_data);
+                }
+
+                if (!tuned.search.use_iterative_deepening) {
+                    break;
+                }
+            }
+
+            nodes_recorded += ctx.nodes;
+
+            if (!move_found) {
+                uint32_t heuristic_nodes = 0u;
+                ai_search_context_t heuristic_progress_ctx;
+                ai_search_context_t *heuristic_prev_ctx = NULL;
+                bool heuristic_progress_attached =
+                    ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
+
+                if (ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes)) {
+                    move_found = true;
+                    nodes_recorded += heuristic_nodes;
+                }
+
+                ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
+            }
+
+            s_active_search_ctx = previous_active_ctx;
+        }
     }
 
     uint32_t elapsed_ticks = ai_timer0_read();

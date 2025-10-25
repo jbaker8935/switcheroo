@@ -47,6 +47,7 @@ backlog.
 | T22 | Expert Forced-Loss Regression | Add host regression to confirm the Expert AI avoids `kStartingLayout2` sequences that hand White a forced win and captures documentation updates. | `tests/ai_agent_tests.c`, requirements/design sync. | T8, T9, T20 | Done |
 | T23 | Forced Immediate Win Diagnostics | Expose host helper and expand regression logging to enumerate forced-win detection across legal moves. | `src/ai_agent.c`, `tests/ai_agent_tests.c` | T8, T9, T22 | Done |
 | T24 | Immediate Loss Guard | Penalise or discard AI moves that allow the opponent an immediate win and document the behaviour. | `src/ai_agent.c`, docs | T8, T20, T22 | Done |
+| T25 | AI Immediate-Win Prescan | Short-circuit deep search by checking all legal moves for immediate wins at the root. | `src/ai_agent.c`, requirements/design/tasks sync. | T8, T18, T20 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

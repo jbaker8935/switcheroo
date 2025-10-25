@@ -119,6 +119,8 @@ future work can extend the code base confidently.
 ### Artificial Intelligence (`ai_agent.c/.h`)
 - Provides deterministic negamax search with adaptive depth and node caps based
   on board pressure and move volume.
+- Performs a root-level sweep for immediate-winning moves before computing
+  adaptive depth, bypassing deeper search when a forced victory is available.
 - Implements feature-based evaluation (goal-row progress, swap pressure,
   blocking coverage, mobility) and direct win/forcing threat detection.
 - Supports Standard host regressions through `AI_AGENT_HOST_TEST`, bypassing
