@@ -5,6 +5,7 @@
 
 #include "../src/game_state.h"
 #include "../src/puzzle_data.h"
+#include "../src/ai_agent.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -185,6 +186,9 @@ void game_state_init(game_state_t *state)
     state->prefs.audio_enabled = true;
     state->prefs.volume_level = 7;
 
+    // Difficulty not manually set initially
+    state->difficulty_manually_set = false;
+
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
     game_state_configure_ai(state, state->prefs.swap_rule, state->prefs.difficulty_level, PLAYER_BLACK);
 
@@ -209,18 +213,24 @@ game_phase_t game_state_get_phase(const game_state_t *state)
 
 void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 {
+    bool mode_changed = (state->is_puzzle_mode != puzzle_mode);
     state->is_puzzle_mode = puzzle_mode;
 
     if (state->is_puzzle_mode)
     {
-        // Set AI difficulty to Expert when entering puzzle mode
-        state->prefs.difficulty_level = AI_DIFFICULTY_EXPERT;
-        state->ai_config.difficulty = AI_DIFFICULTY_EXPERT;
-        state->ai_config.blunder_enabled = false;
-        state->ai_config.blunder_chance_pct = 0u;
-        state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EXPERT);
-        
-        print_ai_difficulty(state->prefs.difficulty_level);
+        // Set AI difficulty to Expert when entering puzzle mode (always set default on mode change)
+        if (mode_changed)
+        {
+            state->prefs.difficulty_level = AI_DIFFICULTY_EXPERT;
+            state->ai_config.difficulty = AI_DIFFICULTY_EXPERT;
+            state->ai_config.blunder_enabled = false;
+            state->ai_config.blunder_chance_pct = 0u;
+            state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EXPERT);
+            state->ai_config.enable_forcing_check = true;
+            state->difficulty_manually_set = false; // Reset manual flag since we're setting default
+            
+            print_ai_difficulty(state->prefs.difficulty_level);
+        }
 
         // PUZZLE mode: initialize board to current puzzle
         if (!game_state_apply_current_puzzle(state, true))
@@ -235,14 +245,19 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     }
     else
     {
-        // Set AI difficulty to Easy when entering Free Play mode
-        state->prefs.difficulty_level = AI_DIFFICULTY_EASY;
-        state->ai_config.difficulty = AI_DIFFICULTY_EASY;
-        state->ai_config.blunder_enabled = true;
-        state->ai_config.blunder_chance_pct = 15u;
-        state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EASY);
-        
-        print_ai_difficulty(state->prefs.difficulty_level);        
+        // Set AI difficulty to Easy when entering Free Play mode (always set default on mode change)
+        if (mode_changed)
+        {
+            state->prefs.difficulty_level = AI_DIFFICULTY_EASY;
+            state->ai_config.difficulty = AI_DIFFICULTY_EASY;
+            state->ai_config.blunder_enabled = true;
+            state->ai_config.blunder_chance_pct = 15u;
+            state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EASY);
+            state->ai_config.enable_forcing_check = false;
+            state->difficulty_manually_set = false; // Reset manual flag since we're setting default
+            
+            print_ai_difficulty(state->prefs.difficulty_level);
+        }
 
         // FREEPLAY mode: standard initial position
         board_set_starting_layout(&state->board, state->board.layout_id);
@@ -270,6 +285,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 
 void game_state_start_new_game(game_state_t *state)
 {
+    clear_made_blunder();
     game_state_set_game_mode(state, false); // Always start in FREEPLAY mode
     state->phase = GAME_PHASE_PLAYING;
 }
@@ -325,12 +341,12 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
 
     if (board_execute_move(&state->board, move, state->prefs.swap_rule))
     {
-        clear_made_blunder();
         game_state_deselect_piece(state);
 
         // Check for win
         if (game_state_check_win_condition(state))
         {
+            clear_made_blunder();
             state->phase = GAME_PHASE_GAME_OVER;
         }
         else
@@ -380,7 +396,27 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 
         case MENU_ICON_RESET:
 
-            game_state_set_game_mode(state, new_mode);
+            if (new_mode != state->is_puzzle_mode) {
+                // Mode is changing, set new mode (which may change difficulty to default)
+                game_state_set_game_mode(state, new_mode);
+            } else {
+                // Same mode, just reset the board without changing difficulty
+                if (state->is_puzzle_mode) {
+                    // Reset puzzle mode - reload current puzzle
+                    game_state_apply_current_puzzle(state, false);
+                } else {
+                    // Reset freeplay mode - reset to starting layout
+                    board_set_starting_layout(&state->board, state->board.layout_id);
+                    board_clear_all_swapped(&state->board);
+                    clear_puzzle_info();
+                    clear_puzzle_hint();
+                    game_state_clear_win_path(state);
+                }
+                game_state_deselect_piece(state);
+                game_state_update_menu_enables(state);
+                // Reset board cell colors to original checkerboard pattern
+                video_reset_all_board_cell_colors();
+            }
             print_game_mode(new_mode);
             if(!state->is_puzzle_mode) {
                 clear_swap_unavailable();
@@ -449,6 +485,8 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
         case MENU_ICON_DIFFICULTY:
             // Cycle difficulty
             state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
+            // Mark that difficulty has been manually set
+            state->difficulty_manually_set = true;
             // Update AI difficulty
             state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
             // Update blunder settings based on new difficulty
@@ -558,6 +596,9 @@ void game_state_update(game_state_t *state, float delta_time)
     {
     case GAME_PHASE_AI_THINKING:
     {
+        // Clear any previous blunder message
+        clear_made_blunder();
+        
         // Add a small visual delay before AI makes move
         state->ai_think_frames++;
         // Wait at least 30 frames (~0.5 seconds) before executing AI move
@@ -577,6 +618,7 @@ void game_state_update(game_state_t *state, float delta_time)
 
                     if (game_state_check_win_condition(state))
                     {
+                        clear_made_blunder();
                         state->phase = GAME_PHASE_GAME_OVER;
                     }
                     else

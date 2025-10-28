@@ -2080,6 +2080,136 @@ static void test_soa_move_arrays(void) {
     printf("SOA move arrays test passed - generated %d moves\n", traditional_count);
 }
 
+// Test the specific scenario reported by user: LEARNING AI choosing C4->C3 which allows opponent immediate win
+static void test_user_reported_blunder_scenario(void) {
+    printf("Testing user-reported blunder scenario...\n");
+    
+    // Setup the exact board position from user's report
+    board_t board;
+    board_init(&board);
+    clear_board(&board);
+    board.current_player = PLAYER_BLACK;  // AI is Player B (Black)
+    
+    // Position: A2:W,B2:B,A3:B,B3:W,C4:B,D3:B,A4:W,D4:W,A5:W,B5:B,C5:W,D5:B,A6:B,B6:W,C6:B,D6:W
+    setup_board(&board, "A2:W,B2:B,A3:B,B3:W,C4:B,D3:B,A4:W,D4:W,A5:W,B5:B,C5:W,D5:B,A6:B,B6:W,C6:B,D6:W");
+    
+    printf("Board setup complete. Current player: Black (AI)\n");
+    
+    // Check if AI has immediate winning moves
+    move_t test_moves[64];
+    uint8_t test_count = 0;
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(&board, row, col);
+            if (board_get_piece_owner(piece) != PLAYER_BLACK) {
+                continue;
+            }
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&board, row, col, &soa_moves);
+            for (uint8_t i = 0; i < count && test_count < 64; ++i) {
+                move_array_get_move(&soa_moves, i, &test_moves[test_count]);
+                board_t after_test;
+                memcpy(&after_test, &board, sizeof(board_t));
+                if (board_execute_move(&after_test, &test_moves[test_count], SWAP_RULE_CLASSIC)) {
+                    bool immediate_win = board_check_win_fast(&after_test, PLAYER_BLACK);
+                    if (immediate_win) {
+                        printf("AI has immediate winning move: %c%d -> %c%d\n",
+                               'A' + test_moves[test_count].from_col, test_moves[test_count].from_row + 1,
+                               'A' + test_moves[test_count].to_col, test_moves[test_count].to_row + 1);
+                    }
+                }
+                test_count++;
+            }
+        }
+    }
+    
+    // Configure AI for LEARNING difficulty
+    ai_config_t config;
+    ai_agent_init(&config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_LEARNING, PLAYER_BLACK);
+    
+    // Seed RNG for reproducible results (optional, for testing)
+    // ai_agent_set_random_seed(0x1234u);
+    
+    // Make the AI choose a move
+    move_t chosen_move;
+    bool move_found = ai_agent_find_best_move(&board, &config, &chosen_move);
+    
+    if (!move_found) {
+        printf("ERROR: AI found no valid moves!\n");
+        return;
+    }
+    
+    printf("AI chose move: %c%d -> %c%d (%s)\n",
+           'A' + chosen_move.from_col, chosen_move.from_row + 1,
+           'A' + chosen_move.to_col, chosen_move.to_row + 1,
+           chosen_move.type == MOVE_TYPE_SWAP ? "swap" : "move to empty");
+    
+    // Check if this move allows opponent immediate win
+    board_t after_move;
+    memcpy(&after_move, &board, sizeof(board_t));
+    if (!board_execute_move(&after_move, &chosen_move, config.swap_rule)) {
+        printf("ERROR: Move execution failed!\n");
+        return;
+    }
+    
+    board_switch_turn(&after_move);
+    after_move.current_player = PLAYER_WHITE;
+    bool allows_opponent_win = test_immediate_win_available(&after_move, PLAYER_WHITE, config.swap_rule);
+    
+    printf("Move allows opponent immediate win: %s\n", allows_opponent_win ? "YES (BLUNDER)" : "NO");
+    
+    // Check if blunder notification would be shown
+    bool would_show_notification = allows_opponent_win && (config.difficulty == AI_DIFFICULTY_LEARNING);
+    printf("Would show blunder notification: %s\n", would_show_notification ? "YES" : "NO");
+    
+    // Verify the specific move mentioned by user (C4->C3)
+    bool is_c4_to_c3 = (chosen_move.from_col == 2 && chosen_move.from_row == 3 &&  // C4 (0-indexed: col 2, row 3)
+                       chosen_move.to_col == 2 && chosen_move.to_row == 2);      // C3 (0-indexed: col 2, row 2)
+    
+    if (is_c4_to_c3) {
+        printf("AI chose the specific move C4->C3 mentioned by user\n");
+        if (!allows_opponent_win) {
+            printf("WARNING: User claimed C4->C3 allows opponent win, but detection says NO\n");
+        }
+        if (!would_show_notification) {
+            printf("ISSUE: C4->C3 was chosen but no blunder notification would be shown\n");
+        }
+    } else {
+        printf("AI chose a different move than C4->C3\n");
+        if (allows_opponent_win) {
+            printf("The chosen move IS a blunder, notification should show in LEARNING mode\n");
+        }
+    }
+    
+    // Test if opponent can actually win after this move
+    if (allows_opponent_win) {
+        printf("Opponent has immediate winning moves after AI's move\n");
+    } else {
+        printf("Opponent cannot win immediately after AI's move\n");
+    }
+    
+    // Specifically test the C4->C3 move mentioned by user
+    move_t c4_to_c3 = {
+        .from_row = 3, .from_col = 2,  // C4 (0-indexed)
+        .to_row = 2, .to_col = 2,      // C3 (0-indexed)
+        .type = MOVE_TYPE_EMPTY,
+        .player = PLAYER_BLACK
+    };
+    
+    board_t test_c4_c3;
+    memcpy(&test_c4_c3, &board, sizeof(board_t));
+    bool c4_c3_valid = board_execute_move(&test_c4_c3, &c4_to_c3, config.swap_rule);
+    
+    if (c4_c3_valid) {
+        board_switch_turn(&test_c4_c3);
+        test_c4_c3.current_player = PLAYER_WHITE;
+        bool c4_c3_allows_win = test_immediate_win_available(&test_c4_c3, PLAYER_WHITE, config.swap_rule);
+        printf("C4->C3 move allows opponent immediate win: %s\n", c4_c3_allows_win ? "YES" : "NO");
+    } else {
+        printf("C4->C3 move is not valid\n");
+    }
+}
+
 // Profile hint request for the given position
 static void test_hint_profile(const char *position_str) {
     printf("Starting hint profile test...\n");
@@ -2100,18 +2230,18 @@ static void test_hint_profile(const char *position_str) {
     printf("Board setup complete. Current player: White\n");
     
     // Time the hint request
-    clock_t start_time = clock();
+    // clock_t start_time = clock();
     move_t hint_move;
     bool found = ai_agent_find_best_move(&board, &config, &hint_move);
-    clock_t end_time = clock();
-    double elapsed_seconds = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    // clock_t end_time = clock();
+    // double elapsed_seconds = (double)(end_time - start_time) / CLOCKS_PER_SEC;
     
     if (!found) {
         printf("ERROR: No hint move found!\n");
         return;
     }
     
-    printf("Hint found in %.3f seconds\n", elapsed_seconds);
+    // printf("Hint found in %.3f seconds\n", elapsed_seconds);
     printf("Suggested move: %d,%d -> %d,%d (%s)\n",
            hint_move.from_row, hint_move.from_col,
            hint_move.to_row, hint_move.to_col,
@@ -2143,6 +2273,7 @@ int main(void) {
     test_self_play_aggressive_advancement();
     test_head_to_head_outcomes();
     test_soa_move_arrays();
+    test_user_reported_blunder_scenario();
     test_hint_profile("A1:B,B1:B,A2:W,D2:W,B3:W,C4:W,D4:W,C5:B,B6:B,C6:W,A7:W,C7:W,D7:B,A8:B,B8:B,C8:B");
    
     // test_extended_self_play_tuning();  // COMMENTED OUT: Long-running test not needed for this investigation

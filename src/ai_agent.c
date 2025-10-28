@@ -3,6 +3,11 @@
  * @brief Specification-compliant heuristic AI agent for F256 Switcharoo.
  */
 #include "../src/ai_agent.h"
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
+#include "f256lib.h"
+#endif
 
 #include <limits.h>
 #include <stdbool.h>
@@ -125,30 +130,35 @@ static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
 #define AI_SCORE_WIN 30000
 #define AI_SCORE_LOSS (-AI_SCORE_WIN)
 #define AI_SCORE_MAX 32000
-#define AI_HINT_GOAL_WEIGHT 180
 #define AI_MAX_ORDERED_MOVES 32
 
-#define AI_HINT_TRACE_CAPACITY 64
+static uint16_t s_ai_rng_state = 0xC0FEu;
 
-static uint32_t s_ai_rng_state = 0xC0FFEEu;
-
-static void ai_random_seed_internal(uint32_t seed) {
+static void ai_random_seed_internal(uint16_t seed) {
     if (seed == 0u) {
         seed = 1u;
     }
+#if defined(__llvm_mos__)
+    randomSeed(seed);
+#else
     s_ai_rng_state = seed;
+#endif
 }
 
-void ai_agent_set_random_seed(uint32_t seed) {
+void ai_agent_set_random_seed(uint16_t seed) {
     ai_random_seed_internal(seed);
 }
 
-static uint32_t ai_random_next(void) {
-    s_ai_rng_state = s_ai_rng_state * 1664525u + 1013904223u;
+static uint16_t ai_random_next(void) {
+#if defined(__llvm_mos__)
+    return randomRead();
+#else
+    s_ai_rng_state = (uint16_t)(s_ai_rng_state * 1664525u + 1013904223u);
     return s_ai_rng_state;
+#endif
 }
 
-static uint32_t ai_random_range(uint32_t limit) {
+static uint16_t ai_random_range(uint16_t limit) {
     if (limit == 0u) {
         return 0u;
     }
@@ -166,21 +176,6 @@ static bool ai_random_chance(uint8_t percentage) {
 }
 
 ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
-
-typedef struct {
-    int16_t swap;
-    int16_t block;
-    int16_t goal;
-    int16_t total;
-} ai_hint_eval_components_t;
-
-typedef struct {
-    ai_hint_eval_record_t entries[AI_HINT_TRACE_CAPACITY];
-    uint8_t count;
-    bool enabled;
-} ai_hint_trace_state_t;
-
-static ai_hint_trace_state_t s_hint_trace;
 
 static inline int32_t ai_signed_multiply(int16_t lhs, int16_t rhs) {
 #if defined(__llvm_mos__)
@@ -302,25 +297,6 @@ static uint32_t ai_hash_board(const board_t *board) {
 static bool ai_same_move(const move_t *a, const move_t *b) {
     return a->from_row == b->from_row && a->from_col == b->from_col && a->to_row == b->to_row &&
            a->to_col == b->to_col && a->type == b->type;
-}
-
-static void ai_hint_trace_record(ai_hint_trace_state_t *trace, const ai_hint_eval_components_t *components,
-                                 const board_t *board, player_t perspective, uint8_t depth, uint8_t ply) {
-    if (!trace || !trace->enabled || !components) {
-        return;
-    }
-    if (trace->count >= AI_HINT_TRACE_CAPACITY) {
-        return;
-    }
-    ai_hint_eval_record_t *entry = &trace->entries[trace->count++];
-    entry->board_hash = ai_hash_board(board);
-    entry->perspective = perspective;
-    entry->total = components->total;
-    entry->swap_contrib = components->swap;
-    entry->block_contrib = components->block;
-    entry->goal_contrib = components->goal;
-    entry->depth = depth;
-    entry->ply = ply;
 }
 
 static uint8_t ai_count_goal_rows_for_player(const board_t *board, player_t player) {
@@ -1250,67 +1226,6 @@ finalize_moves:
 int16_t FAR9_ai_agent_evaluate_internal(const board_t *board, player_t perspective, const ai_config_t *config,
                                         ai_eval_breakdown_t *breakdown);
 
-static void ai_hint_components_set(ai_hint_eval_components_t *components, int16_t swap_contrib, int16_t block_contrib,
-                                   int16_t goal_contrib, int16_t total) {
-    if (!components) {
-        return;
-    }
-    components->swap = swap_contrib;
-    components->block = block_contrib;
-    components->goal = goal_contrib;
-    components->total = total;
-}
-
-static int16_t ai_agent_evaluate_hint(const board_t *board, player_t perspective, const ai_config_t *config,
-                                      ai_hint_eval_components_t *components) {
-    player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-
-    if (board_check_win_fast(board, perspective)) {
-        int16_t score = AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
-        ai_hint_components_set(components, 0, 0, 0, score);
-        return score;
-    }
-    if (board_check_win_fast(board, opponent)) {
-        int16_t score = AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
-        ai_hint_components_set(components, 0, 0, 0, score);
-        return score;
-    }
-
-    if (ai_immediate_win_available(board, board->current_player, config->swap_rule)) {
-        player_t winner = board->current_player;
-        if (winner == perspective) {
-            int16_t score = AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
-            ai_hint_components_set(components, 0, 0, 0, score);
-            return score;
-        } else {
-            int16_t score = AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
-            ai_hint_components_set(components, 0, 0, 0, score);
-            return score;
-        }
-    }
-
-    int16_t swap_me = (int16_t)ai_measure_swap_pressure(board, perspective, config->swap_rule);
-    int16_t swap_op = (int16_t)ai_measure_swap_pressure(board, opponent, config->swap_rule);
-
-    int16_t block_me = (int16_t)ai_measure_blocking(board, perspective);
-    int16_t block_op = (int16_t)ai_measure_blocking(board, opponent);
-
-    int16_t swap_diff = (int16_t)(swap_me - swap_op);
-    int16_t block_diff = (int16_t)(block_me - block_op);
-
-    int16_t swap_contrib = ai_clamp_score(ai_signed_multiply(config->weights.swap_pressure, swap_diff));
-    int16_t block_contrib = ai_clamp_score(ai_signed_multiply(config->weights.blocking_coverage, block_diff));
-
-    int16_t goal_delta = (int16_t)ai_count_goal_rows_for_player(board, perspective) -
-                         (int16_t)ai_count_goal_rows_for_player(board, opponent);
-    int16_t goal_contrib = (int16_t)ai_signed_multiply(goal_delta, AI_HINT_GOAL_WEIGHT);
-
-    int32_t total = (int32_t)swap_contrib + (int32_t)block_contrib + (int32_t)goal_contrib;
-    int16_t clamped = ai_clamp_score(total);
-    ai_hint_components_set(components, swap_contrib, block_contrib, goal_contrib, clamped);
-    return clamped;
-}
-
 #if defined(AI_AGENT_HOST_TEST)
 
 int16_t ai_agent_evaluate_internal(const board_t *board, player_t perspective, const ai_config_t *config,
@@ -1568,8 +1483,6 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
     uint8_t generated = ai_generate_moves(root, config, ordered);
     uint8_t count = 0u;
     player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-    bool use_hint_eval = config->use_hint_profile;
-    bool record_hint = use_hint_eval && s_hint_trace.enabled;
 
     // First pass: identify immediate wins to optimize evaluation
     bool has_immediate_wins = false;
@@ -1606,15 +1519,6 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
             continue;
         }
 
-        // For hint evaluation mode with immediate wins, skip expensive evaluation
-        if (use_hint_eval && slot->immediate_win_self) {
-            // Immediate wins get maximum score without expensive evaluation
-            slot->evaluation = AI_SCORE_WIN - 1;  // Slightly less than actual win to prefer faster wins
-            slot->opponent_win_next_move = false;  // Skip expensive check
-            slot->opponent_forced_win = false;
-            continue;
-        }
-
         board_t child;
         ai_board_copy(&child, root);
         if (!board_execute_move(&child, &slot->move, config->swap_rule)) {
@@ -1630,16 +1534,7 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
             slot->opponent_forced_win = ai_forcing_move_available(&child, opponent, config->swap_rule);
         }
 
-        ai_hint_eval_components_t components;
-        ai_hint_eval_components_t *components_ptr = record_hint ? &components : NULL;
-
-        slot->evaluation = use_hint_eval
-                               ? ai_agent_evaluate_hint(&child, config->ai_player, config, components_ptr)
-                               : ai_agent_evaluate_internal(&child, config->ai_player, config, NULL);
-
-        if (components_ptr) {
-            ai_hint_trace_record(&s_hint_trace, components_ptr, &child, config->ai_player, 0u, 1u);
-        }
+        slot->evaluation = ai_agent_evaluate_internal(&child, config->ai_player, config, NULL);
 
         ++eval_count;
         if (out_nodes) {
@@ -1675,9 +1570,9 @@ static bool ai_choose_move_from_evaluated(const ai_config_t *config,
     uint8_t blunder_indices[AI_MAX_ORDERED_MOVES];
     uint8_t blunder_count = 0u;
 
-    bool use_hint = config->use_hint_profile;
-    bool blunder_enabled = !use_hint && config->blunder_enabled && config->blunder_chance_pct > 0u &&
+    bool blunder_enabled = config->blunder_enabled && config->blunder_chance_pct > 0u &&
                            config->difficulty != AI_DIFFICULTY_EXPERT && config->blunder_type != AI_BLUNDER_NONE;
+    bool use_hint = config->use_hint_profile;
 
     for (uint8_t i = 0u; i < count; ++i) {
         const ai_evaluated_move_t *move = &evaluated[i];
@@ -1810,10 +1705,6 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     ai_config_t tuned = *config;
     tuned.ai_player = root.current_player;
 
-    if (s_hint_trace.enabled) {
-        s_hint_trace.count = 0u;
-    }
-
     ai_evaluated_move_t evaluated[AI_MAX_ORDERED_MOVES];
     uint32_t nodes_recorded = 0u;
     uint8_t evaluated_count = ai_evaluate_moves(&root, &tuned, evaluated, &nodes_recorded);
@@ -1840,7 +1731,7 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
         return false;
     }
 
-    if (applied_blunder) {
+    if (applied_blunder && config->difficulty == AI_DIFFICULTY_LEARNING) {
         print_made_blunder();
     }
 
@@ -1885,22 +1776,4 @@ void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out) {
         return;
     }
     *out = s_last_breakdown;
-}
-
-void ai_agent_hint_trace_enable(bool enabled) {
-    s_hint_trace.enabled = enabled;
-    if (!enabled) {
-        s_hint_trace.count = 0u;
-    }
-}
-
-void ai_agent_hint_trace_clear(void) {
-    s_hint_trace.count = 0u;
-}
-
-uint8_t ai_agent_hint_trace_get(const ai_hint_eval_record_t **out_records) {
-    if (out_records) {
-        *out_records = s_hint_trace.entries;
-    }
-    return s_hint_trace.count;
 }

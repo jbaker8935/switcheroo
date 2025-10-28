@@ -8,6 +8,9 @@
 #include <stddef.h>
 #include <string.h>
 
+// Static flag to track if blunder message is currently displayed
+static bool blunder_message_active = false;
+
 /*
  * @file text_display.c
  * @brief Text display utilities for F256 Switcharoo
@@ -112,13 +115,20 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count) {
 }
 
 void print_game_winner(player_t winner) {
-    const char *win_str = (winner == PLAYER_WHITE) ? "Player Wins!         " : "AI Wins!             ";
+    const char *win_str = (winner == PLAYER_WHITE) ? "Player Wins!         " : "Engine Wins!         ";
     print_formatted_text(3, 10, win_str);
     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+    // Clear blunder message when game ends
+    blunder_message_active = false;
 }
 
 void print_current_player(player_t player) {
-    const char *player_str = (player == PLAYER_WHITE) ? "Player's Move        " : "AI Thinking ...      ";
+    // Don't overwrite blunder message
+    if (blunder_message_active) {
+        return;
+    }
+    
+    const char *player_str = (player == PLAYER_WHITE) ? "Player's Move        " : "Thinking ...         ";
     if (player == PLAYER_WHITE) {
         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     } else {
@@ -133,7 +143,7 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
     }
 
     char buffer[22];
-    const char base[] = "AI Thinking";
+    const char base[] = "Thinking";
     size_t idx = 0;
 
     while (base[idx] != '\0' && idx < sizeof(buffer) - 1u) {
@@ -188,19 +198,19 @@ void print_ai_difficulty(ai_difficulty_t difficulty) {
     const char *diff_str;
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
-            diff_str = "AI: Learning";
+            diff_str = "Engine: Learn   ";
             break;
         case AI_DIFFICULTY_EASY:
-            diff_str = "AI: Easy    ";
+            diff_str = "Engine: Easy    ";
             break;
         case AI_DIFFICULTY_STANDARD:
-            diff_str = "AI: Standard";
+            diff_str = "Engine: Standard";
             break;
         case AI_DIFFICULTY_EXPERT:
-            diff_str = "AI: Expert  ";
+            diff_str = "Engine: Expert  ";
             break;
         default:
-            diff_str = "AI: Unknown ";
+            diff_str = "Engine: Unknown ";
             break;
     }
     print_formatted_text(3, 17, diff_str);
@@ -262,10 +272,13 @@ void clear_swap_unavailable(void) {
 }
 
 void print_made_blunder(void) {
-    print_formatted_text(3, 10, "AI Blunder!          ");
+    print_formatted_text(3, 10, "Blunder!             ");
+    blunder_message_active = true;
+    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
 }  
 void clear_made_blunder(void) {
     print_formatted_text(3, 10, "                     ");
+    blunder_message_active = false;
 }
 
 void print_AI_hint(const char *hint) {
@@ -274,6 +287,8 @@ void print_AI_hint(const char *hint) {
     print_formatted_text(3,10, buf);
     textGotoXY(9,10);
     textPrint(hint_str);
+    // Clear blunder message when showing hint
+    blunder_message_active = false;
 }
 
 void print_puzzle_hint(const char *hint) {
@@ -383,14 +398,14 @@ void print_move_history(const move_t *history, uint8_t move_count) {
         if (i < move_count) {
             const move_t *move = &history[i];
             char movestr[9] = "F1->T1 S";
-            print_formatted_text(3, start_row + 3 + i*2, move->player == PLAYER_WHITE ? "Player: " : "AI:     ");
+            print_formatted_text(3, start_row + 3 + i*2, move->player == PLAYER_WHITE ? "White: " : "Black: ");
             movestr[0] = (char) ( 'A' + move->from_col);
             movestr[1] = (char) ('0' + (8 - move->from_row));
             movestr[4] = (char) ('A' + move->to_col);
             movestr[5] = (char) ('0' + (8 - move->to_row));
             movestr[7] = (char) ((move->type == MOVE_TYPE_SWAP) ? 'S' : ' ');
             movestr[8] = '\0';
-            textGotoXY(11, start_row + 3 + i*2);
+            textGotoXY(10, start_row + 3 + i*2);
             textPrint(movestr);
 
         } else {

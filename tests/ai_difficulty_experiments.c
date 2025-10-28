@@ -152,7 +152,7 @@ static void run_experiment(const experiment_config_t *config) {
         const competitor_profile_t *white_profile = &config->competitors[swap_colours ? 1 : 0];
         const competitor_profile_t *black_profile = &config->competitors[swap_colours ? 0 : 1];
 
-        ai_agent_set_random_seed(config->seed ^ (((uint32_t)game + 1u) * 0x9E3779B9u));
+        ai_agent_set_random_seed((uint16_t)(config->seed ^ (((uint32_t)game + 1u) * 0x9E3779B9u)));
 
         board_t board;
         board_init(&board);
