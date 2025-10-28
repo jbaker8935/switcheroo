@@ -9,6 +9,82 @@
 #include "../src/board.h"
 #include <string.h>
 
+// Extern declarations for inline functions used across multiple translation units
+extern piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
+extern void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
+extern bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
+extern bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
+                           uint8_t to_row, uint8_t to_col, move_type_t *out_type);
+
+// Non-inline definitions for extern inline functions
+piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
+    if (!board_is_valid_cell(row, col)) {
+        return PIECE_NONE;
+    }
+    return board->cells[row][col].piece;
+}
+
+void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
+    if (board_is_valid_cell(row, col)) {
+        board->cells[row][col].piece = piece;
+    }
+}
+
+bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
+    int8_t dr = (int8_t)(r2 - r1);
+    int8_t dc = (int8_t)(c2 - c1);
+    
+    // Check if within 1 step in both dimensions
+    return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
+}
+
+bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
+                    uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
+    // Validate cells
+    if (!board_is_valid_cell(from_row, from_col) || !board_is_valid_cell(to_row, to_col)) {
+        return false;
+    }
+    
+    // Check adjacency
+    if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
+        return false;
+    }
+    
+    // Get pieces
+    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
+    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
+    
+    // Check that source has a piece belonging to current player
+    if (board_get_piece_owner(from_piece) != board->current_player) {
+        return false;
+    }
+    
+    // Check that target cell does not contain current player's piece
+    if (to_piece != PIECE_NONE) {
+        player_t to_owner = board_get_piece_owner(to_piece);
+        if (to_owner == board->current_player) {
+            return false;  // Cannot move to cell occupied by own piece
+        }
+    }
+    
+    // Empty cell move
+    if (to_piece == PIECE_NONE) {
+        if (out_type) *out_type = MOVE_TYPE_EMPTY;
+        return true;
+    }
+    
+    // Swap move - target must be opponent's NORMAL piece
+    player_t to_owner = board_get_piece_owner(to_piece);
+    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
+        if (out_type) *out_type = MOVE_TYPE_SWAP;
+        return true;
+    }
+    
+    // If we reach here, the target is an opponent's piece but NOT normal (i.e., swapped)
+    // This should not be a valid move
+    return false;
+}
+
 // Direction deltas for 8-way adjacency (N, NE, E, SE, S, SW, W, NW)
 static const int8_t kDirRow[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
 static const int8_t kDirCol[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -98,73 +174,6 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id) {
     board->history_count = 0;
 }
 
-piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
-    if (!board_is_valid_cell(row, col)) {
-        return PIECE_NONE;
-    }
-    return board->cells[row][col].piece;
-}
-
-void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
-    if (board_is_valid_cell(row, col)) {
-        board->cells[row][col].piece = piece;
-    }
-}
-
-bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
-    int8_t dr = (int8_t)(r2 - r1);
-    int8_t dc = (int8_t)(c2 - c1);
-    
-    // Check if within 1 step in both dimensions
-    return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
-}
-
-bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
-                    uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
-    // Validate cells
-    if (!board_is_valid_cell(from_row, from_col) || !board_is_valid_cell(to_row, to_col)) {
-        return false;
-    }
-    
-    // Check adjacency
-    if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
-        return false;
-    }
-    
-    // Get pieces
-    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
-    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
-    
-    // Check that source has a piece belonging to current player
-    if (board_get_piece_owner(from_piece) != board->current_player) {
-        return false;
-    }
-    
-    // Check that target cell does not contain current player's piece
-    if (to_piece != PIECE_NONE) {
-        player_t to_owner = board_get_piece_owner(to_piece);
-        if (to_owner == board->current_player) {
-            return false;  // Cannot move to cell occupied by own piece
-        }
-    }
-    
-    // Empty cell move
-    if (to_piece == PIECE_NONE) {
-        if (out_type) *out_type = MOVE_TYPE_EMPTY;
-        return true;
-    }
-    
-    // Swap move - target must be opponent's NORMAL piece
-    player_t to_owner = board_get_piece_owner(to_piece);
-    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
-        if (out_type) *out_type = MOVE_TYPE_SWAP;
-        return true;
-    }
-    
-    // If we reach here, the target is an opponent's piece but NOT normal (i.e., swapped)
-    // This should not be a valid move
-    return false;
-}
 
 uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
                                move_t *moves, uint8_t max_moves) {
