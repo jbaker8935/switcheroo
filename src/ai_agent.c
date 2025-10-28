@@ -816,7 +816,7 @@ __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_availab
         if (!board_execute_move(&test, &moves[i], rule)) {
             continue;
         }
-        if (board_check_win(&test, player, NULL)) {
+        if (board_check_win_fast(&test, player)) {
             return true;
         }
     }
@@ -838,7 +838,7 @@ static bool ai_move_creates_forced_immediate_win(const board_t *board, const mov
         return false;
     }
 
-    if (board_check_win(&after_ai, ai_player, NULL)) {
+    if (board_check_win_fast(&after_ai, ai_player)) {
         return true;
     }
 
@@ -876,7 +876,7 @@ static bool ai_move_creates_forced_immediate_win(const board_t *board, const mov
             continue;
         }
 
-        if (board_check_win(&after_opponent, opponent, NULL)) {
+        if (board_check_win_fast(&after_opponent, opponent)) {
             return false;
         }
 
@@ -957,7 +957,7 @@ static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, co
             continue;
         }
 
-        if (board_check_win(&after_move, to_move, NULL)) {
+        if (board_check_win_fast(&after_move, to_move)) {
             return false;
         }
 
@@ -1046,7 +1046,7 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
                     continue;
                 }
 
-                if (board_check_win(&after_opponent, player, NULL)) {
+                if (board_check_win_fast(&after_opponent, player)) {
                     return true;
                 }
 
@@ -1071,7 +1071,7 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
                                 continue;
                             }
 
-                            if (board_check_win(&after_ai, player, NULL)) {
+                            if (board_check_win_fast(&after_ai, player)) {
                                 continue;
                             }
 
@@ -1266,12 +1266,12 @@ static int16_t ai_agent_evaluate_hint(const board_t *board, player_t perspective
                                       ai_hint_eval_components_t *components) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
-    if (board_check_win(board, perspective, NULL)) {
+    if (board_check_win_fast(board, perspective)) {
         int16_t score = AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
         ai_hint_components_set(components, 0, 0, 0, score);
         return score;
     }
-    if (board_check_win(board, opponent, NULL)) {
+    if (board_check_win_fast(board, opponent)) {
         int16_t score = AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
         ai_hint_components_set(components, 0, 0, 0, score);
         return score;
@@ -1344,10 +1344,10 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
                                                                                       ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
-    if (board_check_win(board, perspective, NULL)) {
+    if (board_check_win_fast(board, perspective)) {
         return AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
     }
-    if (board_check_win(board, opponent, NULL)) {
+    if (board_check_win_fast(board, opponent)) {
         return AI_SCORE_LOSS + (int16_t)(board->move_count & 0x7FFF);
     }
 
@@ -1581,8 +1581,8 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
 
         ai_evaluated_move_t *slot = &evaluated[count];
         slot->move = ordered[i].move;
-        slot->immediate_win_self = board_check_win(&child, config->ai_player, NULL);
-        slot->immediate_win_opponent = board_check_win(&child, opponent, NULL);
+        slot->immediate_win_self = board_check_win_fast(&child, config->ai_player);
+        slot->immediate_win_opponent = board_check_win_fast(&child, opponent);
 
         board_switch_turn(&child);
         child.current_player = opponent;

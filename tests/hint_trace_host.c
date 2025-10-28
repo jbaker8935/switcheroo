@@ -22,6 +22,10 @@ void render_invalidate_cache(void)
 {
 }
 
+void print_made_blunder(void)
+{
+}
+
 static uint8_t column_index(char col)
 {
     switch (col)
@@ -83,7 +87,7 @@ static void load_classic_depth3_14(board_t *board)
     place_piece(board, 'B', 8u, 'B', false);
     place_piece(board, 'D', 8u, 'B', true);
 
-    board->current_player = PLAYER_WHITE;
+    board->current_player = PLAYER_BLACK;  // BLACK's turn
     board->move_count = 0u;
     board->history_count = 0u;
 
@@ -129,9 +133,7 @@ int main(void)
 
     ai_config_t config;
     ai_agent_init(&config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_EXPERT, PLAYER_BLACK);
-    config.ai_player = PLAYER_WHITE;
-    config.swap_rule = SWAP_RULE_CLASSIC;
-    config.use_hint_profile = true;
+    config.use_hint_profile = true;  // Puzzle mode setting
 
     ai_agent_hint_trace_enable(true);
     ai_agent_hint_trace_clear();
@@ -148,6 +150,10 @@ int main(void)
                best_move.to_col,
                (unsigned)best_move.type);
     }
+
+    print_trace(s_hint_trace.records, s_hint_trace.count);
+    return 0;
+}
 
     const ai_hint_eval_record_t *records = NULL;
     uint8_t count = ai_agent_hint_trace_get(&records);

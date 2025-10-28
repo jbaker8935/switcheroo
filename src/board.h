@@ -147,6 +147,8 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);
 void board_undo_last_move(board_t *board);
 
 // Win detection
+bool board_check_win_fast(const board_t *board, player_t player);
+bool board_check_win_with_path(const board_t *board, player_t player, win_path_t *out_path);
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path);
 bool board_has_legal_moves(const board_t *board, player_t player);
 

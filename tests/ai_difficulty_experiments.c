@@ -189,7 +189,7 @@ static void run_experiment(const experiment_config_t *config) {
 
             plies_played = (uint16_t)(ply + 1u);
 
-            if (board_check_win(&board, active_cfg->ai_player, NULL)) {
+            if (board_check_win_fast(&board, active_cfg->ai_player)) {
                 winner = active_cfg->ai_player;
                 break;
             }

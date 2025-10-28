@@ -525,7 +525,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 bool game_state_check_win_condition(game_state_t *state)
 {
     // Check both players for win condition
-    bool white_wins = board_check_win(&state->board, PLAYER_WHITE, &state->win_path);
+    bool white_wins = board_check_win_with_path(&state->board, PLAYER_WHITE, &state->win_path);
 
     if (white_wins)
     {
@@ -534,7 +534,7 @@ bool game_state_check_win_condition(game_state_t *state)
     }
 
     win_path_t black_path;
-    bool black_wins = board_check_win(&state->board, PLAYER_BLACK, &black_path);
+    bool black_wins = board_check_win_with_path(&state->board, PLAYER_BLACK, &black_path);
 
     if (black_wins)
     {

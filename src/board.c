@@ -344,7 +344,85 @@ void board_clear_all_swapped(board_t *board) {
     }
 }
 
-bool board_check_win(const board_t *board, player_t player, win_path_t *out_path) {
+bool board_check_win_fast(const board_t *board, player_t player) {
+    if (!board || player == PLAYER_NONE) {
+        return false;
+    }
+
+    // Short-circuit: Check if player has pieces on each row between WIN_START_ROW and WIN_END_ROW
+    // If any row is missing the player's pieces, it's impossible to have a winning path
+    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
+        bool has_piece_on_row = false;
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            if (board_get_piece_owner(board_get_piece(board, row, col)) == player) {
+                has_piece_on_row = true;
+                break;
+            }
+        }
+        if (!has_piece_on_row) {
+            return false;
+        }
+    }
+
+    /* Optimized BFS for 6502: minimal memory usage, early termination */
+    uint8_t queue[BOARD_CELLS];
+    uint8_t visited[BOARD_CELLS];
+    for (uint8_t i = 0; i < BOARD_CELLS; ++i) {
+        visited[i] = 0;
+    }
+
+    uint8_t q_front = 0;
+    uint8_t q_back = 0;
+
+    // Seed queue with player's pieces in WIN_START_ROW
+    for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+        uint8_t idx = (uint8_t)(WIN_START_ROW * BOARD_COLS + col);
+        piece_type_t piece = board_get_piece(board, WIN_START_ROW, col);
+        if (board_get_piece_owner(piece) == player) {
+            queue[q_back++] = idx;
+            visited[idx] = 1;
+        }
+    }
+
+    // BFS traversal - no parent tracking needed for win detection
+    while (q_front < q_back) {
+        uint8_t current = queue[q_front++];
+        uint8_t current_row = current / BOARD_COLS;
+
+        if (current_row == WIN_END_ROW) {
+            return true;  // Win found!
+        }
+
+        uint8_t current_col = current % BOARD_COLS;
+
+        // Check all 8 directions for adjacent cells
+        for (uint8_t dir = 0; dir < 8; ++dir) {
+            int8_t next_row = (int8_t)current_row + kDirRow[dir];
+            int8_t next_col = (int8_t)current_col + kDirCol[dir];
+            if (next_row < 0 || next_row >= BOARD_ROWS ||
+                next_col < 0 || next_col >= BOARD_COLS) {
+                continue;
+            }
+
+            uint8_t neighbor_idx = (uint8_t)next_row * BOARD_COLS + (uint8_t)next_col;
+            if (visited[neighbor_idx]) {
+                continue;
+            }
+
+            piece_type_t neighbor_piece = board_get_piece(board, (uint8_t)next_row, (uint8_t)next_col);
+            if (board_get_piece_owner(neighbor_piece) != player) {
+                continue;
+            }
+
+            visited[neighbor_idx] = 1;
+            queue[q_back++] = neighbor_idx;
+        }
+    }
+
+    return false;
+}
+
+bool board_check_win_with_path(const board_t *board, player_t player, win_path_t *out_path) {
     if (out_path) {
         out_path->has_path = false;
         out_path->path_length = 0;
@@ -355,9 +433,21 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
         return false;
     }
 
-    /* BFS traversal inspired by alt_impl/game-logic.js checkWinCondition and
-       alt_impl/env_util.py _check_win_condition_jit. Tracks parent indices to
-       reconstruct a winning path once WIN_END_ROW is reached. */
+    // Short-circuit: Check if player has pieces on each row between WIN_START_ROW and WIN_END_ROW
+    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
+        bool has_piece_on_row = false;
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            if (board_get_piece_owner(board_get_piece(board, row, col)) == player) {
+                has_piece_on_row = true;
+                break;
+            }
+        }
+        if (!has_piece_on_row) {
+            return false;
+        }
+    }
+
+    /* BFS traversal with path reconstruction */
     uint8_t queue[BOARD_CELLS];
     uint8_t parent[BOARD_CELLS];
     uint8_t visited[BOARD_CELLS];
@@ -447,6 +537,15 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
     }
 
     return true;
+}
+
+// Legacy function - now calls the appropriate optimized version
+bool board_check_win(const board_t *board, player_t player, win_path_t *out_path) {
+    if (out_path) {
+        return board_check_win_with_path(board, player, out_path);
+    } else {
+        return board_check_win_fast(board, player);
+    }
 }
 
 bool board_has_legal_moves(const board_t *board, player_t player) {
