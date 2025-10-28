@@ -125,13 +125,8 @@ static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
 #define AI_SCORE_WIN 30000
 #define AI_SCORE_LOSS (-AI_SCORE_WIN)
 #define AI_SCORE_MAX 32000
-#define AI_NODE_LIMIT_FALLBACK 16000U
 #define AI_HINT_GOAL_WEIGHT 180
 #define AI_MAX_ORDERED_MOVES 32
-#define AI_MAX_DEPTH 8
-#define AI_KILLER_PER_PLY 2
-#define AI_TRANSPOSITION_SIZE 16
-#define AI_TRANSPOSITION_MASK (AI_TRANSPOSITION_SIZE - 1)
 
 #define AI_HINT_TRACE_CAPACITY 64
 
@@ -170,13 +165,7 @@ static bool ai_random_chance(uint8_t percentage) {
     return (ai_random_next() % 100u) < percentage;
 }
 
-static bool ai_pick_random_top_move(board_t *root,
-                                    const ai_config_t *config,
-                                    const move_t *best_move,
-                                    move_t *out_move);
-
 ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
-static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_t *out_move);
 
 typedef struct {
     int16_t swap;
@@ -206,12 +195,19 @@ static const int8_t kAdjCol[8] = {0, 1, 1, 1, 0, -1, -1, -1};
 static const uint8_t kPieceOwnerLUT[5] = {PLAYER_NONE, PLAYER_WHITE, PLAYER_WHITE, PLAYER_BLACK, PLAYER_BLACK};
 static const uint8_t kPieceIsNormalLUT[5] = {0u, 1u, 0u, 1u, 0u};
 
-typedef enum { TT_FLAG_NONE = 0, TT_FLAG_EXACT = 1, TT_FLAG_LOWER = 2, TT_FLAG_UPPER = 3 } ai_tt_flag_t;
-
 typedef struct {
     move_t move;
     int16_t order_score;
 } ai_ordered_move_t;
+
+typedef struct {
+    move_t move;
+    int16_t evaluation;
+    bool immediate_win_self;
+    bool immediate_win_opponent;
+    bool opponent_win_next_move;
+    bool opponent_forced_win;
+} ai_evaluated_move_t;
 
 typedef struct {
     uint8_t row_mask;
@@ -219,134 +215,9 @@ typedef struct {
     uint8_t branching_nodes;
 } ai_connection_metrics_t;
 
-typedef struct {
-    uint32_t key;
-    int16_t score;
-    uint8_t depth;
-    uint8_t flag;
-    move_t move;
-} ai_tt_entry_t;
-
-typedef struct {
-    const ai_config_t *config;
-    uint32_t node_limit;
-    uint32_t nodes;
-    bool abort;
-    bool use_hint_eval;
-    move_t pv[AI_MAX_DEPTH];
-    uint8_t pv_length;
-    move_t killer_moves[AI_MAX_DEPTH][AI_KILLER_PER_PLY];
-    uint8_t killer_count[AI_MAX_DEPTH];
-#ifdef AI_AGENT_ENABLE_TIMER
-    clock_t deadline;
-#endif
-    ai_hint_trace_state_t *hint_trace;
-    uint8_t trace_depth;
-    uint8_t trace_ply;
-} ai_search_context_t;
-
-#define AI_PROGRESS_CALLBACK_PERIOD 8u
-
-static uint16_t s_progress_throttle = 0u;
-static ai_search_context_t *s_active_search_ctx = NULL;
-static uint8_t s_active_search_depth_hint = 1u;
-
-static void ai_emit_progress_with_active_context(void);
-
-static bool ai_progress_attach(ai_search_context_t *stub, ai_config_t *config,
-                               ai_search_context_t **out_previous) {
-    if (!stub || !config || !config->progress_callback) {
-        if (out_previous) {
-            *out_previous = NULL;
-        }
-        return false;
-    }
-
-    memset(stub, 0, sizeof(*stub));
-    stub->config = config;
-
-    ai_search_context_t *previous = s_active_search_ctx;
-    if (out_previous) {
-        *out_previous = previous;
-    }
-
-    s_active_search_ctx = stub;
-    s_active_search_depth_hint = 1u;
-    return true;
-}
-
-static void ai_progress_detach(bool attached, ai_search_context_t *previous) {
-    if (!attached) {
-        return;
-    }
-    s_active_search_ctx = previous;
-}
-
-static void ai_progress_step(uint32_t nodes, uint8_t depth_hint) {
-    if (!s_active_search_ctx || !s_active_search_ctx->config ||
-        !s_active_search_ctx->config->progress_callback) {
-        return;
-    }
-
-    s_active_search_ctx->nodes = nodes;
-    if (depth_hint > 0u) {
-        s_active_search_depth_hint = depth_hint;
-    }
-    ai_emit_progress_with_active_context();
-}
-
-static void ai_progress_step_increment(uint8_t depth_hint) {
-    if (!s_active_search_ctx || !s_active_search_ctx->config ||
-        !s_active_search_ctx->config->progress_callback) {
-        return;
-    }
-
-    uint32_t next_nodes = s_active_search_ctx->nodes + 1u;
-    ai_progress_step(next_nodes, depth_hint);
-}
-
-static void ai_emit_throttled_progress(ai_search_context_t *ctx, uint8_t depth_remaining) {
-
-    if (!ctx || !ctx->config || !ctx->config->progress_callback) {
-        return;
-    }
-
-    s_active_search_depth_hint = (depth_remaining > 0u) ? depth_remaining : 1u;
-
-    ++s_progress_throttle;
-    if (s_progress_throttle < AI_PROGRESS_CALLBACK_PERIOD) {
-        return;
-    }
-
-    s_progress_throttle = 0u;
-
-    const ai_search_settings_t *search = &ctx->config->search;
-    uint8_t reported_depth = depth_remaining;
-    if (search->max_depth > 0u && depth_remaining <= search->max_depth) {
-        uint8_t computed = (uint8_t)(search->max_depth - depth_remaining + 1u);
-        if (computed == 0u) {
-            computed = 1u;
-        }
-        reported_depth = computed;
-    } else if (reported_depth == 0u) {
-        reported_depth = 1u;
-    }
-
-    ctx->config->progress_callback(reported_depth, ctx->nodes, ctx->config->progress_user_data);
-}
-
-static void ai_emit_progress_with_active_context(void) {
-    if (!s_active_search_ctx) {
-        return;
-    }
-
-    ai_emit_throttled_progress(s_active_search_ctx, s_active_search_depth_hint);
-}
-
 static bool s_zobrist_ready = false;
 static uint16_t s_zobrist_board[BOARD_CELLS][5];
 static uint16_t s_zobrist_player[2];
-static ai_tt_entry_t s_tt[AI_TRANSPOSITION_SIZE];
 static ai_eval_breakdown_t s_last_breakdown;
 
 static const ai_eval_weights_t kRuleWeights[4] = {
@@ -356,34 +227,9 @@ static const ai_eval_weights_t kRuleWeights[4] = {
     {72, 50, 46, 38, 16}   // Swapped Clears Own
 };
 
-#if defined(AI_AGENT_HOST_TEST)
-
 void ai_board_copy(board_t *dest, const board_t *src) {
     memcpy(dest, src, sizeof(board_t));
 }
-
-#else
-
-void FAR8_ai_board_copy(board_t *dest, const board_t *src);
-
-#pragma clang optimize off
-__attribute__((noinline))
-
-void
-ai_board_copy(board_t *dest, const board_t *src)
-{
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_ai_board_copy(dest, src);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block8"))) void FAR8_ai_board_copy(board_t *dest, const board_t *src) {
-    memcpy(dest, src, sizeof(board_t));
-}
-
-#endif
 
 static uint8_t ai_popcount(uint8_t value) {
     value = (value & 0x55u) + ((value >> 1) & 0x55u);
@@ -453,39 +299,16 @@ static uint32_t ai_hash_board(const board_t *board) {
     return hash;
 }
 
-static void ai_tt_clear(void) {
-    memset(s_tt, 0, sizeof(s_tt));
-}
-
-static ai_tt_entry_t *ai_tt_lookup(uint32_t key) {
-    uint32_t idx = (key ^ (key >> 11)) & AI_TRANSPOSITION_MASK;
-    return &s_tt[idx];
-}
-
 static bool ai_same_move(const move_t *a, const move_t *b) {
     return a->from_row == b->from_row && a->from_col == b->from_col && a->to_row == b->to_row &&
            a->to_col == b->to_col && a->type == b->type;
 }
 
-static void ai_tt_store(uint32_t key, uint8_t depth, ai_tt_flag_t flag, int16_t score, const move_t *move) {
-    ai_tt_entry_t *entry = ai_tt_lookup(key);
-    if (entry->key == key && entry->depth > depth) {
-        return;  // Keep deeper information
-    }
-
-    entry->key = key;
-    entry->score = score;
-    entry->depth = depth;
-    entry->flag = (uint8_t)flag;
-    entry->move = *move;
-}
-
-static void ai_hint_trace_record(const ai_search_context_t *ctx, const ai_hint_eval_components_t *components,
-                                 const board_t *board, player_t perspective) {
-    if (!ctx || !ctx->hint_trace || !ctx->hint_trace->enabled || !components) {
+static void ai_hint_trace_record(ai_hint_trace_state_t *trace, const ai_hint_eval_components_t *components,
+                                 const board_t *board, player_t perspective, uint8_t depth, uint8_t ply) {
+    if (!trace || !trace->enabled || !components) {
         return;
     }
-    ai_hint_trace_state_t *trace = ctx->hint_trace;
     if (trace->count >= AI_HINT_TRACE_CAPACITY) {
         return;
     }
@@ -496,8 +319,8 @@ static void ai_hint_trace_record(const ai_search_context_t *ctx, const ai_hint_e
     entry->swap_contrib = components->swap;
     entry->block_contrib = components->block;
     entry->goal_contrib = components->goal;
-    entry->depth = ctx->trace_depth;
-    entry->ply = ctx->trace_ply;
+    entry->depth = depth;
+    entry->ply = ply;
 }
 
 static uint8_t ai_count_goal_rows_for_player(const board_t *board, player_t player) {
@@ -516,12 +339,6 @@ static uint8_t ai_count_goal_rows_for_player(const board_t *board, player_t play
         }
     }
     return rows;
-}
-
-static uint8_t ai_goal_row_pressure(const board_t *board) {
-    uint8_t white_rows = ai_count_goal_rows_for_player(board, PLAYER_WHITE);
-    uint8_t black_rows = ai_count_goal_rows_for_player(board, PLAYER_BLACK);
-    return (white_rows > black_rows) ? white_rows : black_rows;
 }
 
 static uint8_t ai_count_swapped_for_player(const board_t *board, player_t player) {
@@ -566,82 +383,6 @@ static bool ai_move_clears_swapped(const board_t *board, const move_t *move, swa
         default:
             return ai_board_has_any_swapped(board);
     }
-}
-
-static uint8_t ai_count_move_volume(const board_t *board, player_t player) {
-    board_t scratch;
-    ai_board_copy(&scratch, board);
-    scratch.current_player = player;
-
-    uint8_t total = 0u;
-    move_t buffer[8];
-    const uint8_t buffer_capacity = (uint8_t)(sizeof(buffer) / sizeof(buffer[0]));
-
-    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(&scratch, row, col);
-            if (board_get_piece_owner(piece) != player) {
-                continue;
-            }
-
-            total += board_get_legal_moves(&scratch, row, col, buffer, buffer_capacity);
-            if (total >= AI_MAX_ORDERED_MOVES) {
-                return AI_MAX_ORDERED_MOVES;
-            }
-        }
-    }
-
-    return total;
-}
-
-static uint8_t ai_select_dynamic_depth(const ai_config_t *config, uint8_t pressure) {
-    if (pressure <= 3u) {
-        return 0u;
-    }
-    if (pressure == 4u) {
-        uint8_t cap = (config->search.base_depth < 2u) ? config->search.base_depth : 2u;
-        return (cap == 0u) ? 1u : cap;
-    }
-    return config->search.max_depth;
-}
-
-static uint32_t ai_select_node_cap(const ai_config_t *config, uint8_t pressure) {
-    uint32_t limit = config->search.node_limit ? config->search.node_limit : AI_NODE_LIMIT_FALLBACK;
-    if (pressure == 4u && limit > 4000u) {
-        return 4000u;
-    }
-    return limit;
-}
-
-static void ai_store_killer(ai_search_context_t *ctx, uint8_t ply, const move_t *move) {
-    if (!ctx->config->search.use_killer_moves || ply >= AI_MAX_DEPTH) {
-        return;
-    }
-
-    for (uint8_t i = 0; i < ctx->killer_count[ply]; ++i) {
-        if (ai_same_move(&ctx->killer_moves[ply][i], move)) {
-            return;
-        }
-    }
-
-    if (ctx->killer_count[ply] < AI_KILLER_PER_PLY) {
-        ctx->killer_moves[ply][ctx->killer_count[ply]++] = *move;
-    } else {
-        ctx->killer_moves[ply][1] = ctx->killer_moves[ply][0];
-        ctx->killer_moves[ply][0] = *move;
-    }
-}
-
-static bool ai_is_killer(const ai_search_context_t *ctx, uint8_t ply, const move_t *move) {
-    if (!ctx->config->search.use_killer_moves || ply >= AI_MAX_DEPTH) {
-        return false;
-    }
-    for (uint8_t i = 0; i < ctx->killer_count[ply]; ++i) {
-        if (ai_same_move(&ctx->killer_moves[ply][i], move)) {
-            return true;
-        }
-    }
-    return false;
 }
 
 void FAR8_ai_compute_connection_metrics(const board_t *board, player_t player, ai_connection_metrics_t *out);
@@ -1052,8 +793,6 @@ __attribute__((noinline)) bool ai_immediate_win_available(const board_t *board, 
 
 __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_available(const board_t *board,
                                                                                    player_t player, swap_rule_t rule) {
-    ai_emit_progress_with_active_context();
-
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
@@ -1072,7 +811,6 @@ __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_availab
     }
 
     for (uint8_t i = 0; i < count; ++i) {
-        ai_emit_progress_with_active_context();
         board_t test;
         ai_board_copy(&test, &scratch);
         if (!board_execute_move(&test, &moves[i], rule)) {
@@ -1213,7 +951,6 @@ static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, co
     }
 
     for (uint8_t i = 0; i < move_count; ++i) {
-        ai_emit_progress_with_active_context();
         board_t after_move;
         ai_board_copy(&after_move, &scratch);
         if (!board_execute_move(&after_move, &candidate_moves[i], config->swap_rule)) {
@@ -1273,7 +1010,7 @@ ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rul
 {
     bool return_value;
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
+    *(volatile unsigned char *)0x000d = 9;
     return_value = FAR9_ai_forcing_move_available(board, player, rule);
     *(volatile unsigned char *)0x000d = ___mmu;
     return return_value;
@@ -1358,76 +1095,12 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
 
     return false;
 }
-
-static bool ai_has_tactical_threat(const board_t *board, swap_rule_t rule) {
-    player_t to_move = board->current_player;
-    player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-
-    if (ai_immediate_win_available(board, to_move, rule)) {
-        return true;
-    }
-
-    if (ai_immediate_win_available(board, opponent, rule)) {
-        return true;
-    }
-
-    return false;
-}
-
-static bool ai_try_select_immediate_win(board_t *root, const ai_config_t *config, move_t *out_move,
-                                        uint32_t *out_nodes) {
-    if (!root || !config || !out_move) {
-        return false;
-    }
-
-    player_t to_move = root->current_player;
-    move_t moves[8];
-    uint32_t nodes = 0u;
-
-    for (uint8_t row = 0u; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0u; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(root, row, col);
-            if (board_get_piece_owner(piece) != to_move) {
-                continue;
-            }
-
-            uint8_t move_count = board_get_legal_moves(root, row, col, moves,
-                                                       (uint8_t)(sizeof(moves) / sizeof(moves[0])));
-            for (uint8_t idx = 0u; idx < move_count; ++idx) {
-                board_t candidate;
-                ai_board_copy(&candidate, root);
-                if (!board_execute_move(&candidate, &moves[idx], config->swap_rule)) {
-                    continue;
-                }
-
-                ++nodes;
-                ai_progress_step_increment(1u);
-
-                if (board_check_win(&candidate, to_move, NULL)) {
-                    *out_move = moves[idx];
-                    if (out_nodes) {
-                        *out_nodes = nodes;
-                    }
-                    return true;
-                }
-            }
-        }
-    }
-
-    if (out_nodes) {
-        *out_nodes = nodes;
-    }
-    return false;
-}
-
-uint8_t FAR9_ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, ai_ordered_move_t *out_moves,
-                               uint8_t ply);
+uint8_t FAR9_ai_generate_moves(const board_t *board, const ai_config_t *config, ai_ordered_move_t *out_moves);
 
 #if defined(AI_AGENT_HOST_TEST)
 
-uint8_t ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, ai_ordered_move_t *out_moves,
-                          uint8_t ply) {
-    return FAR9_ai_generate_moves(board, ctx, out_moves, ply);
+uint8_t ai_generate_moves(const board_t *board, const ai_config_t *config, ai_ordered_move_t *out_moves) {
+    return FAR9_ai_generate_moves(board, config, out_moves);
 }
 
 #else
@@ -1436,11 +1109,11 @@ uint8_t ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, 
 __attribute__((noinline))
 
 uint8_t
-ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, ai_ordered_move_t *out_moves, uint8_t ply) {
+ai_generate_moves(const board_t *board, const ai_config_t *config, ai_ordered_move_t *out_moves) {
     uint8_t return_value;
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
     *(volatile unsigned char *)0x000d = 9;
-    return_value = FAR9_ai_generate_moves(board, ctx, out_moves, ply);
+    return_value = FAR9_ai_generate_moves(board, config, out_moves);
     *(volatile unsigned char *)0x000d = ___mmu;
     return return_value;
 }
@@ -1449,15 +1122,20 @@ ai_generate_moves(const board_t *board, const ai_search_context_t *ctx, ai_order
 #endif
 
 __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(const board_t *board,
-                                                                             const ai_search_context_t *ctx,
-                                                                             ai_ordered_move_t *out_moves,
-                                                                             uint8_t ply) {
+                                                                             const ai_config_t *config,
+                                                                             ai_ordered_move_t *out_moves) {
+    if (!board || !config || !out_moves) {
+        return 0u;
+    }
+
     board_t scratch;
     ai_board_copy(&scratch, board);
     scratch.current_player = board->current_player;
 
     uint8_t count = 0;
     const player_t current = scratch.current_player;
+    swap_rule_t swap_rule = config->swap_rule;
+    bool forcing_check = config->enable_forcing_check && (config->ai_player == current);
 
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -1504,11 +1182,8 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
                 move->player = current;
 
                 int16_t score = 0;
-                bool clears_swapped = ai_move_clears_swapped(&scratch, move, ctx->config->swap_rule);
+                bool clears_swapped = ai_move_clears_swapped(&scratch, move, swap_rule);
 
-                if (ai_is_killer(ctx, ply, move)) {
-                    score += 4000;
-                }
                 if (move_type == MOVE_TYPE_SWAP) {
                     score += 900;
                     if (!mover_swapped) {
@@ -1542,14 +1217,12 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
                     score += 120;
                 }
 
-                if (ctx && ctx->config && ctx->config->enable_forcing_check &&
-                    ctx->config->ai_player == current &&
-                    ai_move_creates_forced_immediate_win(board, move, ctx->config, ctx->config->ai_player)) {
+                if (forcing_check && ai_move_creates_forced_immediate_win(board, move, config, config->ai_player)) {
                     score += 8000;
                 }
 
-                if (ctx && ctx->config && ctx->config->ai_player == current &&
-                    ai_move_allows_opponent_immediate_win(board, move, ctx->config, ctx->config->ai_player)) {
+                if (config->ai_player == current &&
+                    ai_move_allows_opponent_immediate_win(board, move, config, config->ai_player)) {
                     score -= 12000;
                 }
 
@@ -1746,397 +1419,7 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
     return ai_clamp_score(total);
 }
 
-bool FAR9_ai_select_move_heuristic(board_t *root, const ai_config_t *config, move_t *out_move, uint32_t *out_nodes);
-
-#if defined(AI_AGENT_HOST_TEST)
-
-bool ai_select_move_heuristic(board_t *root, const ai_config_t *config, move_t *out_move, uint32_t *out_nodes) {
-    return FAR9_ai_select_move_heuristic(root, config, out_move, out_nodes);
-}
-
-#else
-
-#pragma clang optimize off
-__attribute__((noinline))
-
-bool
-ai_select_move_heuristic(board_t *root, const ai_config_t *config,
-                         move_t *out_move,
-                         uint32_t *out_nodes)
-{
-    bool return_value;
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 9;
-    return_value = FAR9_ai_select_move_heuristic(root, config, out_move, out_nodes);
-    *(volatile unsigned char *)0x000d = ___mmu;
-    return return_value;
-}
-#pragma clang optimize on
-
-#endif
-
-__attribute__((noinline, section(".block9"))) bool FAR9_ai_select_move_heuristic(board_t *root,
-                                                                                 const ai_config_t *config,
-                                                                                 move_t *out_move,
-                                                                                 uint32_t *out_nodes) {
-    ai_ordered_move_t moves[AI_MAX_ORDERED_MOVES];
-    ai_search_context_t stub;
-    memset(&stub, 0, sizeof(stub));
-    stub.config = config;
-    stub.use_hint_eval = config->use_hint_profile;
-    if (s_hint_trace.enabled) {
-        stub.hint_trace = &s_hint_trace;
-    }
-
-    uint8_t count = ai_generate_moves(root, &stub, moves, 0);
-    if (count == 0u) {
-        if (out_nodes) {
-            *out_nodes = 0u;
-        }
-        return false;
-    }
-
-    player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-    int16_t best_score = AI_SCORE_LOSS;
-    move_t best_move = moves[0].move;
-    bool has_move = false;
-    uint32_t nodes = 0u;
-    bool use_hint_eval = config->use_hint_profile;
-
-    for (uint8_t i = 0; i < count; ++i) {
-        board_t child;
-        ai_board_copy(&child, root);
-        if (!board_execute_move(&child, &moves[i].move, config->swap_rule)) {
-            continue;
-        }
-
-        // Skip moves that allow opponent immediate win
-        if (board_check_win(&child, opponent, NULL)) {
-            continue;
-        }
-
-        if (ai_move_allows_opponent_immediate_win(root, &moves[i].move, config, config->ai_player)) {
-            continue;
-        }
-
-        bool forcing_move = false;
-        if (config->enable_forcing_check && !use_hint_eval) {
-            forcing_move = ai_move_creates_forced_immediate_win(root, &moves[i].move, config, config->ai_player);
-        }
-
-        ++nodes;
-        ai_progress_step_increment(1u);
-
-        if (board_check_win(&child, config->ai_player, NULL)) {
-            if (out_nodes) {
-                *out_nodes = nodes;
-            }
-            *out_move = moves[i].move;
-            return true;
-        }
-
-        if (forcing_move) {
-            if (out_nodes) {
-                *out_nodes = nodes;
-            }
-            *out_move = moves[i].move;
-            return true;
-        }
-
-        board_switch_turn(&child);
-
-        ai_hint_eval_components_t heuristic_components;
-        ai_hint_eval_components_t *heuristic_ptr = NULL;
-        if (use_hint_eval && stub.hint_trace && stub.hint_trace->enabled) {
-            stub.trace_depth = 0u;
-            stub.trace_ply = 1u;
-            heuristic_ptr = &heuristic_components;
-        }
-
-        int16_t score = use_hint_eval ? ai_agent_evaluate_hint(&child, config->ai_player, config, heuristic_ptr)
-                                      : ai_agent_evaluate_internal(&child, config->ai_player, config, NULL);
-
-        if (heuristic_ptr) {
-            ai_hint_trace_record(&stub, heuristic_ptr, &child, config->ai_player);
-        }
-        if (!has_move || score > best_score) {
-            best_score = score;
-            best_move = moves[i].move;
-            has_move = true;
-        }
-    }
-
-    if (!has_move) {
-        if (out_nodes) {
-            *out_nodes = nodes;
-        }
-        return false;
-    }
-
-    if (config->random_epsilon_pct > 0u && config->random_top_k > 1u && ai_random_chance(config->random_epsilon_pct)) {
-        move_t randomized;
-        if (ai_pick_random_top_move(root, config, &best_move, &randomized)) {
-            best_move = randomized;
-        }
-    }
-
-    if (out_nodes) {
-        *out_nodes = nodes;
-    }
-    *out_move = best_move;
-    return true;
-}
-
-static bool ai_search_should_abort(ai_search_context_t *ctx) {
-    if (ctx->nodes >= ctx->node_limit) {
-        ctx->abort = true;
-        return true;
-    }
-#ifdef AI_AGENT_ENABLE_TIMER
-    if (ctx->config->search.time_limit_ms && clock() >= ctx->deadline) {
-        ctx->abort = true;
-        return true;
-    }
-#endif
-    return false;
-}
-
-static int16_t ai_eval_position(const board_t *board, player_t perspective, const ai_search_context_t *ctx) {
-    if (ctx && ctx->use_hint_eval) {
-        ai_hint_eval_components_t components;
-        ai_hint_eval_components_t *components_ptr = NULL;
-        if (ctx->hint_trace && ctx->hint_trace->enabled) {
-            components_ptr = &components;
-        }
-        int16_t score = ai_agent_evaluate_hint(board, perspective, ctx->config, components_ptr);
-        if (components_ptr) {
-            ai_hint_trace_record(ctx, components_ptr, board, perspective);
-        }
-        return score;
-    }
-    return ai_agent_evaluate_internal(board, perspective, ctx->config, NULL);
-}
-
-int16_t FAR8_ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth, uint8_t ply, uint8_t extensions_used,
-                        int16_t alpha, int16_t beta, move_t *out_move);
-
-#if defined(AI_AGENT_HOST_TEST)
-
-int16_t ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth, uint8_t ply, uint8_t extensions_used,
-                   int16_t alpha, int16_t beta, move_t *out_move) {
-    return FAR8_ai_negamax(board, ctx, depth, ply, extensions_used, alpha, beta, out_move);
-}
-
-#else
-
-#pragma clang optimize off
-__attribute__((noinline)) int16_t ai_negamax(board_t *board, ai_search_context_t *ctx, uint8_t depth, uint8_t ply,
-                                             uint8_t extensions_used, int16_t alpha, int16_t beta, move_t *out_move) {
-    int16_t result;
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    result = FAR8_ai_negamax(board, ctx, depth, ply, extensions_used, alpha, beta, out_move);
-    *(volatile unsigned char *)0x000d = ___mmu;
-    return result;
-}
-#pragma clang optimize on
-
-#endif
-
-__attribute__((noinline, section(".block8"))) int16_t FAR8_ai_negamax(board_t *board, ai_search_context_t *ctx,
-                                                                      uint8_t depth, uint8_t ply,
-                                                                      uint8_t extensions_used, int16_t alpha,
-                                                                      int16_t beta, move_t *out_move) {
-    if (ctx->abort) {
-        return 0;
-    }
-
-    if (ai_search_should_abort(ctx)) {
-        return 0;
-    }
-
-    ctx->nodes++;
-    ai_emit_throttled_progress(ctx, depth);
-    player_t to_move = board->current_player;
-    player_t opponent = (to_move == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-
-    if (board_check_win(board, opponent, NULL)) {
-        return AI_SCORE_LOSS + (int16_t)ply;
-    }
-    if (board_check_win(board, to_move, NULL)) {
-        return AI_SCORE_WIN - (int16_t)ply;
-    }
-
-    if (depth == 0) {
-        if (extensions_used < ctx->config->search.max_extension &&
-            ai_has_tactical_threat(board, ctx->config->swap_rule)) {
-            depth = 1;
-            extensions_used++;
-        } else {
-            ctx->trace_depth = depth;
-            ctx->trace_ply = ply;
-            return ai_eval_position(board, board->current_player, ctx);
-        }
-    }
-
-    uint32_t hash = ai_hash_board(board);
-    ai_tt_entry_t *tt_entry = NULL;
-    if (ctx->config->search.use_transposition) {
-        tt_entry = ai_tt_lookup(hash);
-        if (tt_entry->key == hash && tt_entry->depth >= depth && tt_entry->flag != TT_FLAG_NONE) {
-            if (tt_entry->flag == TT_FLAG_EXACT) {
-                if (out_move) {
-                    *out_move = tt_entry->move;
-                }
-                return tt_entry->score;
-            } else if (tt_entry->flag == TT_FLAG_LOWER && tt_entry->score > alpha) {
-                alpha = tt_entry->score;
-            } else if (tt_entry->flag == TT_FLAG_UPPER && tt_entry->score < beta) {
-                beta = tt_entry->score;
-            }
-            if (alpha >= beta) {
-                if (out_move) {
-                    *out_move = tt_entry->move;
-                }
-                return tt_entry->score;
-            }
-        }
-    }
-
-    ai_ordered_move_t moves[AI_MAX_ORDERED_MOVES];
-    uint8_t move_count = ai_generate_moves(board, ctx, moves, ply);
-    if (move_count == 0) {
-        ctx->trace_depth = depth;
-        ctx->trace_ply = ply;
-        return ai_eval_position(board, board->current_player, ctx);
-    }
-
-    bool hazardous[AI_MAX_ORDERED_MOVES];
-    uint8_t safe_moves = 0u;
-    for (uint8_t i = 0; i < move_count; ++i) {
-        hazardous[i] = ai_move_allows_opponent_immediate_win(board, &moves[i].move, ctx->config, to_move);
-        if (!hazardous[i]) {
-            ++safe_moves;
-        }
-    }
-
-    move_t best_move = moves[0].move;
-    bool has_move = false;
-    int16_t value = AI_SCORE_LOSS;
-    int16_t original_alpha = alpha;
-
-    for (uint8_t i = 0; i < move_count; ++i) {
-        if (hazardous[i] && safe_moves > 0u) {
-            continue;
-        }
-
-        board_t child;
-        ai_board_copy(&child, board);
-        if (!board_execute_move(&child, &moves[i].move, ctx->config->swap_rule)) {
-            continue;
-        }
-
-        if (board_check_win(&child, to_move, NULL)) {
-            int16_t win_score = AI_SCORE_WIN - (int16_t)(ply + 1);
-            if (win_score > value) {
-                value = win_score;
-                best_move = moves[i].move;
-                has_move = true;
-            }
-            if (win_score > alpha) {
-                alpha = win_score;
-            }
-            if (alpha >= beta) {
-                ai_store_killer(ctx, ply, &moves[i].move);
-                break;
-            }
-            continue;
-        }
-
-        board_switch_turn(&child);
-        move_t response;
-        int16_t score = (int16_t)(-ai_negamax(&child, ctx, (uint8_t)(depth - 1), (uint8_t)(ply + 1), extensions_used,
-                                              (int16_t)(-beta), (int16_t)(-alpha), &response));
-        if (ctx->abort) {
-            return 0;
-        }
-
-#ifdef AI_AGENT_DEBUG_NEGAMAX
-        if (ply == 0) {
-            printf("DEBUG: Root move (%d,%d)->(%d,%d) got score %d\n", moves[i].move.from_row, moves[i].move.from_col,
-                   moves[i].move.to_row, moves[i].move.to_col, score);
-        }
-#endif
-
-        if (score > value || !has_move) {
-            value = score;
-            best_move = moves[i].move;
-            has_move = true;
-        }
-
-        if (value > alpha) {
-            alpha = value;
-        }
-        if (alpha >= beta) {
-            ai_store_killer(ctx, ply, &moves[i].move);
-            break;
-        }
-    }
-
-    if (!has_move) {
-        if (safe_moves > 0u) {
-            for (uint8_t i = 0; i < move_count; ++i) {
-                if (hazardous[i]) {
-                    board_t child;
-                    ai_board_copy(&child, board);
-                    if (!board_execute_move(&child, &moves[i].move, ctx->config->swap_rule)) {
-                        continue;
-                    }
-
-                    board_switch_turn(&child);
-                    move_t response;
-                    value = (int16_t)(-ai_negamax(&child,
-                                                  ctx,
-                                                  (uint8_t)(depth - 1),
-                                                  (uint8_t)(ply + 1),
-                                                  extensions_used,
-                                                  (int16_t)(-beta),
-                                                  (int16_t)(-alpha),
-                                                  &response));
-                    if (ctx->abort) {
-                        return 0;
-                    }
-
-                    best_move = moves[i].move;
-                    has_move = true;
-                    break;
-                }
-            }
-        }
-
-        if (!has_move) {
-            ctx->trace_depth = depth;
-            ctx->trace_ply = ply;
-            return ai_eval_position(board, board->current_player, ctx);
-        }
-    }
-
-    if (out_move) {
-        *out_move = best_move;
-    }
-
-    if (ctx->config->search.use_transposition) {
-        ai_tt_flag_t flag = TT_FLAG_EXACT;
-        if (value <= original_alpha) {
-            flag = TT_FLAG_UPPER;
-        } else if (value >= beta) {
-            flag = TT_FLAG_LOWER;
-        }
-        ai_tt_store(hash, depth, flag, value, &best_move);
-    }
-
-    return value;
-}
+bool FAR10_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
 
 void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player);
 
@@ -2182,65 +1465,34 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
 
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
-            config->search.base_depth = 1;
-            config->search.max_depth = 1;
-            config->search.max_extension = 0;
-            config->search.node_limit = 600;
-            config->search.time_limit_ms = 0;
-            config->search.use_iterative_deepening = false;
-            config->search.use_transposition = false;
-            config->search.use_move_ordering = true;
-            config->search.use_killer_moves = false;
+            config->enable_forcing_check = false;
             ai_agent_config_set_randomization(config, 3u, 20u);
             config->blunder_chance_pct = 20u;
             config->blunder_enabled = true;
+            config->blunder_type = AI_BLUNDER_ALLOW_IMMEDIATE_WIN;
             break;
         case AI_DIFFICULTY_EASY:
-            config->search.base_depth = 2;
-            config->search.max_depth = 2;
-            config->search.max_extension = 1;
-            config->search.node_limit = 2000;
-            config->search.time_limit_ms = 0;
-            config->search.use_iterative_deepening = false;
-            config->search.use_transposition = false;
-            config->search.use_move_ordering = true;
-            config->search.use_killer_moves = true;
+            config->enable_forcing_check = false;
             ai_agent_config_set_randomization(config, 3u, 10u);
             config->blunder_chance_pct = 15u;
-            config->blunder_enabled = true;            
+            config->blunder_enabled = true;
+            config->blunder_type = AI_BLUNDER_ALLOW_IMMEDIATE_WIN;
             break;
         case AI_DIFFICULTY_STANDARD:
-            config->search.base_depth = 4;
-            config->search.max_depth = 4;
-            config->search.max_extension = 2;
-            config->search.node_limit = 9000;
-            config->search.time_limit_ms = 0;
-            config->search.use_iterative_deepening = true;
-            config->search.use_transposition = true;
-            config->search.use_move_ordering = true;
-            config->search.use_killer_moves = true;
             ai_agent_config_set_randomization(config, 2u, 5u);
             config->blunder_chance_pct = 10u;
-            config->blunder_enabled = true;                
+            config->blunder_enabled = true;
+            config->blunder_type = AI_BLUNDER_ALLOW_FORCING_MOVE;
             break;
         case AI_DIFFICULTY_EXPERT:
         default:
-            config->search.base_depth = 4;
-            config->search.max_depth = 6;
-            config->search.max_extension = 2;
-            config->search.node_limit = 14000;
-            config->search.time_limit_ms = 0;
-            config->search.use_iterative_deepening = true;
-            config->search.use_transposition = true;
-            config->search.use_move_ordering = true;
-            config->search.use_killer_moves = true;
             ai_agent_config_set_randomization(config, 1u, 0u);
             config->blunder_chance_pct = 0u;
-            config->blunder_enabled = false;            
+            config->blunder_enabled = false;
+            config->blunder_type = AI_BLUNDER_NONE;
             break;
     }
 
-    ai_tt_clear();
     s_last_breakdown = (ai_eval_breakdown_t){0};
 }
 
@@ -2294,161 +1546,183 @@ void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_t
     config->blunder_enabled = enabled && clamped > 0u;
 }
 
-static bool ai_moves_equal(const move_t *lhs, const move_t *rhs) {
-    if (!lhs || !rhs) {
-        return false;
+static void ai_sort_indices_by_evaluation(const ai_evaluated_move_t *evaluated, uint8_t *indices, uint8_t count) {
+    for (uint8_t i = 1u; i < count; ++i) {
+        uint8_t key = indices[i];
+        int16_t value = evaluated[key].evaluation;
+        uint8_t j = i;
+        while (j > 0u && evaluated[indices[j - 1u]].evaluation < value) {
+            indices[j] = indices[j - 1u];
+            --j;
+        }
+        indices[j] = key;
     }
-    return lhs->from_row == rhs->from_row && lhs->from_col == rhs->from_col && lhs->to_row == rhs->to_row &&
-           lhs->to_col == rhs->to_col && lhs->type == rhs->type && lhs->player == rhs->player;
 }
 
-static bool ai_pick_random_top_move(board_t *root, const ai_config_t *config, const move_t *best_move,
-                                    move_t *out_move) {
-    if (!root || !config || !out_move) {
-        return false;
-    }
-    if (config->random_top_k <= 1u) {
-        return false;
+static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_evaluated_move_t *evaluated,
+                                 uint32_t *out_nodes) {
+    if (!root || !config || !evaluated) {
+        return 0u;
     }
 
     ai_ordered_move_t ordered[AI_MAX_ORDERED_MOVES];
-    ai_search_context_t stub;
-    memset(&stub, 0, sizeof(stub));
-    stub.config = config;
-    stub.use_hint_eval = config->use_hint_profile;
-    if (s_hint_trace.enabled) {
-        stub.hint_trace = &s_hint_trace;
-    }
-
-    uint8_t generated = ai_generate_moves(root, &stub, ordered, 0);
-    if (generated == 0u) {
-        return false;
-    }
-
-    uint8_t limit = config->random_top_k;
-    if (limit > generated) {
-        limit = generated;
-    }
-
+    uint8_t generated = ai_generate_moves(root, config, ordered);
+    uint8_t count = 0u;
     player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-    move_t candidates[AI_MAX_ORDERED_MOVES];
-    uint8_t candidate_count = 0u;
-    bool best_is_immediate_win = false;
+    bool use_hint_eval = config->use_hint_profile;
+    bool record_hint = use_hint_eval && s_hint_trace.enabled;
 
-    for (uint8_t i = 0u; i < generated && candidate_count < limit; ++i) {
+    for (uint8_t i = 0u; i < generated && count < AI_MAX_ORDERED_MOVES; ++i) {
         board_t child;
         ai_board_copy(&child, root);
         if (!board_execute_move(&child, &ordered[i].move, config->swap_rule)) {
             continue;
         }
 
-        ai_progress_step_increment(1u);
+        ai_evaluated_move_t *slot = &evaluated[count];
+        slot->move = ordered[i].move;
+        slot->immediate_win_self = board_check_win(&child, config->ai_player, NULL);
+        slot->immediate_win_opponent = board_check_win(&child, opponent, NULL);
 
-        bool immediate_win = board_check_win(&child, config->ai_player, NULL);
-        if (immediate_win && best_move && ai_moves_equal(&ordered[i].move, best_move)) {
-            best_is_immediate_win = true;
-        }
-        if (board_check_win(&child, opponent, NULL)) {
-            continue;
-        }
+        board_switch_turn(&child);
+        child.current_player = opponent;
 
-        candidates[candidate_count++] = ordered[i].move;
-    }
-
-    if (best_is_immediate_win || candidate_count <= 1u) {
-        return false;
-    }
-
-    uint32_t chosen = ai_random_range(candidate_count);
-    *out_move = candidates[chosen];
-    return true;
-}
-
-static uint8_t ai_collect_blunder_candidates(const board_t *root, const ai_config_t *config, move_t *out_moves,
-                                             uint8_t capacity) {
-    if (!root || !config || !out_moves || capacity == 0u) {
-        return 0u;
-    }
-
-    ai_ordered_move_t ordered[AI_MAX_ORDERED_MOVES];
-    ai_search_context_t stub;
-    memset(&stub, 0, sizeof(stub));
-    stub.config = config;
-    stub.use_hint_eval = config->use_hint_profile;
-    if (s_hint_trace.enabled) {
-        stub.hint_trace = &s_hint_trace;
-    }
-
-    board_t generation_board;
-    ai_board_copy(&generation_board, root);
-    uint8_t generated = ai_generate_moves(&generation_board, &stub, ordered, 0u);
-    if (generated == 0u) {
-        return 0u;
-    }
-
-    player_t opponent = (config->ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-    uint8_t count = 0u;
-
-    for (uint8_t i = 0u; i < generated && count < capacity; ++i) {
-        board_t candidate;
-        ai_board_copy(&candidate, root);
-        if (!board_execute_move(&candidate, &ordered[i].move, config->swap_rule)) {
-            continue;
+        slot->opponent_win_next_move = ai_immediate_win_available(&child, opponent, config->swap_rule);
+        slot->opponent_forced_win = false;
+        if (config->enable_forcing_check && !slot->opponent_win_next_move) {
+            slot->opponent_forced_win = ai_forcing_move_available(&child, opponent, config->swap_rule);
         }
 
-        ai_progress_step_increment(1u);
+        ai_hint_eval_components_t components;
+        ai_hint_eval_components_t *components_ptr = record_hint ? &components : NULL;
 
-        if (board_check_win(&candidate, config->ai_player, NULL)) {
-            continue;
+        slot->evaluation = use_hint_eval
+                               ? ai_agent_evaluate_hint(&child, config->ai_player, config, components_ptr)
+                               : ai_agent_evaluate_internal(&child, config->ai_player, config, NULL);
+
+        if (components_ptr) {
+            ai_hint_trace_record(&s_hint_trace, components_ptr, &child, config->ai_player, 0u, 1u);
         }
 
-        board_switch_turn(&candidate);
-        candidate.current_player = opponent;
-
-        bool qualifies = false;
-        if (config->blunder_type == AI_BLUNDER_ALLOW_IMMEDIATE_WIN) {
-            qualifies = ai_immediate_win_available(&candidate, opponent, config->swap_rule);
-        } else if (config->blunder_type == AI_BLUNDER_ALLOW_FORCING_MOVE) {
-            qualifies = ai_forcing_move_available(&candidate, opponent, config->swap_rule);
+        ++count;
+        if (out_nodes) {
+            ++(*out_nodes);
         }
-
-        if (!qualifies) {
-            continue;
-        }
-
-        out_moves[count++] = ordered[i].move;
     }
 
     return count;
 }
 
-static bool ai_try_apply_blunder(board_t *root, const ai_config_t *config, move_t *out_move) {
-    if (!root || !config || !out_move) {
-        return false;
-    }
-    if (!config->blunder_enabled || config->blunder_chance_pct == 0u) {
-        return false;
-    }
-    if (config->difficulty == AI_DIFFICULTY_EXPERT || config->blunder_type == AI_BLUNDER_NONE) {
-        return false;
-    }
-    // Don't apply blunders in puzzle mode
-    if (config->use_hint_profile) {
+static bool ai_choose_move_from_evaluated(const ai_config_t *config,
+                                          const ai_evaluated_move_t *evaluated,
+                                          uint8_t count,
+                                          move_t *out_move,
+                                          bool *applied_blunder) {
+    if (!config || !evaluated || !out_move || count == 0u) {
         return false;
     }
 
-    move_t candidates[AI_MAX_ORDERED_MOVES];
-    uint8_t candidate_count = ai_collect_blunder_candidates(root, config, candidates, AI_MAX_ORDERED_MOVES);
-    if (candidate_count == 0u) {
-        return false;
+    if (applied_blunder) {
+        *applied_blunder = false;
     }
 
-    if (!ai_random_chance(config->blunder_chance_pct)) {
-        return false;
+    for (uint8_t i = 0u; i < count; ++i) {
+        if (evaluated[i].immediate_win_self) {
+            *out_move = evaluated[i].move;
+            return true;
+        }
     }
 
-    uint32_t idx = ai_random_range(candidate_count);
-    *out_move = candidates[idx];
+    uint8_t safe_indices[AI_MAX_ORDERED_MOVES];
+    uint8_t safe_count = 0u;
+    uint8_t blunder_indices[AI_MAX_ORDERED_MOVES];
+    uint8_t blunder_count = 0u;
+
+    bool use_hint = config->use_hint_profile;
+    bool blunder_enabled = !use_hint && config->blunder_enabled && config->blunder_chance_pct > 0u &&
+                           config->difficulty != AI_DIFFICULTY_EXPERT && config->blunder_type != AI_BLUNDER_NONE;
+
+    for (uint8_t i = 0u; i < count; ++i) {
+        const ai_evaluated_move_t *move = &evaluated[i];
+        if (move->immediate_win_opponent) {
+            continue;
+        }
+
+        bool disqualify = false;
+        bool eligible_blunder = false;
+
+        if (move->opponent_win_next_move) {
+            disqualify = true;
+            if (blunder_enabled && config->blunder_type == AI_BLUNDER_ALLOW_IMMEDIATE_WIN) {
+                eligible_blunder = true;
+            }
+        } else if (move->opponent_forced_win && config->enable_forcing_check) {
+            disqualify = true;
+            if (blunder_enabled && config->blunder_type == AI_BLUNDER_ALLOW_FORCING_MOVE) {
+                eligible_blunder = true;
+            }
+        }
+
+        if (!disqualify) {
+            safe_indices[safe_count++] = i;
+        } else if (eligible_blunder) {
+            blunder_indices[blunder_count++] = i;
+        }
+    }
+
+    if (safe_count > 0u) {
+        uint8_t best_index = safe_indices[0u];
+        for (uint8_t i = 1u; i < safe_count; ++i) {
+            uint8_t idx = safe_indices[i];
+            if (evaluated[idx].evaluation > evaluated[best_index].evaluation) {
+                best_index = idx;
+            }
+        }
+
+        if (blunder_enabled && blunder_count > 0u && ai_random_chance(config->blunder_chance_pct)) {
+            uint8_t choice = (uint8_t)ai_random_range(blunder_count);
+            *out_move = evaluated[blunder_indices[choice]].move;
+            if (applied_blunder) {
+                *applied_blunder = true;
+            }
+            return true;
+        }
+
+        uint8_t chosen_index = best_index;
+
+        if (!use_hint && config->random_top_k > 1u && config->random_epsilon_pct > 0u && safe_count > 1u &&
+            ai_random_chance(config->random_epsilon_pct)) {
+            uint8_t top_indices[AI_MAX_ORDERED_MOVES];
+            for (uint8_t i = 0u; i < safe_count; ++i) {
+                top_indices[i] = safe_indices[i];
+            }
+            ai_sort_indices_by_evaluation(evaluated, top_indices, safe_count);
+
+            uint8_t limit = config->random_top_k;
+            if (limit > safe_count) {
+                limit = safe_count;
+            }
+            if (limit > 1u) {
+                uint8_t choice = (uint8_t)ai_random_range(limit);
+                chosen_index = top_indices[choice];
+            }
+        }
+
+        *out_move = evaluated[chosen_index].move;
+        return true;
+    }
+
+    if (blunder_enabled && blunder_count > 0u && ai_random_chance(config->blunder_chance_pct)) {
+        uint8_t choice = (uint8_t)ai_random_range(blunder_count);
+        *out_move = evaluated[blunder_indices[choice]].move;
+        if (applied_blunder) {
+            *applied_blunder = true;
+        }
+        return true;
+    }
+
+    uint8_t fallback = (uint8_t)ai_random_range(count);
+    *out_move = evaluated[fallback].move;
     return true;
 }
 
@@ -2479,17 +1753,17 @@ __attribute__((noinline)) bool ai_agent_find_best_move_impl(const board_t *board
 __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_move_impl(const board_t *board,
                                                                                        const ai_config_t *config,
                                                                                        move_t *out_move) {
-    board_t root;
-    player_t to_move;
+    if (!board || !config || !out_move) {
+        return false;
+    }
 
+    board_t root;
     ai_board_copy(&root, board);
-    to_move = board->current_player;
-    root.current_player = to_move;
+    root.current_player = board->current_player;
 
     ai_timer0_reset();
-    s_progress_throttle = 0u;
 
-    if (!board_has_legal_moves(&root, to_move)) {
+    if (!board_has_legal_moves(&root, root.current_player)) {
         uint32_t ticks = ai_timer0_read();
         ai_print_diagnostics(0u, ticks, config->diagnostics_enabled);
         s_last_breakdown = (ai_eval_breakdown_t){0};
@@ -2497,177 +1771,27 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     }
 
     ai_config_t tuned = *config;
-    tuned.ai_player = to_move;
+    tuned.ai_player = root.current_player;
 
-    move_t best_move = (move_t){0};
     if (s_hint_trace.enabled) {
         s_hint_trace.count = 0u;
     }
 
-    bool move_found = false;
+    ai_evaluated_move_t evaluated[AI_MAX_ORDERED_MOVES];
     uint32_t nodes_recorded = 0u;
-    int16_t best_score = AI_SCORE_LOSS;
+    uint8_t evaluated_count = ai_evaluate_moves(&root, &tuned, evaluated, &nodes_recorded);
 
-#ifndef AI_AGENT_DISABLE_ROOT_IMMEDIATE_WIN
-    if (ai_try_select_immediate_win(&root, &tuned, &best_move, &nodes_recorded)) {
-        move_found = true;
-    }
-#endif
+    bool applied_blunder = false;
+    move_t chosen_move = {0};
+    bool move_found = ai_choose_move_from_evaluated(&tuned, evaluated, evaluated_count, &chosen_move, &applied_blunder);
 
     if (!move_found) {
-        uint8_t pressure = ai_goal_row_pressure(&root);
-        uint8_t dynamic_depth = ai_select_dynamic_depth(config, pressure);
-        uint8_t move_volume = ai_count_move_volume(&root, to_move);
-
-        /* Detect forced-loss states upfront so we avoid sinking time into
-           negamax when the opponent can capture immediately regardless of
-           our choice. */
-        if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
-            dynamic_depth = 0u;
-            tuned.enable_forcing_check = false;
-        }
-
-#ifdef AI_AGENT_DEBUG_NEGAMAX
-        printf("DEBUG: move_volume=%d, initial_dynamic_depth=%d, pressure=%d\n", move_volume, dynamic_depth,
-               pressure);
-#endif
-
-        // Check if this is puzzle hint mode (use lightweight profile)
-        bool is_puzzle_hint = tuned.use_hint_profile;
-
-        if (dynamic_depth > 0u) {
-            if (move_volume >= 18u) {
-                if (config->difficulty > AI_DIFFICULTY_STANDARD) {
-                    dynamic_depth = 1u;
-                } else {
-                    dynamic_depth = 0u;
-                }
-            } else if (move_volume >= 12u && dynamic_depth > 2u) {
-                dynamic_depth = 2u;
-            } else if (move_volume >= 9u && dynamic_depth > 3u) {
-                dynamic_depth = 3u;
-            }
-        }
-
-#ifdef AI_AGENT_DEBUG_NEGAMAX
-        printf(
-            "DEBUG: is_puzzle_hint=%d, final_dynamic_depth=%d (0 means 1-ply "
-            "heuristic only)\n",
-            is_puzzle_hint, dynamic_depth);
-#endif
-
-        uint32_t node_cap = ai_select_node_cap(config, pressure);
-        if (move_volume >= 18u && node_cap > 3000u) {
-            node_cap = 3000u;
-        } else if (move_volume >= 12u && node_cap > 5000u) {
-            node_cap = 5000u;
-        }
-
-        if (is_puzzle_hint) {
-            tuned.enable_forcing_check = false;
-        }
-
-        if (dynamic_depth == 0u) {
-            ai_search_context_t heuristic_progress_ctx;
-            ai_search_context_t *heuristic_prev_ctx = NULL;
-            bool heuristic_progress_attached =
-                ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
-
-            uint32_t heuristic_nodes = 0u;
-            move_found = ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes);
-            nodes_recorded += heuristic_nodes;
-
-            ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
-        } else {
-            if (pressure == 4u) {
-                tuned.search.base_depth = dynamic_depth;
-                tuned.search.max_depth = dynamic_depth;
-                tuned.search.use_iterative_deepening = false;
-                tuned.search.use_transposition = false;
-            } else {
-                tuned.search.max_depth = dynamic_depth;
-                if (tuned.search.base_depth > tuned.search.max_depth) {
-                    tuned.search.base_depth = tuned.search.max_depth;
-                }
-                if (dynamic_depth <= 2u) {
-                    tuned.search.use_iterative_deepening = false;
-                    tuned.search.use_transposition = false;
-                } else {
-                    tuned.search.use_iterative_deepening = config->search.use_iterative_deepening;
-                    tuned.search.use_transposition = config->search.use_transposition;
-                }
-            }
-            tuned.search.node_limit = node_cap;
-
-            ai_search_context_t ctx;
-            memset(&ctx, 0, sizeof(ctx));
-            ai_search_context_t *previous_active_ctx = s_active_search_ctx;
-            s_active_search_ctx = &ctx;
-            ctx.config = &tuned;
-            ctx.node_limit = tuned.search.node_limit ? tuned.search.node_limit : AI_NODE_LIMIT_FALLBACK;
-            ctx.use_hint_eval = tuned.use_hint_profile;
-            if (s_hint_trace.enabled) {
-                ctx.hint_trace = &s_hint_trace;
-            }
-#ifdef AI_AGENT_ENABLE_TIMER
-            if (tuned.search.time_limit_ms) {
-                ctx.deadline = clock() + (clock_t)((tuned.search.time_limit_ms * CLOCKS_PER_SEC) / 1000u);
-            }
-#endif
-
-            uint8_t target_depth = tuned.search.use_iterative_deepening ? tuned.search.max_depth : tuned.search.base_depth;
-            if (target_depth == 0u) {
-                target_depth = 1u;
-            }
-            uint8_t min_depth = tuned.search.base_depth ? tuned.search.base_depth : 1u;
-
-            uint8_t start_depth = tuned.search.use_iterative_deepening ? 1u : min_depth;
-            for (uint8_t depth = start_depth; depth <= target_depth; ++depth) {
-                if (!tuned.search.use_iterative_deepening && depth != min_depth) {
-                    continue;
-                }
-                if (depth < min_depth) {
-                    continue;
-                }
-
-                move_t iteration_best = (move_t){0};
-                int16_t score = ai_negamax(&root, &ctx, depth, 0, 0, AI_SCORE_LOSS, AI_SCORE_WIN, &iteration_best);
-                if (ctx.abort) {
-                    break;
-                }
-
-                best_score = score;
-                best_move = iteration_best;
-                move_found = true;
-
-                // Invoke progress callback if registered
-                if (config->progress_callback) {
-                    config->progress_callback(depth, ctx.nodes, config->progress_user_data);
-                }
-
-                if (!tuned.search.use_iterative_deepening) {
-                    break;
-                }
-            }
-
-            nodes_recorded += ctx.nodes;
-
-            if (!move_found) {
-                uint32_t heuristic_nodes = 0u;
-                ai_search_context_t heuristic_progress_ctx;
-                ai_search_context_t *heuristic_prev_ctx = NULL;
-                bool heuristic_progress_attached =
-                    ai_progress_attach(&heuristic_progress_ctx, &tuned, &heuristic_prev_ctx);
-
-                if (ai_select_move_heuristic(&root, &tuned, &best_move, &heuristic_nodes)) {
-                    move_found = true;
-                    nodes_recorded += heuristic_nodes;
-                }
-
-                ai_progress_detach(heuristic_progress_attached, heuristic_prev_ctx);
-            }
-
-            s_active_search_ctx = previous_active_ctx;
+        ai_ordered_move_t fallback_moves[AI_MAX_ORDERED_MOVES];
+        uint8_t fallback_count = ai_generate_moves(&root, &tuned, fallback_moves);
+        if (fallback_count > 0u) {
+            uint8_t idx = (uint8_t)ai_random_range(fallback_count);
+            chosen_move = fallback_moves[idx].move;
+            move_found = true;
         }
     }
 
@@ -2675,49 +1799,15 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     ai_print_diagnostics(nodes_recorded, elapsed_ticks, config->diagnostics_enabled);
 
     if (!move_found) {
-        // Pick a random legal move since no good move was found
-        ai_ordered_move_t random_moves[AI_MAX_ORDERED_MOVES];
-        ai_search_context_t stub;
-        memset(&stub, 0, sizeof(stub));
-        stub.config = &tuned;
-        uint8_t random_count = ai_generate_moves(&root, &stub, random_moves, 0);
-        if (random_count > 0) {
-            uint8_t chosen = ai_random_range(random_count);
-            best_move = random_moves[chosen].move;
-            move_found = true;
-        }
-    }
-
-    if (!move_found) {
         s_last_breakdown = (ai_eval_breakdown_t){0};
         return false;
     }
-
-    ai_search_context_t post_progress_ctx;
-    ai_search_context_t *post_prev_ctx = NULL;
-    bool post_progress_attached = ai_progress_attach(&post_progress_ctx, &tuned, &post_prev_ctx);
-    if (post_progress_attached) {
-        post_progress_ctx.nodes = nodes_recorded;
-    }
-
-    move_t final_move = best_move;
-    bool applied_blunder = ai_try_apply_blunder(&root, &tuned, &final_move);
 
     if (applied_blunder) {
         print_made_blunder();
     }
 
-    if (!applied_blunder && tuned.random_epsilon_pct > 0u && tuned.random_top_k > 1u &&
-        ai_random_chance(tuned.random_epsilon_pct)) {
-        move_t randomized;
-        if (ai_pick_random_top_move(&root, &tuned, &best_move, &randomized)) {
-            final_move = randomized;
-        }
-    }
-
-    ai_progress_detach(post_progress_attached, post_prev_ctx);
-
-    *out_move = final_move;
+    *out_move = chosen_move;
 
     if (config->diagnostics_enabled) {
         board_t analysed;
@@ -2735,7 +1825,6 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
         s_last_breakdown = (ai_eval_breakdown_t){0};
     }
 
-    (void)best_score;
     return true;
 }
 
