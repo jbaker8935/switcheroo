@@ -201,6 +201,34 @@ uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
     return count;
 }
 
+// SOA version for better 6502 performance - uses struct of arrays layout
+uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col,
+                                  move_array_t *moves) {
+    uint8_t count = 0;
+    
+    // Check all 8 directions
+    for (uint8_t dir = 0; dir < 8 && count < 32; ++dir) {
+        int8_t new_row = (int8_t)row + kDirRow[dir];
+        int8_t new_col = (int8_t)col + kDirCol[dir];
+        
+        if (new_row >= 0 && new_row < BOARD_ROWS && new_col >= 0 && new_col < BOARD_COLS) {
+            move_type_t type;
+            if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
+                moves->from_row[count] = row;
+                moves->from_col[count] = col;
+                moves->to_row[count] = (uint8_t)new_row;
+                moves->to_col[count] = (uint8_t)new_col;
+                moves->type[count] = type;
+                moves->player[count] = board->current_player;
+                count++;
+            }
+        }
+    }
+    
+    moves->count = count;
+    return count;
+}
+
 bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_val) {
     swap_rule_t swap_rule = (swap_rule_t)swap_rule_val;
     // Validate move

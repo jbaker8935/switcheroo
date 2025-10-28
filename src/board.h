@@ -85,6 +85,89 @@ typedef struct {
 } move_t;
 
 /**
+ * Struct-of-arrays representation for efficient move storage on 6502
+ * This layout optimizes for the 6502's absolute indexed addressing mode
+ * by keeping fields of the same type contiguous in memory.
+ */
+typedef struct {
+    uint8_t from_row[32];    // Max moves per position
+    uint8_t from_col[32];
+    uint8_t to_row[32];
+    uint8_t to_col[32];
+    move_type_t type[32];
+    player_t player[32];
+    uint8_t count;           // Number of valid moves in arrays
+} move_array_t;
+
+// Accessor functions for SOA move array - optimized for 6502 absolute indexed addressing
+static inline uint8_t move_array_get_from_row(const move_array_t *moves, uint8_t index) {
+    return moves->from_row[index];
+}
+static inline uint8_t move_array_get_from_col(const move_array_t *moves, uint8_t index) {
+    return moves->from_col[index];
+}
+static inline uint8_t move_array_get_to_row(const move_array_t *moves, uint8_t index) {
+    return moves->to_row[index];
+}
+static inline uint8_t move_array_get_to_col(const move_array_t *moves, uint8_t index) {
+    return moves->to_col[index];
+}
+static inline move_type_t move_array_get_type(const move_array_t *moves, uint8_t index) {
+    return moves->type[index];
+}
+static inline player_t move_array_get_player(const move_array_t *moves, uint8_t index) {
+    return moves->player[index];
+}
+
+// Setter functions for SOA move array
+static inline void move_array_set_from_row(move_array_t *moves, uint8_t index, uint8_t value) {
+    moves->from_row[index] = value;
+}
+static inline void move_array_set_from_col(move_array_t *moves, uint8_t index, uint8_t value) {
+    moves->from_col[index] = value;
+}
+static inline void move_array_set_to_row(move_array_t *moves, uint8_t index, uint8_t value) {
+    moves->to_row[index] = value;
+}
+static inline void move_array_set_to_col(move_array_t *moves, uint8_t index, uint8_t value) {
+    moves->to_col[index] = value;
+}
+static inline void move_array_set_type(move_array_t *moves, uint8_t index, move_type_t value) {
+    moves->type[index] = value;
+}
+static inline void move_array_set_player(move_array_t *moves, uint8_t index, player_t value) {
+    moves->player[index] = value;
+}
+
+// Utility functions
+static inline uint8_t move_array_get_count(const move_array_t *moves) {
+    return moves->count;
+}
+static inline void move_array_set_count(move_array_t *moves, uint8_t count) {
+    moves->count = count;
+}
+
+// Convert SOA move to traditional struct (for compatibility)
+static inline void move_array_get_move(const move_array_t *moves, uint8_t index, move_t *out_move) {
+    out_move->from_row = moves->from_row[index];
+    out_move->from_col = moves->from_col[index];
+    out_move->to_row = moves->to_row[index];
+    out_move->to_col = moves->to_col[index];
+    out_move->type = moves->type[index];
+    out_move->player = moves->player[index];
+}
+
+// Set SOA move from traditional struct
+static inline void move_array_set_move(move_array_t *moves, uint8_t index, const move_t *move) {
+    moves->from_row[index] = move->from_row;
+    moves->from_col[index] = move->from_col;
+    moves->to_row[index] = move->to_row;
+    moves->to_col[index] = move->to_col;
+    moves->type[index] = move->type;
+    moves->player[index] = move->player;
+}
+
+/**
  * Board cell
  */
 typedef struct {
@@ -141,6 +224,10 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col, 
                                move_t *moves, uint8_t max_moves);
+
+// SOA version for better 6502 performance
+uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col,
+                                  move_array_t *moves);
 
 // Move execution
 bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);

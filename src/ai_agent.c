@@ -745,14 +745,14 @@ FAR8_ai_measure_mobility(const board_t *board, player_t player) {
     scratch.current_player = player;
 
     uint16_t mobility = 0;
-    move_t moves[8];
+    move_array_t soa_moves;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
             piece_type_t piece = board_get_piece(&scratch, row, col);
             if (board_get_piece_owner(piece) != player) {
                 continue;
             }
-            mobility += board_get_legal_moves(&scratch, row, col, moves, 8);
+            mobility += board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
         }
     }
 
@@ -806,7 +806,12 @@ __attribute__((noinline, section(".block8"))) bool FAR8_ai_immediate_win_availab
             if (board_get_piece_owner(piece) != player) {
                 continue;
             }
-            count += board_get_legal_moves(&scratch, row, col, &moves[count], (uint8_t)(AI_MAX_ORDERED_MOVES - count));
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
+            for (uint8_t i = 0; i < num_moves && count < AI_MAX_ORDERED_MOVES; ++i) {
+                move_array_get_move(&soa_moves, i, &moves[count]);
+                count++;
+            }
         }
     }
 
@@ -860,8 +865,12 @@ static bool ai_move_creates_forced_immediate_win(const board_t *board, const mov
                 continue;
             }
 
-            opponent_count += board_get_legal_moves(&opponent_state, row, col, &opponent_moves[opponent_count],
-                                                    (uint8_t)(buffer_capacity - opponent_count));
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(&opponent_state, row, col, &soa_moves);
+            for (uint8_t i = 0; i < num_moves && opponent_count < buffer_capacity; ++i) {
+                move_array_get_move(&soa_moves, i, &opponent_moves[opponent_count]);
+                opponent_count++;
+            }
         }
     }
 
@@ -931,11 +940,12 @@ static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, co
             if (board_get_piece_owner(piece) != to_move) {
                 continue;
             }
-            move_count += board_get_legal_moves(&scratch,
-                                                row,
-                                                col,
-                                                &candidate_moves[move_count],
-                                                (uint8_t)(AI_MAX_ORDERED_MOVES - move_count));
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
+            for (uint8_t i = 0; i < num_moves && move_count < AI_MAX_ORDERED_MOVES; ++i) {
+                move_array_get_move(&soa_moves, i, &candidate_moves[move_count]);
+                move_count++;
+            }
             if (move_count >= AI_MAX_ORDERED_MOVES) {
                 move_count = AI_MAX_ORDERED_MOVES;
                 break;
@@ -1038,8 +1048,10 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
                 continue;
             }
 
-            uint8_t move_count = board_get_legal_moves(&base_state, row, col, candidate_moves, buffer_capacity);
+            move_array_t soa_moves;
+            uint8_t move_count = board_get_legal_moves_soa(&base_state, row, col, &soa_moves);
             for (uint8_t move_idx = 0; move_idx < move_count; ++move_idx) {
+                move_array_get_move(&soa_moves, move_idx, &candidate_moves[move_idx]);
                 board_t after_opponent;
                 ai_board_copy(&after_opponent, &base_state);
                 if (!board_execute_move(&after_opponent, &candidate_moves[move_idx], rule)) {
@@ -1062,9 +1074,10 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
                             continue;
                         }
 
-                        uint8_t response_count =
-                            board_get_legal_moves(&after_opponent, resp_row, resp_col, response_moves, buffer_capacity);
+                        move_array_t soa_response_moves;
+                        uint8_t response_count = board_get_legal_moves_soa(&after_opponent, resp_row, resp_col, &soa_response_moves);
                         for (uint8_t resp_idx = 0; resp_idx < response_count; ++resp_idx) {
+                            move_array_get_move(&soa_response_moves, resp_idx, &response_moves[resp_idx]);
                             board_t after_ai;
                             ai_board_copy(&after_ai, &after_opponent);
                             if (!board_execute_move(&after_ai, &response_moves[resp_idx], rule)) {
@@ -1146,38 +1159,24 @@ __attribute__((noinline, section(".block9"))) uint8_t FAR9_ai_generate_moves(con
 
             bool mover_swapped = board_is_piece_swapped(moving_piece);
 
-            for (uint8_t dir = 0; dir < 8; ++dir) {
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
+
+            for (uint8_t i = 0; i < num_moves; ++i) {
                 if (count >= AI_MAX_ORDERED_MOVES) {
                     goto finalize_moves;
                 }
 
-                int8_t next_row = (int8_t)row + kAdjRow[dir];
-                int8_t next_col = (int8_t)col + kAdjCol[dir];
-                if (next_row < 0 || next_row >= BOARD_ROWS || next_col < 0 || next_col >= BOARD_COLS) {
-                    continue;
-                }
-
-                piece_type_t target_piece = scratch.cells[(uint8_t)next_row][(uint8_t)next_col].piece;
-                move_type_t move_type;
-                if (target_piece == PIECE_NONE) {
-                    move_type = MOVE_TYPE_EMPTY;
-                } else {
-                    player_t target_owner = (player_t)kPieceOwnerLUT[target_piece];
-                    if (target_owner == current || target_owner == PLAYER_NONE) {
-                        continue;
-                    }
-                    if (!kPieceIsNormalLUT[target_piece]) {
-                        continue;
-                    }
-                    move_type = MOVE_TYPE_SWAP;
-                }
+                uint8_t to_row = move_array_get_to_row(&soa_moves, i);
+                uint8_t to_col = move_array_get_to_col(&soa_moves, i);
+                move_type_t move_type = move_array_get_type(&soa_moves, i);
 
                 ai_ordered_move_t *ordered = &out_moves[count];
                 move_t *move = &ordered->move;
                 move->from_row = row;
                 move->from_col = col;
-                move->to_row = (uint8_t)next_row;
-                move->to_col = (uint8_t)next_col;
+                move->to_row = to_row;
+                move->to_col = to_col;
                 move->type = move_type;
                 move->player = current;
 

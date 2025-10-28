@@ -249,9 +249,10 @@ static bool test_immediate_win_available(const board_t *board, player_t player, 
                 continue;
             }
 
-            uint8_t count = board_get_legal_moves(&scratch, row, col, moves,
-                                                  (uint8_t)(sizeof(moves) / sizeof(moves[0])));
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
             for (uint8_t i = 0; i < count; ++i) {
+                move_array_get_move(&soa_moves, i, &moves[i]);
                 board_t test_state;
                 memcpy(&test_state, &scratch, sizeof(board_t));
                 if (!board_execute_move(&test_state, &moves[i], rule)) {
@@ -300,11 +301,12 @@ static bool test_move_creates_forced_immediate_win(const board_t *board,
                 continue;
             }
 
-            opponent_count += board_get_legal_moves(&opponent_state,
-                                                    row,
-                                                    col,
-                                                    &opponent_moves[opponent_count],
-                                                    (uint8_t)(kTestMaxMoves - opponent_count));
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(&opponent_state, row, col, &soa_moves);
+            for (uint8_t i = 0; i < num_moves && opponent_count < kTestMaxMoves; ++i) {
+                move_array_get_move(&soa_moves, i, &opponent_moves[opponent_count]);
+                opponent_count++;
+            }
         }
     }
 
@@ -346,8 +348,10 @@ static bool test_forcing_move_available(const board_t *board, player_t player, s
                 continue;
             }
 
-            uint8_t count = board_get_legal_moves(&scratch, row, col, moves, kTestMaxMoves);
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&scratch, row, col, &soa_moves);
             for (uint8_t i = 0; i < count; ++i) {
+                move_array_get_move(&soa_moves, i, &moves[i]);
                 if (test_move_creates_forced_immediate_win(&scratch, &moves[i], player, rule)) {
                     return true;
                 }
@@ -369,11 +373,12 @@ static bool select_random_move(board_t *board, move_t *out_move) {
                 continue;
             }
 
-            count += board_get_legal_moves(board,
-                                           row,
-                                           col,
-                                           &moves[count],
-                                           (uint8_t)(kTestMaxMoves - count));
+            move_array_t soa_moves;
+            uint8_t num_moves = board_get_legal_moves_soa(board, row, col, &soa_moves);
+            for (uint8_t i = 0; i < num_moves && count < kTestMaxMoves; ++i) {
+                move_array_get_move(&soa_moves, i, &moves[count]);
+                count++;
+            }
         }
     }
 
@@ -1029,8 +1034,10 @@ static void test_blunder_learning_allows_immediate_win(void) {
                 continue;
             }
 
-            uint8_t count = board_get_legal_moves(&board, row, col, move_buffer, kTestMaxMoves);
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&board, row, col, &soa_moves);
             for (uint8_t i = 0; i < count; ++i) {
+                move_array_get_move(&soa_moves, i, &move_buffer[i]);
                 board_t after_move;
                 memcpy(&after_move, &board, sizeof(board_t));
                 if (!board_execute_move(&after_move, &move_buffer[i], config.swap_rule)) {
@@ -1100,8 +1107,10 @@ static void test_blunder_standard_allows_forcing_move(void) {
                 continue;
             }
 
-            uint8_t count = board_get_legal_moves(&board, row, col, move_buffer, kTestMaxMoves);
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&board, row, col, &soa_moves);
             for (uint8_t i = 0; i < count; ++i) {
+                move_array_get_move(&soa_moves, i, &move_buffer[i]);
                 board_t after_move;
                 memcpy(&after_move, &board, sizeof(board_t));
                 if (!board_execute_move(&after_move, &move_buffer[i], config.swap_rule)) {
@@ -1183,8 +1192,10 @@ static void test_blunder_expert_ignored(void) {
                 continue;
             }
 
-            uint8_t count = board_get_legal_moves(&board, row, col, move_buffer, kTestMaxMoves);
+            move_array_t soa_moves;
+            uint8_t count = board_get_legal_moves_soa(&board, row, col, &soa_moves);
             for (uint8_t i = 0; i < count; ++i) {
+                move_array_get_move(&soa_moves, i, &move_buffer[i]);
                 board_t after_move;
                 memcpy(&after_move, &board, sizeof(board_t));
                 if (!board_execute_move(&after_move, &move_buffer[i], config.swap_rule)) {
@@ -1261,15 +1272,14 @@ static void test_high_branching_stays_responsive(void) {
     board_set_piece(&board, 5, 2, PIECE_BLACK_NORMAL);
 
     uint8_t move_count = 0;
-    move_t buffer[8];
+    move_array_t soa_buffer;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
             piece_type_t piece = board_get_piece(&board, row, col);
             if (board_get_piece_owner(piece) != PLAYER_BLACK) {
                 continue;
             }
-            move_count += board_get_legal_moves(&board, row, col, buffer,
-                                               (uint8_t)(sizeof(buffer) / sizeof(buffer[0])));
+            move_count += board_get_legal_moves_soa(&board, row, col, &soa_buffer);
         }
     }
     assert(move_count >= 12);
@@ -1941,6 +1951,67 @@ static void test_expert_forced_loss_layout2_sequence(void) {
     printf("    Final position is a WIN for White.\n");
 }
 
+// Test SOA move array functionality
+static void test_soa_move_arrays(void) {
+    printf("Testing SOA move arrays...\n");
+    
+    // Create a test board
+    board_t board;
+    board_init(&board);
+    
+    // Test traditional array-of-structs approach
+    move_t traditional_moves[8];
+    uint8_t traditional_count = board_get_legal_moves(&board, 2, 1, traditional_moves, 8);
+    
+    // Test SOA approach
+    move_array_t soa_moves;
+    uint8_t soa_count = board_get_legal_moves_soa(&board, 2, 1, &soa_moves);
+    
+    // Verify counts match
+    if (traditional_count != soa_count) {
+        printf("ERROR: Move counts don't match - traditional: %d, SOA: %d\n", traditional_count, soa_count);
+        return;
+    }
+    
+    // Verify each move matches
+    for (uint8_t i = 0; i < traditional_count; ++i) {
+        move_t soa_move;
+        move_array_get_move(&soa_moves, i, &soa_move);
+        
+        if (traditional_moves[i].from_row != soa_move.from_row ||
+            traditional_moves[i].from_col != soa_move.from_col ||
+            traditional_moves[i].to_row != soa_move.to_row ||
+            traditional_moves[i].to_col != soa_move.to_col ||
+            traditional_moves[i].type != soa_move.type ||
+            traditional_moves[i].player != soa_move.player) {
+            printf("ERROR: Move %d doesn't match\n", i);
+            printf("  Traditional: (%d,%d)->(%d,%d) type=%d player=%d\n",
+                   traditional_moves[i].from_row, traditional_moves[i].from_col,
+                   traditional_moves[i].to_row, traditional_moves[i].to_col,
+                   traditional_moves[i].type, traditional_moves[i].player);
+            printf("  SOA: (%d,%d)->(%d,%d) type=%d player=%d\n",
+                   soa_move.from_row, soa_move.from_col,
+                   soa_move.to_row, soa_move.to_col,
+                   soa_move.type, soa_move.player);
+            return;
+        }
+    }
+    
+    // Test individual field access
+    if (traditional_count > 0) {
+        uint8_t first_to_row_traditional = traditional_moves[0].to_row;
+        uint8_t first_to_row_soa = move_array_get_to_row(&soa_moves, 0);
+        
+        if (first_to_row_traditional != first_to_row_soa) {
+            printf("ERROR: Field access doesn't match - traditional: %d, SOA: %d\n", 
+                   first_to_row_traditional, first_to_row_soa);
+            return;
+        }
+    }
+    
+    printf("SOA move arrays test passed - generated %d moves\n", traditional_count);
+}
+
 int main(void) {
     puts("Running Switcharoo AI agent tests...");
     test_evaluation_symmetry();
@@ -1955,6 +2026,7 @@ int main(void) {
     test_high_branching_stays_responsive();
     test_self_play_aggressive_advancement();
     test_head_to_head_outcomes();
+    test_soa_move_arrays();
    
     // test_extended_self_play_tuning();  // COMMENTED OUT: Long-running test not needed for this investigation
     // test_weight_tuning_poc();

@@ -286,9 +286,11 @@ void game_state_select_piece(game_state_t *state, uint8_t row, uint8_t col)
     }
 
     // Get legal moves first
-    uint8_t legal_move_count = board_get_legal_moves(
-        &state->board, row, col,
-        state->selection.legal_moves, 8);
+    move_array_t soa_moves;
+    uint8_t legal_move_count = board_get_legal_moves_soa(&state->board, row, col, &soa_moves);
+    for (uint8_t i = 0; i < legal_move_count; ++i) {
+        move_array_get_move(&soa_moves, i, &state->selection.legal_moves[i]);
+    }
 
     // Only select if there are legal moves
     if (legal_move_count == 0)
