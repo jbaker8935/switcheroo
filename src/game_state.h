@@ -8,7 +8,11 @@
 #ifndef GAME_STATE_H
 #define GAME_STATE_H
 
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
 #include "platform_f256.h"
+#endif
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include "../src/ui_progress.h"

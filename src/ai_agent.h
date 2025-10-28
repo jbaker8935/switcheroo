@@ -54,23 +54,10 @@ typedef struct {
 } ai_eval_breakdown_t;
 
 typedef struct {
-    uint8_t base_depth;
-    uint8_t max_depth;
-    uint8_t max_extension;
-    uint32_t node_limit;
-    uint16_t time_limit_ms;
-    bool use_iterative_deepening;
-    bool use_transposition;
-    bool use_move_ordering;
-    bool use_killer_moves;
-} ai_search_settings_t;
-
-typedef struct {
     swap_rule_t swap_rule;
     ai_difficulty_t difficulty;
     player_t ai_player;
     ai_eval_weights_t weights;
-    ai_search_settings_t search;
     bool diagnostics_enabled;
     bool enable_forcing_check;
     bool use_hint_profile;

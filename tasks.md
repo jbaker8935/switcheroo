@@ -30,7 +30,7 @@ backlog.
 | T5 | Game State Orchestration | Manage phases, menu actions, turn switching, and HUD updates. | `game_state.c`, menu activation API. | T2, T3, T4 | Done |
 | T6 | Rendering & HUD | Project board state to sprites, highlight wins, and print HUD text. | `render.c`, `text_display.c`, palette reset helpers. | T2, T4, T5 | Done |
 | T7 | Puzzle Streaming | Stream binary catalog from far memory, apply puzzles, and show diagnostics. | `puzzle_data.c`, catalog embed, text feedback. | T2, T4, T5 | Done |
-| T8 | AI Search Engine | Provide adaptive-depth negamax with heuristic evaluation and diagnostics. | `ai_agent.c`, host regression harness. | T4, T5 | Done |
+| T8 | AI Heuristic Engine | Provide immediate-win aware heuristic ranking with forced-win checks, top-k tuning, and diagnostics. | `ai_agent.c`, host regression harness. | T4, T5 | Done |
 | T9 | Diagnostics & Host Harnesses | Maintain hint traces, AI breakdown reporting, and desktop test shims. | `tests/ai_agent_tests.c`, `tests/hint_trace_host.c`, docs. | T8 | Done |
 | T10 | Menu & UX Polish | Implement disabled-icon visuals, hover feedback, and puzzle-aware enables. | Updated sprites, `game_state_update_menu_enables`. | T5, T6 | Not Started |
 | T11 | Audio Layer | Add cue playback, volume/mute controls, and align input bindings. | Audio driver module, assets, HUD indicators. | T1, T5 | Not Started |
@@ -38,16 +38,17 @@ backlog.
 | T13 | Error Handling Hardening | Centralise error reporting and graceful recovery beyond HUD text. | Error manager, recovery flows, tests. | T5, T7 | Not Started |
 | T14 | Documentation Sync | Keep `requirements.md`, `design.md`, and `tasks.md` aligned with code. | Updated docs, traceability notes. | T1-T9, T16 | In Progress |
 | T15 | Release QA & Packaging | Run regression suite, hardware smoke tests, and finalise build artefacts. | Test logs, release notes, packaged `.pgz`. | T1-T14 | Not Started |
-| T16 | AI Progress Callback | Implement callback mechanism for UI progress updates during AI move search. | Updated `ai_agent.h/.c`, `ui_progress.c/.h`, callback wiring. | T8 | Done |
-| T17 | AI Progress Responsiveness | Boost callback cadence by wiring frequent win-detection helpers into the throttled progress emitter. | Updated `ai_agent.c` helper hook, profiling validation notes. | T16 | Done |
+| T16 | AI Progress Callback | Legacy callback for deep search updates; retained only for backward compatibility after heuristic simplification. | `ai_agent.h/.c`, `ui_progress.c/.h` legacy wiring. | T8 | Superseded |
+| T17 | AI Progress Responsiveness | Legacy optimisation of progress callbacks; behaviour now superseded by the non-search heuristic engine. | Historical notes, profiling logs. | T16 | Superseded |
 | T18 | AI Move Generation Optimisation | Inline adjacency walk with ownership LUT to reduce per-move helper calls during search. | `ai_agent.c` direct generator, host/target profiling notes. | T8 | Done |
 | T19 | AI Difficulty Experiment Harness | Build a host-side executable to compare Easy vs Expert matchups on kStartingLayout2, including epsilon-random Expert baselines and summary reporting. | `tests/ai_difficulty_experiments.c`, reproducible output samples. | T8, T18 | Done |
 | T20 | AI Inevitability Shortcut | Detect forced-loss states and fall back to the shallow selector when all replies concede an immediate opponent win. | `ai_agent.c` inevitability helper, host regression assertion. | T8, T18 | Done |
-| T21 | AI Blunder Behaviour | Enable difficulty-specific blunders with configurable probability, allowing immediate-win or forcing-line mistakes per difficulty rules. | `ai_agent.c` blunder helper, config API, host regression coverage. | T8, T18, T20 | In Progress |
+| T21 | AI Blunder Behaviour | Enable difficulty-specific blunders with configurable probability, allowing immediate-win or forcing-line mistakes per difficulty rules. | `ai_agent.c` blunder helper, config API, host regression coverage. | T8, T18, T20 | Done |
 | T22 | Expert Forced-Loss Regression | Add host regression to confirm the Expert AI avoids `kStartingLayout2` sequences that hand White a forced win and captures documentation updates. | `tests/ai_agent_tests.c`, requirements/design sync. | T8, T9, T20 | Done |
 | T23 | Forced Immediate Win Diagnostics | Expose host helper and expand regression logging to enumerate forced-win detection across legal moves. | `src/ai_agent.c`, `tests/ai_agent_tests.c` | T8, T9, T22 | Done |
 | T24 | Immediate Loss Guard | Penalise or discard AI moves that allow the opponent an immediate win and document the behaviour. | `src/ai_agent.c`, docs | T8, T20, T22 | Done |
 | T25 | AI Immediate-Win Prescan | Short-circuit deep search by checking all legal moves for immediate wins at the root. | `src/ai_agent.c`, requirements/design/tasks sync. | T8, T18, T20 | Done |
+| T26 | AI Search Simplification | Replace the negamax pipeline with heuristic-only move selection per `ai_agent_simplification.md`. | `ai_agent.c`, requirements/design/tasks updates, host regressions. | T8, T21 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

@@ -65,15 +65,6 @@ in a dedicated discrepancies section.
   least 30 frames, evaluate victory, switch to the opposing player, and restore
   `GAME_PHASE_PLAYING`; if no move is found, the system prints "AI HAS NO
   MOVES" and toggles turn.
-- WHEN the AI is performing move search, THE SYSTEM SHALL periodically invoke
-  a registered progress callback with current search depth and node count to
-  enable UI progress updates.
-- WHILE the AI evaluates immediate-win opportunities during an active search,
-  THE SYSTEM SHALL reuse the current search context to emit throttled
-  progress callbacks so interface animations remain responsive.
-- WHEN the AI search progress callback is invoked, THE SYSTEM SHALL refresh the
-  "AI Agent Thinking" text with a cycling dot indicator so players see active
-  progress.
 - WHEN the Exit icon is activated, THE SYSTEM SHALL set phase to
   `GAME_PHASE_EXIT` so `main.c` can drive the Foenix soft reset sequence.
 
@@ -151,72 +142,52 @@ in a dedicated discrepancies section.
 
 ### Artificial Intelligence
 - WHEN the AI takes its turn, THE SYSTEM SHALL copy the root board into a
-  scratch buffer, compute goal-row pressure via `ai_goal_row_pressure`, and
-  derive dynamic depth and node caps using `ai_select_dynamic_depth` and
-  `ai_select_node_cap`.
-- IF every legal reply still allows the opponent an immediate win on their
-  next turn, THEN THE SYSTEM SHALL bypass deep search and select a move using
-  the shallow heuristic pathway to minimise unnecessary computation.
-- WHERE blunder mode is configured, THE SYSTEM SHALL store a percentage
-  probability that is evaluated once per AI turn.
-- WHEN Expert difficulty evaluates a candidate move from `kStartingLayout2`
-  and deep search reveals that move allows Player White to force a win within
-  the configured search horizon, THE SYSTEM SHALL treat the candidate as
-  losing and prefer an alternate move that preserves parity or advantage.
-- WHEN the AI considers a candidate move that allows the opponent an
-  immediate win on their next turn, THE SYSTEM SHALL deprioritise or discard
-  the move unless every legal reply shares the same outcome.
-- WHEN host diagnostics analyse an Expert sequence for forced losses, THE
-  SYSTEM SHALL expose a host-test helper that reports whether a legal move
-  creates a forced immediate win so regressions can inspect every option.
-- WHEN blunder mode is enabled for Learning or Easy difficulty and the
-  blunder probability triggers, THE SYSTEM SHALL choose a legal move that
-  allows the opponent to win on their following turn.
-- WHEN blunder mode is enabled for Standard difficulty and the blunder
-  probability triggers, THE SYSTEM SHALL choose a legal move that allows the
-  opponent to establish a forcing move on their following turn.
-- WHEN Expert difficulty is active, THE SYSTEM SHALL ignore blunder
-  configuration and select moves using the normal search pipeline.
-- WHEN blunder mode is disabled or the probability check does not trigger,
-  THE SYSTEM SHALL select moves using the normal heuristics/search pipeline.
-- WHEN dynamic depth resolves to zero, THE SYSTEM SHALL choose a move via
-  `ai_select_move_heuristic`, recording node counts when requested.
-- WHEN the AI starts a turn with available legal moves, THE SYSTEM SHALL
-  evaluate each candidate for an immediate win before invoking heuristic or
-  deep search so that forced victories resolve without full search.
-- WHEN dynamic depth is positive, THE SYSTEM SHALL run `ai_negamax` with
-  alpha-beta pruning, optional iterative deepening, and transposition caching
-  gated by pressure, halting when `node_limit` or timer thresholds request
-  abort.
-- WHEN a move is evaluated, THE SYSTEM SHALL record killer moves and prefer
-  immediate wins, blocks, swap-preserving options, and forcing moves inside
-  `ai_generate_moves` and `ai_select_move_heuristic`.
+  scratch buffer, align the current player, and evaluate moves from that
+  snapshot.
+- WHEN the AI evaluates a turn, THE SYSTEM SHALL score every legal move using
+  the heuristic evaluator and annotate each candidate with immediate-win,
+  opponent-win-next, and forced-win flags.
+- IF a candidate yields an immediate win for the AI, THEN THE SYSTEM SHALL
+  select that move and end evaluation.
+- WHEN a candidate allows an opponent immediate win on their next turn, THE
+  SYSTEM SHALL discard the candidate unless the configured blunder rules
+  select it.
+- WHEN difficulty is STANDARD or EXPERT, THE SYSTEM SHALL also discard moves
+  that let the opponent create a forced win; STANDARD may still pick such a
+  move through blunder selection.
+- WHEN difficulty is LEARNING or EASY, THE SYSTEM SHALL skip forced-win
+  detection to keep evaluation lightweight.
+- WHERE blunder mode is enabled and its chance roll succeeds, THE SYSTEM SHALL
+  pick a move that concedes an opponent immediate win (Learning/Easy) or an
+  opponent forcing sequence (Standard).
+- WHEN difficulty is EXPERT, THE SYSTEM SHALL disable all blunder behaviour.
+- WHEN randomisation is enabled for the current difficulty, THE SYSTEM SHALL
+  choose uniformly among the top-k evaluated moves whenever the epsilon roll
+  succeeds; EXPERT difficulty keeps top-k at one so no randomisation occurs.
+- WHEN the candidate filter rejects every move, THE SYSTEM SHALL fall back to
+  a uniformly random legal move to guarantee progress.
 - WHEN `diagnostics_enabled` is true, THE SYSTEM SHALL call
   `ai_print_diagnostics` with node and tick counts and compute an evaluation
   breakdown for the chosen move via `ai_agent_evaluate_internal`.
 - WHEN `ai_agent_hint_trace_enable` is true, THE SYSTEM SHALL capture up to
-  sixty-four evaluation records per search and expose them through
+  sixty-four evaluation records per turn and expose them through
   `ai_agent_hint_trace_get` for host tooling.
+- WHEN host diagnostics analyse a position, THE SYSTEM SHALL expose helpers
+  that report whether a legal move creates or concedes immediate or forced
+  wins so regressions can inspect tactical coverage.
+- WHEN the HINT system runs, THE SYSTEM SHALL reuse the same heuristic
+  pipeline from the perspective of the requesting player while disabling
+  randomisation and blunder effects.
 - WHEN the AI difficulty experiment harness runs, THE SYSTEM SHALL initialise
-  kStartingLayout2 for each game, alternate Easy and Expert colours on
+  `kStartingLayout2` for each game, alternate Easy and Expert colours on
   successive trials, and report wins, losses, draws, and average half-moves
   per difficulty.
-- WHEN the experiment harness is configured with an epsilon-random Expert
-  opponent, THE SYSTEM SHALL inject the requested random-move percentage into
-  that opponent's turn selection while keeping the deterministic competitor
-  behaviour unchanged.
 - WHEN the experiment harness starts, THE SYSTEM SHALL seed its deterministic
   pseudo-random generator from the provided seed value so identical
   configurations yield reproducible summaries.
-- WHEN the AI difficulty is Learning or Easy, THE SYSTEM SHALL evaluate the
-  top-ranked legal moves and, with a configured probability, select from the
-  highest-ranking subset instead of always choosing the single best move.
-- WHEN the AI difficulty is Standard, THE SYSTEM SHALL apply a low-probability
-  random choice among the top-ranked legal moves to introduce rare but
-  plausible deviations.
-- WHEN the AI difficulty is Expert, THE SYSTEM SHALL always select the
-  highest-ranked legal move as determined by the search without applying any
-  randomisation.
+- WHEN the experiment harness configures epsilon-random competitors, THE
+  SYSTEM SHALL apply the requested random-move percentage while keeping the
+  opposing profile deterministic.
 
 ### Diagnostics and Messaging
 - WHEN the player attempts to toggle the swap rule in puzzle mode or after
@@ -233,9 +204,9 @@ in a dedicated discrepancies section.
 ## Non-Functional Requirements
 - THE SYSTEM SHALL wait for the raster to reach the VBLANK window before
   calling `render_update` to avoid tearing on VICKY hardware.
-- THE SYSTEM SHALL run AI search and evaluation code from far-memory overlays,
-  swapping MMU bank `0x000D` to block 8 or 9 as required and restoring the
-  previous mapping afterwards.
+- THE SYSTEM SHALL run AI evaluation code from far-memory overlays, swapping
+  MMU bank `0x000D` to block 8 or 9 as required and restoring the previous
+  mapping afterwards.
 - THE SYSTEM SHALL stream puzzle catalog bytes directly from `0x30000` without
   allocating additional buffers beyond the static caches to stay within the
   low-memory budget.
@@ -274,6 +245,6 @@ in a dedicated discrepancies section.
 | Board setup and swap rules | `src/board.c`, `src/game_state.c` | Move validation, history, swap clearing |
 | Turn and menu flow | `src/game_state.c`, `src/input_handler.c` | Phase control and icon actions |
 | Rendering and HUD | `src/render.c`, `src/text_display.c`, `src/video.c` | Sprites, highlights, text output |
-| AI engine and hints | `src/ai_agent.c`, `tests/ai_agent_tests.c` | Negamax search, hint tracing, host harness |
+| AI engine and hints | `src/ai_agent.c`, `tests/ai_agent_tests.c` | Heuristic move ranking, forced-win checks, hint tracing |
 | Puzzle streaming | `src/puzzle_data.c`, `assets/generated` | Far-memory catalog access |
 | System integration | `src/main.c`, `src/system.c` | Main loop, Foenix reset sequence |

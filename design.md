@@ -32,7 +32,7 @@ future work can extend the code base confidently.
 | Application Shell | Process startup, event pump, shutdown/reset | `src/main.c`, `src/system.c` |
 | Game State Orchestration | Phase control, menu toggles, puzzle transitions | `src/game_state.c`, `src/game_state.h` |
 | Board and Rules | Board representation, move validation, swap rules, win checks | `src/board.c`, `src/board.h` |
-| Artificial Intelligence | Move search, difficulty tuning, diagnostics | `src/ai_agent.c`, `src/ai_agent.h` |
+| Artificial Intelligence | Heuristic move selection, difficulty tuning, diagnostics | `src/ai_agent.c`, `src/ai_agent.h` |
 | Presentation | Sprite updates, board highlights, text HUD | `src/render.c`, `src/video.c`, `src/text_display.c` |
 | Input | Mouse/keyboard event translation, focus management | `src/input.c`, `src/input_handler.c`, `src/mouse_pointer.c` |
 | Puzzle Services | High-memory streaming, solve tracking, diagnostics | `src/puzzle_data.c`, `src/puzzle_data.h` |
@@ -117,12 +117,12 @@ future work can extend the code base confidently.
   rules and AI configuration with the puzzle metadata.
 
 ### Artificial Intelligence (`ai_agent.c/.h`)
-- Provides deterministic negamax search with adaptive depth and node caps based
-  on board pressure and move volume.
-- Performs a root-level sweep for immediate-winning moves before computing
-  adaptive depth, bypassing deeper search when a forced victory is available.
-- Implements feature-based evaluation (goal-row progress, swap pressure,
-  blocking coverage, mobility) and direct win/forcing threat detection.
+- Provides deterministic heuristic move ranking that evaluates goal-row
+  progress, swap pressure, blocking coverage, and mobility while tracking
+  immediate and forced-win signals.
+- Filters candidate moves so immediate wins for the opponent are rejected and,
+  on Standard and Expert, forced-win concessions are avoided unless the
+  difficulty's blunder rule selects them.
 - Supports Standard host regressions through `AI_AGENT_HOST_TEST`, bypassing
   MMU swaps while preserving move ordering.
 - Generates candidate moves via a single adjacency scan with LUT-backed ownership
@@ -130,21 +130,12 @@ future work can extend the code base confidently.
   execution efficiency.
 - Captures optional move diagnostics and hint traces to aid tuning and exposes
   host-callable getters for debugging.
-- Allows registration of progress callbacks during iterative deepening search
-  to enable real-time UI updates with depth and node count information.
-- Maintains an active search context so high-frequency helpers such as
-  `ai_immediate_win_available` can emit throttled progress callbacks, keeping
-  the HUD "thinking" indicator and mouse polling lively during deep searches.
-- Coordinates with `ui_progress.c/.h` to animate the "AI Agent Thinking"
-  message and keep the mouse cursor responsive during search.
-- Detects shallow inevitability states by scanning the current player's legal
-  replies; when every option concedes an opponent immediate win, the engine
-  skips negamax and relies on the existing heuristic selector so losing
-  positions resolve without unnecessary deep search overhead.
+- Exposes helpers for inevitability analysis so host tests can flag positions
+  where every reply grants the opponent an immediate win.
 - Supports optional blunder behaviour controlled by configuration: Learning
   and Easy difficulties can intentionally allow an opponent immediate win,
   while Standard can allow an opponent forcing line. A per-turn percentage
-  controls whether a blunder overrides the search result, and Expert ignores
+  controls whether a blunder overrides the selected move, and Expert ignores
   the feature entirely.
 - Supports difficulty-specific randomness by sampling from the top-ranked move
   list using a seeded LCG; Learning/Easy favour larger candidate sets with
@@ -174,8 +165,8 @@ future work can extend the code base confidently.
 
 ## Data and Memory Layout
 - Core state (`board_t`, move history, selection) resides in low memory.
-- AI overlay is copied into the 0xA000 window before search; host builds bypass
-  the copy.
+- AI overlay is copied into the 0xA000 window before evaluation; host builds
+  bypass the copy.
 - Puzzle catalog stays in far memory; only the active puzzle identifier, piece
   buffer, and solution words occupy low-memory buffers.
 - Sprite attribute tables and palette registers are configured via `f256lib`
@@ -190,18 +181,17 @@ future work can extend the code base confidently.
   reset and difficulty toggles in sync with mode-specific rules.
 
 ## Testing and Tooling
-- `tests/ai_agent_tests.c` drives deterministic AI self-play to compare weight
-  profiles and exercise node limits.
-- Layout-specific regression cases in `tests/ai_agent_tests.c` now verify the
+- `tests/ai_agent_tests.c` drives deterministic AI self-play to validate
+  heuristic move ordering, blunder behaviour, and hint scoring.
+- Layout-specific regression cases in `tests/ai_agent_tests.c` verify the
   Expert profile rejects `kStartingLayout2` move sequences that hand Player
-  White a forced win by contrasting candidate evaluations against deep-search
-  best moves.
+  White a forced win by inspecting candidate annotations and final choices.
 - Host builds expose `ai_agent_move_creates_forced_immediate_win` and
   `ai_agent_move_allows_opponent_immediate_win` so regression cases can
   enumerate immediate tactical outcomes for every legal move.
 - Move generation penalises candidate moves that leave an immediate win for
-  the opponent, ensuring the heuristic selector and ordered search avoid
-  blunders surfaced in the kStartingLayout2 regression.
+  the opponent, ensuring the heuristic selector avoids the blunders surfaced
+  in the kStartingLayout2 regression.
 - `tests/example2_simple_test.c` validates AI hints against a known puzzle
   solution.
 - `tests/hint_trace_host.c` captures and inspects hint diagnostics in host

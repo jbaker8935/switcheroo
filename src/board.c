@@ -111,31 +111,6 @@ void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piec
     }
 }
 
-player_t board_get_piece_owner(piece_type_t piece) {
-    switch (piece) {
-        case PIECE_WHITE_NORMAL:
-        case PIECE_WHITE_SWAPPED:
-            return PLAYER_WHITE;
-        case PIECE_BLACK_NORMAL:
-        case PIECE_BLACK_SWAPPED:
-            return PLAYER_BLACK;
-        default:
-            return PLAYER_NONE;
-    }
-}
-
-bool board_is_piece_swapped(piece_type_t piece) {
-    return piece == PIECE_WHITE_SWAPPED || piece == PIECE_BLACK_SWAPPED;
-}
-
-bool board_is_piece_normal(piece_type_t piece) {
-    return piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL;
-}
-
-bool board_is_valid_cell(uint8_t row, uint8_t col) {
-    return row < BOARD_ROWS && col < BOARD_COLS;
-}
-
 bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
     int8_t dr = (int8_t)(r2 - r1);
     int8_t dc = (int8_t)(c2 - c1);

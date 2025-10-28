@@ -121,12 +121,21 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id);
 // Piece queries
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
-player_t board_get_piece_owner(piece_type_t piece);
-bool board_is_piece_swapped(piece_type_t piece);
-bool board_is_piece_normal(piece_type_t piece);
+static inline player_t board_get_piece_owner(piece_type_t piece) {
+    static const player_t owners[5] = { PLAYER_NONE, PLAYER_WHITE, PLAYER_WHITE, PLAYER_BLACK, PLAYER_BLACK };
+    return owners[piece];
+}
+static inline bool board_is_piece_swapped(piece_type_t piece) {
+    return piece == PIECE_WHITE_SWAPPED || piece == PIECE_BLACK_SWAPPED;
+}
+static inline bool board_is_piece_normal(piece_type_t piece) {
+    return piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL;
+}
 
 // Move validation
-bool board_is_valid_cell(uint8_t row, uint8_t col);
+static inline bool board_is_valid_cell(uint8_t row, uint8_t col) {
+    return row < BOARD_ROWS && col < BOARD_COLS;
+}
 bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
 bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col, 
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type);

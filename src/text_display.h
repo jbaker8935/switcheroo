@@ -1,4 +1,8 @@
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
 #include "../src/platform_f256.h"
+#endif
 #include "../src/game_state.h"
 
 
