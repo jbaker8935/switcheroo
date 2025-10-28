@@ -184,6 +184,7 @@ typedef struct {
     move_t history[MAX_MOVE_HISTORY];
     uint8_t history_count;
     uint8_t layout_id; // current starting layout id
+    uint8_t swapped_count;  // Track number of swapped pieces for performance optimization
 } board_t;
 
 /**

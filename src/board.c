@@ -16,17 +16,34 @@ extern bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
 extern bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
                            uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 
+// Internal versions that skip bounds checking for performance
+static inline piece_type_t board_get_piece_unchecked(const board_t *board, uint8_t row, uint8_t col) {
+    return board->cells[row][col].piece;
+}
+
+static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
+    piece_type_t old_piece = board->cells[row][col].piece;
+    board->cells[row][col].piece = piece;
+    
+    // Update swapped piece count
+    if (board_is_piece_swapped(old_piece) && !board_is_piece_swapped(piece)) {
+        board->swapped_count--;
+    } else if (!board_is_piece_swapped(old_piece) && board_is_piece_swapped(piece)) {
+        board->swapped_count++;
+    }
+}
+
 // Non-inline definitions for extern inline functions
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
     if (!board_is_valid_cell(row, col)) {
         return PIECE_NONE;
     }
-    return board->cells[row][col].piece;
+    return board_get_piece_unchecked(board, row, col);
 }
 
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
     if (board_is_valid_cell(row, col)) {
-        board->cells[row][col].piece = piece;
+        board_set_piece_unchecked(board, row, col, piece);
     }
 }
 
@@ -44,6 +61,52 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
     if (!board_is_valid_cell(from_row, from_col) || !board_is_valid_cell(to_row, to_col)) {
         return false;
     }
+    
+    // Check adjacency
+    if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
+        return false;
+    }
+    
+    // Get pieces
+    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
+    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
+    
+    // Check that source has a piece belonging to current player
+    if (board_get_piece_owner(from_piece) != board->current_player) {
+        return false;
+    }
+    
+    // Check that target cell does not contain current player's piece
+    if (to_piece != PIECE_NONE) {
+        player_t to_owner = board_get_piece_owner(to_piece);
+        if (to_owner == board->current_player) {
+            return false;  // Cannot move to cell occupied by own piece
+        }
+    }
+    
+    // Empty cell move
+    if (to_piece == PIECE_NONE) {
+        if (out_type) *out_type = MOVE_TYPE_EMPTY;
+        return true;
+    }
+    
+    // Swap move - target must be opponent's NORMAL piece
+    player_t to_owner = board_get_piece_owner(to_piece);
+    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
+        if (out_type) *out_type = MOVE_TYPE_SWAP;
+        return true;
+    }
+    
+    // If we reach here, the target is an opponent's piece but NOT normal (i.e., swapped)
+    // This should not be a valid move
+    return false;
+}
+
+// Unchecked version of board_can_move - assumes all cells are valid
+// Used in performance-critical loops where bounds are already verified
+bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t from_col,
+                              uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
+    // Skip cell validation - caller guarantees validity
     
     // Check adjacency
     if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
@@ -146,6 +209,7 @@ void board_reset(board_t *board) {
     board->current_player = PLAYER_WHITE;
     board->move_count = 0;
     board->history_count = 0;
+    board->swapped_count = 0;  // No swapped pieces in starting layout
 }
 
 void board_set_starting_layout(board_t *board, uint8_t layout_id) {
@@ -213,7 +277,7 @@ uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col
         
         if (new_row >= 0 && new_row < BOARD_ROWS && new_col >= 0 && new_col < BOARD_COLS) {
             move_type_t type;
-            if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
+            if (board_can_move_unchecked(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
                 moves->from_row[count] = row;
                 moves->from_col[count] = col;
                 moves->to_row[count] = (uint8_t)new_row;
@@ -235,16 +299,11 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
     move_type_t type;
     if (!board_can_move(board, move->from_row, move->from_col,
                         move->to_row, move->to_col, &type)) {
-        // ERROR: Invalid move attempted! Optional diagnostics are disabled in release builds.
-        extern void textGotoXY(uint8_t x, uint8_t y);
-        textGotoXY(0, 7);
         return false;
     }
     
     // Verify move type matches
     if (type != move->type) {
-        extern void textGotoXY(uint8_t x, uint8_t y);
-        textGotoXY(0, 7);
         return false;
     }
     
@@ -269,26 +328,33 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
         switch (swap_rule) {
             case SWAP_RULE_CLASSIC:
                 // Classic: clear all swapped pieces on an empty move
-                board_clear_all_swapped(board);
+                if (board->swapped_count > 0) {
+                    board_clear_all_swapped(board);
+                }
                 break;
             case SWAP_RULE_CLEARS_OWN:
                 // Clear only the moving player's swapped pieces
                 {
                     player_t mover = board_get_piece_owner(from_piece);
                     if (mover == PLAYER_WHITE) {
-                        // Clear white swapped pieces
-                        for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                if (board_get_piece(board, r, c) == PIECE_WHITE_SWAPPED) {
-                                    board_set_piece(board, r, c, PIECE_WHITE_NORMAL);
+                        // Clear white swapped pieces - only scan if any swapped pieces exist
+                        if (board->swapped_count > 0) {
+                            for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                                    if (board_get_piece_unchecked(board, r, c) == PIECE_WHITE_SWAPPED) {
+                                        board_set_piece_unchecked(board, r, c, PIECE_WHITE_NORMAL);
+                                    }
                                 }
                             }
                         }
                     } else if (mover == PLAYER_BLACK) {
-                        for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                if (board_get_piece(board, r, c) == PIECE_BLACK_SWAPPED) {
-                                    board_set_piece(board, r, c, PIECE_BLACK_NORMAL);
+                        // Clear black swapped pieces - only scan if any swapped pieces exist
+                        if (board->swapped_count > 0) {
+                            for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                                    if (board_get_piece_unchecked(board, r, c) == PIECE_BLACK_SWAPPED) {
+                                        board_set_piece_unchecked(board, r, c, PIECE_BLACK_NORMAL);
+                                    }
                                 }
                             }
                         }
@@ -306,18 +372,24 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
                 if (board_is_piece_swapped(from_piece)) {
                     player_t mover = board_get_piece_owner(from_piece);
                     if (mover == PLAYER_WHITE) {
-                        for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                if (board_get_piece(board, r, c) == PIECE_WHITE_SWAPPED) {
-                                    board_set_piece(board, r, c, PIECE_WHITE_NORMAL);
+                        // Clear white swapped pieces - only scan if any swapped pieces exist
+                        if (board->swapped_count > 0) {
+                            for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                                    if (board_get_piece_unchecked(board, r, c) == PIECE_WHITE_SWAPPED) {
+                                        board_set_piece_unchecked(board, r, c, PIECE_WHITE_NORMAL);
+                                    }
                                 }
                             }
                         }
                     } else if (mover == PLAYER_BLACK) {
-                        for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                if (board_get_piece(board, r, c) == PIECE_BLACK_SWAPPED) {
-                                    board_set_piece(board, r, c, PIECE_BLACK_NORMAL);
+                        // Clear black swapped pieces - only scan if any swapped pieces exist
+                        if (board->swapped_count > 0) {
+                            for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                                    if (board_get_piece_unchecked(board, r, c) == PIECE_BLACK_SWAPPED) {
+                                        board_set_piece_unchecked(board, r, c, PIECE_BLACK_NORMAL);
+                                    }
                                 }
                             }
                         }
@@ -359,16 +431,21 @@ void board_undo_last_move(board_t *board) {
 }
 
 void board_clear_all_swapped(board_t *board) {
+    // Early exit if no swapped pieces exist
+    if (board->swapped_count == 0) {
+        return;
+    }
+    
     bool any_cleared = false;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
 
             if (piece == PIECE_WHITE_SWAPPED) {
-                board_set_piece(board, row, col, PIECE_WHITE_NORMAL);
+                board_set_piece_unchecked(board, row, col, PIECE_WHITE_NORMAL);
                 any_cleared = true;
             } else if (piece == PIECE_BLACK_SWAPPED) {
-                board_set_piece(board, row, col, PIECE_BLACK_NORMAL);
+                board_set_piece_unchecked(board, row, col, PIECE_BLACK_NORMAL);
                 any_cleared = true;
             }
         }

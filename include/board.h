@@ -178,6 +178,11 @@ inline bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_
     // This should not be a valid move
     return false;
 }
+
+// Unchecked version of board_can_move - assumes all cells are valid
+// Used in performance-critical loops where bounds are already verified
+bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t from_col,
+                              uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
                                move_t *moves, uint8_t max_moves);// Move execution
 bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);

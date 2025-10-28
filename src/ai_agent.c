@@ -1571,6 +1571,8 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
     bool use_hint_eval = config->use_hint_profile;
     bool record_hint = use_hint_eval && s_hint_trace.enabled;
 
+    // First pass: identify immediate wins to optimize evaluation
+    bool has_immediate_wins = false;
     for (uint8_t i = 0u; i < generated && count < AI_MAX_ORDERED_MOVES; ++i) {
         board_t child;
         ai_board_copy(&child, root);
@@ -1582,6 +1584,42 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
         slot->move = ordered[i].move;
         slot->immediate_win_self = board_check_win_fast(&child, config->ai_player);
         slot->immediate_win_opponent = board_check_win_fast(&child, opponent);
+
+        if (slot->immediate_win_self) {
+            has_immediate_wins = true;
+        }
+
+        ++count;
+    }
+
+    // Second pass: evaluate moves (only immediate wins if any exist, otherwise all)
+    uint8_t eval_count = 0u;
+    for (uint8_t i = 0u; i < count; ++i) {
+        ai_evaluated_move_t *slot = &evaluated[i];
+
+        // Skip evaluation of non-immediate wins if immediate wins exist
+        if (has_immediate_wins && !slot->immediate_win_self) {
+            // Set a neutral evaluation for non-immediate wins when immediate wins exist
+            slot->evaluation = 0;
+            slot->opponent_win_next_move = false;
+            slot->opponent_forced_win = false;
+            continue;
+        }
+
+        // For hint evaluation mode with immediate wins, skip expensive evaluation
+        if (use_hint_eval && slot->immediate_win_self) {
+            // Immediate wins get maximum score without expensive evaluation
+            slot->evaluation = AI_SCORE_WIN - 1;  // Slightly less than actual win to prefer faster wins
+            slot->opponent_win_next_move = false;  // Skip expensive check
+            slot->opponent_forced_win = false;
+            continue;
+        }
+
+        board_t child;
+        ai_board_copy(&child, root);
+        if (!board_execute_move(&child, &slot->move, config->swap_rule)) {
+            continue;  // Should not happen
+        }
 
         board_switch_turn(&child);
         child.current_player = opponent;
@@ -1603,7 +1641,7 @@ static uint8_t ai_evaluate_moves(board_t *root, const ai_config_t *config, ai_ev
             ai_hint_trace_record(&s_hint_trace, components_ptr, &child, config->ai_player, 0u, 1u);
         }
 
-        ++count;
+        ++eval_count;
         if (out_nodes) {
             ++(*out_nodes);
         }

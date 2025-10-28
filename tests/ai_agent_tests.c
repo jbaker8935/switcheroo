@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <time.h>
 
 static const uint8_t kTestMaxMoves = 32;
 static const uint16_t kExtendedTuningGamesPerRule = 1000;
@@ -67,6 +69,82 @@ static bool rng_chance_percent(uint8_t percentage) {
         return true;
     }
     return rng_range(100u) < percentage;
+}
+
+static void clear_board(board_t *board) {
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            board_set_piece(board, row, col, PIECE_NONE);
+        }
+    }
+    board->history_count = 0;
+    board->move_count = 0;
+}
+
+static void setup_board(board_t *board, const char *placement) {
+    if (!board || !placement || *placement == '\0') {
+        return;
+    }
+
+    char buffer[256];
+    strncpy(buffer, placement, sizeof(buffer) - 1u);
+    buffer[sizeof(buffer) - 1u] = '\0';
+
+    char *token = strtok(buffer, ",");
+    while (token) {
+        while (*token == ' ') {
+            ++token;
+        }
+
+        size_t len = strlen(token);
+        if (len < 4u || token[2] != ':') {
+            fprintf(stderr, "Invalid token in setup string: %s\n", token);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        char column_char = (char)toupper((unsigned char)token[0]);
+        char row_char = token[1];
+        char piece_char = token[3];
+
+        if (column_char < 'A' || column_char >= ('A' + BOARD_COLS)) {
+            fprintf(stderr, "Invalid column in setup string: %c\n", column_char);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        if (row_char < '1' || row_char > '8') {
+            fprintf(stderr, "Invalid row in setup string: %c\n", row_char);
+            token = strtok(NULL, ",");
+            continue;
+        }
+
+        uint8_t col = (uint8_t)(column_char - 'A');
+        uint8_t row = (uint8_t)(row_char - '1');
+
+        piece_type_t piece = PIECE_NONE;
+        switch (piece_char) {
+            case 'W':
+                piece = PIECE_WHITE_NORMAL;
+                break;
+            case 'w':
+                piece = PIECE_WHITE_SWAPPED;
+                break;
+            case 'B':
+                piece = PIECE_BLACK_NORMAL;
+                break;
+            case 'b':
+                piece = PIECE_BLACK_SWAPPED;
+                break;
+            default:
+                fprintf(stderr, "Invalid piece type in setup string: %c\n", piece_char);
+                token = strtok(NULL, ",");
+                continue;
+        }
+
+        board_set_piece(board, row, col, piece);
+        token = strtok(NULL, ",");
+    }
 }
 
 static bool env_flag_enabled(const char *value) {
@@ -725,16 +803,6 @@ static void evaluate_refined_against_baseline(swap_rule_t rule,
     if (frontier_out) {
         *frontier_out = (frontier_white + frontier_black) / 2;
     }
-}
-
-static void clear_board(board_t *board) {
-    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            board_set_piece(board, row, col, PIECE_NONE);
-        }
-    }
-    board->history_count = 0;
-    board->move_count = 0;
 }
 
 static uint8_t notation_row_to_index(uint8_t row_number) {
@@ -2012,6 +2080,54 @@ static void test_soa_move_arrays(void) {
     printf("SOA move arrays test passed - generated %d moves\n", traditional_count);
 }
 
+// Profile hint request for the given position
+static void test_hint_profile(const char *position_str) {
+    printf("Starting hint profile test...\n");
+    printf("Profiling hint request for position: %s\n", position_str);
+    
+    board_t board;
+    board_init(&board);
+    clear_board(&board);
+    board.current_player = PLAYER_WHITE;  // Player A is White
+    
+    setup_board(&board, position_str);
+    
+    ai_config_t config;
+    ai_agent_init(&config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_EXPERT, PLAYER_WHITE);
+    config.use_hint_profile = true;  // Enable hint profiling
+    config.diagnostics_enabled = true;
+    
+    printf("Board setup complete. Current player: White\n");
+    
+    // Time the hint request
+    clock_t start_time = clock();
+    move_t hint_move;
+    bool found = ai_agent_find_best_move(&board, &config, &hint_move);
+    clock_t end_time = clock();
+    double elapsed_seconds = (double)(end_time - start_time) / CLOCKS_PER_SEC;
+    
+    if (!found) {
+        printf("ERROR: No hint move found!\n");
+        return;
+    }
+    
+    printf("Hint found in %.3f seconds\n", elapsed_seconds);
+    printf("Suggested move: %d,%d -> %d,%d (%s)\n",
+           hint_move.from_row, hint_move.from_col,
+           hint_move.to_row, hint_move.to_col,
+           hint_move.type == MOVE_TYPE_SWAP ? "swap" : "empty");
+    
+    // Check if it's an immediate win
+    board_t test_board;
+    memcpy(&test_board, &board, sizeof(board_t));
+    if (board_execute_move(&test_board, &hint_move, config.swap_rule)) {
+        bool immediate_win = board_check_win_fast(&test_board, PLAYER_WHITE);
+        printf("Immediate win after move: %s\n", immediate_win ? "YES" : "NO");
+    } else {
+        printf("ERROR: Move execution failed\n");
+    }
+}
+
 int main(void) {
     puts("Running Switcharoo AI agent tests...");
     test_evaluation_symmetry();
@@ -2027,6 +2143,7 @@ int main(void) {
     test_self_play_aggressive_advancement();
     test_head_to_head_outcomes();
     test_soa_move_arrays();
+    test_hint_profile("A1:B,B1:B,A2:W,D2:W,B3:W,C4:W,D4:W,C5:B,B6:B,C6:W,A7:W,C7:W,D7:B,A8:B,B8:B,C8:B");
    
     // test_extended_self_play_tuning();  // COMMENTED OUT: Long-running test not needed for this investigation
     // test_weight_tuning_poc();
