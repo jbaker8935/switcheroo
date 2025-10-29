@@ -17,9 +17,6 @@ extern bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_
                            uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 
 // Internal versions that skip bounds checking for performance
-static inline piece_type_t board_get_piece_unchecked(const board_t *board, uint8_t row, uint8_t col) {
-    return board->cells[row][col].piece;
-}
 
 static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
     piece_type_t old_piece = board->cells[row][col].piece;
@@ -47,13 +44,6 @@ void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piec
     }
 }
 
-bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
-    int8_t dr = (int8_t)(r2 - r1);
-    int8_t dc = (int8_t)(c2 - c1);
-    
-    // Check if within 1 step in both dimensions
-    return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
-}
 
 bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
@@ -339,23 +329,23 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
                     if (mover == PLAYER_WHITE) {
                         // Clear white swapped pieces - only scan if any swapped pieces exist
                         if (board->swapped_count > 0) {
+                            // Unroll inner loop for BOARD_COLS == 4 for performance
                             for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                    if (board_get_piece_unchecked(board, r, c) == PIECE_WHITE_SWAPPED) {
-                                        board_set_piece_unchecked(board, r, c, PIECE_WHITE_NORMAL);
-                                    }
-                                }
+                                if (board_get_piece_unchecked(board, r, 0) == PIECE_WHITE_SWAPPED) board_set_piece_unchecked(board, r, 0, PIECE_WHITE_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 1) == PIECE_WHITE_SWAPPED) board_set_piece_unchecked(board, r, 1, PIECE_WHITE_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 2) == PIECE_WHITE_SWAPPED) board_set_piece_unchecked(board, r, 2, PIECE_WHITE_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 3) == PIECE_WHITE_SWAPPED) board_set_piece_unchecked(board, r, 3, PIECE_WHITE_NORMAL);
                             }
                         }
                     } else if (mover == PLAYER_BLACK) {
                         // Clear black swapped pieces - only scan if any swapped pieces exist
                         if (board->swapped_count > 0) {
+                            // Unroll inner loop for BOARD_COLS == 4 for performance
                             for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
-                                for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                                    if (board_get_piece_unchecked(board, r, c) == PIECE_BLACK_SWAPPED) {
-                                        board_set_piece_unchecked(board, r, c, PIECE_BLACK_NORMAL);
-                                    }
-                                }
+                                if (board_get_piece_unchecked(board, r, 0) == PIECE_BLACK_SWAPPED) board_set_piece_unchecked(board, r, 0, PIECE_BLACK_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 1) == PIECE_BLACK_SWAPPED) board_set_piece_unchecked(board, r, 1, PIECE_BLACK_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 2) == PIECE_BLACK_SWAPPED) board_set_piece_unchecked(board, r, 2, PIECE_BLACK_NORMAL);
+                                if (board_get_piece_unchecked(board, r, 3) == PIECE_BLACK_SWAPPED) board_set_piece_unchecked(board, r, 3, PIECE_BLACK_NORMAL);
                             }
                         }
                     }

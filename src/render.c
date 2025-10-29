@@ -39,7 +39,7 @@ static bool s_win_path_applied = false;
 static void cache_board_snapshot(const board_t *board) {
     for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
         for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-            s_cache_board_snapshot[r][c] = (uint8_t)board_get_piece(board, r, c);
+            s_cache_board_snapshot[r][c] = (uint8_t)board_get_piece_unchecked(board, r, c);
         }
     }
 }
@@ -160,7 +160,7 @@ void render_update_pieces(const board_t *board, const win_path_t *path) {
     // Scan board and assign sprites to pieces
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
 
             bool is_light = (row + col) % 2 == 0;
             bool in_path = false;

@@ -204,6 +204,9 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id);
 
 // Piece queries
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
+static inline piece_type_t board_get_piece_unchecked(const board_t *board, uint8_t row, uint8_t col) {
+    return board->cells[row][col].piece;
+}
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
 static inline player_t board_get_piece_owner(piece_type_t piece) {
     static const player_t owners[5] = { PLAYER_NONE, PLAYER_WHITE, PLAYER_WHITE, PLAYER_BLACK, PLAYER_BLACK };
@@ -220,7 +223,12 @@ static inline bool board_is_piece_normal(piece_type_t piece) {
 static inline bool board_is_valid_cell(uint8_t row, uint8_t col) {
     return row < BOARD_ROWS && col < BOARD_COLS;
 }
-bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
+// Inline for performance: adjacency check
+static inline bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2) {
+    int8_t dr = (int8_t)(r2 - r1);
+    int8_t dc = (int8_t)(c2 - c1);
+    return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
+}
 bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col, 
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col, 

@@ -16,6 +16,6 @@ typedef struct {
 
 void ui_progress_init(ui_progress_state_t *state);
 void ui_progress_register(ai_config_t *config, ui_progress_state_t *state);
-void ui_progress_on_search_progress(uint8_t current_depth, uint32_t nodes, void *user_data);
+void ui_progress_on_search_progress(uint8_t current_depth, uint32_t nodes, void *user_data) __attribute__((nonreentrant));
 
 #endif // UI_PROGRESS_H

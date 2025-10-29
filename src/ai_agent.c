@@ -270,7 +270,7 @@ static uint32_t ai_hash_board(const board_t *board) {
     // Search for an opponent move that leaves no immediate-safe reply for the AI.
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
             if (piece != PIECE_NONE) {
                 uint8_t idx = (uint8_t)(row * BOARD_COLS + col);
                 hash ^= (uint32_t)s_zobrist_board[idx][piece];
@@ -295,7 +295,7 @@ static uint8_t ai_count_goal_rows_for_player(const board_t *board, player_t play
     for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
         bool has_piece = false;
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
             if (board_get_piece_owner(piece) == player) {
                 has_piece = true;
                 break;
@@ -313,7 +313,7 @@ static uint8_t ai_count_swapped_for_player(const board_t *board, player_t player
     piece_type_t swapped = (player == PLAYER_WHITE) ? PIECE_WHITE_SWAPPED : PIECE_BLACK_SWAPPED;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            if (board_get_piece(board, row, col) == swapped) {
+            if (board_get_piece_unchecked(board, row, col) == swapped) {
                 ++count;
             }
         }
