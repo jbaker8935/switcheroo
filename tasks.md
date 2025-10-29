@@ -49,6 +49,7 @@ backlog.
 | T24 | Immediate Loss Guard | Penalise or discard AI moves that allow the opponent an immediate win and document the behaviour. | `src/ai_agent.c`, docs | T8, T20, T22 | Done |
 | T25 | AI Immediate-Win Prescan | Short-circuit deep search by checking all legal moves for immediate wins at the root. | `src/ai_agent.c`, requirements/design/tasks sync. | T8, T18, T20 | Done |
 | T26 | AI Search Simplification | Replace the negamax pipeline with heuristic-only move selection per `ai_agent_simplification.md`. | `ai_agent.c`, requirements/design/tasks updates, host regressions. | T8, T21 | Done |
+| T27 | AI Forcing Coverage Fix | Ensure immediate- and forced-win helpers iterate all legal moves beyond the ordered buffer limit and update diagnostics. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs | T8, T23, T25 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

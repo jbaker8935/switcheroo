@@ -18,9 +18,9 @@
 #define BOARD_COLS 4
 #define BOARD_CELLS (BOARD_ROWS * BOARD_COLS)
 
-// Win condition rows (inclusive)
-#define WIN_START_ROW 2
-#define WIN_END_ROW 7
+// Win condition rows (inclusive) using 0-based indexing
+#define WIN_START_ROW 1
+#define WIN_END_ROW 6
 
 // Maximum moves in history
 #define MAX_MOVE_HISTORY 8

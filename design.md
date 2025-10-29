@@ -83,6 +83,9 @@ future work can extend the code base confidently.
   for rendering and HUD text.
 - Checks for win conditions using per-row connectivity and populates
   `win_path_t` so the renderer can highlight the victory path.
+- Seeds win detection from row index one and targets row index six (rows two
+  through seven in 1-based terms) so forced-win analysis aligns with the
+  official puzzle definitions.
 
 ### Input and Focus Management (`input.c`, `input_handler.c`, `mouse_pointer.c`)
 - Translates PS/2 mouse and keyboard events into internal `input_event_t`
@@ -128,6 +131,9 @@ future work can extend the code base confidently.
 - Generates candidate moves via a single adjacency scan with LUT-backed ownership
   checks, eliminating repeated `board_*` helper calls and improving 65C02
   execution efficiency.
+- Forced-win and immediate-win helpers iterate opponent replies directly from
+  the SOA enumerator so they inspect every legal move even when the count
+  exceeds the heuristic buffer length.
 - Captures optional move diagnostics and hint traces to aid tuning and exposes
   host-callable getters for debugging.
 - Exposes helpers for inevitability analysis so host tests can flag positions

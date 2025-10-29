@@ -35,7 +35,7 @@ typedef enum {
 #define BOARD_CELLS (BOARD_ROWS * BOARD_COLS)
 
 // Win condition rows (inclusive)
-// Note: Using 0-based indexing. Game rules say "rows 2 and 7" in 1-based numbering.
+// Using 0-based indexing. Game rules say "rows 2 and 7" in 1-based numbering.
 #define WIN_START_ROW 1
 #define WIN_END_ROW 6
 

@@ -46,6 +46,9 @@ in a dedicated discrepancies section.
 - WHEN `board_execute_move` accepts a move, THE SYSTEM SHALL shift the move
   history array so the newest entry resides at index zero and maintain at most
   `MAX_MOVE_HISTORY` entries.
+- WHEN win detection runs, THE SYSTEM SHALL treat board rows two through seven
+  (1-based numbering) as the victory span, declaring a win once a contiguous
+  chain links those rows for a single player.
 - WHEN `board_check_win` detects a continuous chain for a player, THE SYSTEM
   SHALL populate `win_path` with one cell per row and set `has_path` true so
   rendering can colour the winning path.
@@ -147,6 +150,9 @@ in a dedicated discrepancies section.
 - WHEN the AI evaluates a turn, THE SYSTEM SHALL score every legal move using
   the heuristic evaluator and annotate each candidate with immediate-win,
   opponent-win-next, and forced-win flags.
+- WHEN the AI inspects immediate wins, THE SYSTEM SHALL consider every legal
+  move for the player to move, even if the total exceeds the ordered-move
+  buffer used for heuristic ranking.
 - IF a candidate yields an immediate win for the AI, THEN THE SYSTEM SHALL
   select that move and end evaluation.
 - WHEN a candidate allows an opponent immediate win on their next turn, THE
@@ -175,6 +181,9 @@ in a dedicated discrepancies section.
 - WHEN host diagnostics analyse a position, THE SYSTEM SHALL expose helpers
   that report whether a legal move creates or concedes immediate or forced
   wins so regressions can inspect tactical coverage.
+- WHEN forced-win evaluation runs, THE SYSTEM SHALL examine every legal
+  opponent reply after a candidate move so forced sequences are detected even
+  when the move count surpasses the ordered buffer.
 - WHEN the HINT system runs, THE SYSTEM SHALL reuse the same heuristic
   pipeline from the perspective of the requesting player while disabling
   randomisation and blunder effects.

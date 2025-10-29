@@ -70,6 +70,20 @@ typedef struct {
     ai_blunder_type_t blunder_type;
 } ai_config_t;
 
+typedef struct {
+    move_t move;
+    int16_t evaluation;
+    bool immediate_win_self;
+    bool immediate_win_opponent;
+    bool opponent_win_next_move;
+    bool opponent_forced_win;
+    bool forced_win_self;
+} ai_evaluated_move_t;
+
+// Evaluate a single move and fill the ai_evaluated_move_t struct
+// This is used for debugging and testing individual moves
+void ai_evaluate_single_move(const board_t *board, const move_t *move, const ai_config_t *config, ai_evaluated_move_t *result);
+
 // Initialize AI agent
 void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, 
                    ai_difficulty_t difficulty, player_t ai_player);
@@ -107,6 +121,8 @@ bool ai_agent_move_allows_opponent_immediate_win(const board_t *board,
                                                  const move_t *move,
                                                  const ai_config_t *config,
                                                  player_t ai_player);
+bool ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule);
+bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule);
 #endif
 
 #endif // AI_AGENT_H
