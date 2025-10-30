@@ -30,6 +30,42 @@ static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_
     }
 }
 
+void board_update_winning_row_counts(board_t *board) {
+    if (!board) {
+        return;
+    }
+
+    uint8_t white_rows = 0;
+    uint8_t black_rows = 0;
+    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
+        bool white_present = false;
+        bool black_present = false;
+        board_cell_t *row_cells = board->cells[row];
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = row_cells[col].piece;
+            player_t owner = board_get_piece_owner(piece);
+            if (owner == PLAYER_WHITE) {
+                white_present = true;
+            } else if (owner == PLAYER_BLACK) {
+                black_present = true;
+            }
+            if (white_present && black_present) {
+                break;
+            }
+        }
+
+        if (white_present) {
+            ++white_rows;
+        }
+        if (black_present) {
+            ++black_rows;
+        }
+    }
+
+    board->white_winning_rows = white_rows;
+    board->black_winning_rows = black_rows;
+}
+
 // Non-inline definitions for extern inline functions
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
     if (!board_is_valid_cell(row, col)) {
@@ -40,26 +76,72 @@ piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
 
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
     if (board_is_valid_cell(row, col)) {
+        bool track_row = (row >= WIN_START_ROW && row <= WIN_END_ROW);
+        bool white_before = false;
+        bool black_before = false;
+        if (track_row) {
+            board_cell_t *row_cells = board->cells[row];
+            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                player_t owner = board_get_piece_owner(row_cells[c].piece);
+                if (owner == PLAYER_WHITE) {
+                    white_before = true;
+                } else if (owner == PLAYER_BLACK) {
+                    black_before = true;
+                }
+                if (white_before && black_before) {
+                    break;
+                }
+            }
+        }
+
         board_set_piece_unchecked(board, row, col, piece);
+
+        if (track_row) {
+            bool white_after = false;
+            bool black_after = false;
+            board_cell_t *row_cells = board->cells[row];
+            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                player_t owner = board_get_piece_owner(row_cells[c].piece);
+                if (owner == PLAYER_WHITE) {
+                    white_after = true;
+                } else if (owner == PLAYER_BLACK) {
+                    black_after = true;
+                }
+                if (white_after && black_after) {
+                    break;
+                }
+            }
+
+            if (white_before && !white_after) {
+                if (board->white_winning_rows > 0u) {
+                    board->white_winning_rows--;
+                }
+            } else if (!white_before && white_after) {
+                board->white_winning_rows++;
+            }
+
+            if (black_before && !black_after) {
+                if (board->black_winning_rows > 0u) {
+                    board->black_winning_rows--;
+                }
+            } else if (!black_before && black_after) {
+                board->black_winning_rows++;
+            }
+        }
     }
 }
 
 
 bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
-    // Validate cells
-    if (!board_is_valid_cell(from_row, from_col) || !board_is_valid_cell(to_row, to_col)) {
-        return false;
-    }
-    
     // Check adjacency
     if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
         return false;
     }
     
     // Get pieces
-    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
-    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
+    piece_type_t from_piece = board_get_piece_unchecked(board, from_row, from_col);
+    piece_type_t to_piece = board_get_piece_unchecked(board, to_row, to_col);
     
     // Check that source has a piece belonging to current player
     if (board_get_piece_owner(from_piece) != board->current_player) {
@@ -96,16 +178,14 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
 // Used in performance-critical loops where bounds are already verified
 bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t from_col,
                               uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
-    // Skip cell validation - caller guarantees validity
-    
     // Check adjacency
     if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
         return false;
     }
     
     // Get pieces
-    piece_type_t from_piece = board_get_piece(board, from_row, from_col);
-    piece_type_t to_piece = board_get_piece(board, to_row, to_col);
+    piece_type_t from_piece = board_get_piece_unchecked(board, from_row, from_col);
+    piece_type_t to_piece = board_get_piece_unchecked(board, to_row, to_col);
     
     // Check that source has a piece belonging to current player
     if (board_get_piece_owner(from_piece) != board->current_player) {
@@ -226,6 +306,8 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id) {
     board->current_player = PLAYER_WHITE;
     board->move_count = 0;
     board->history_count = 0;
+    board->swapped_count = 0;
+    board_update_winning_row_counts(board);
 }
 
 
@@ -283,7 +365,8 @@ uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col
     return count;
 }
 
-bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_val) {
+static bool board_execute_move_internal(board_t *board, const move_t *move, uint8_t swap_rule_val,
+                                        bool record_history) {
     swap_rule_t swap_rule = (swap_rule_t)swap_rule_val;
     // Validate move
     move_type_t type;
@@ -291,23 +374,25 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
                         move->to_row, move->to_col, &type)) {
         return false;
     }
-    
+
     // Verify move type matches
     if (type != move->type) {
         return false;
     }
-    
-    // Save to history: shift existing moves and place new one at index 0
-    for (int i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
-        board->history[i] = board->history[i - 1];
+
+    // Save to history when requested so live boards retain full tracking
+    if (record_history) {
+        for (int i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
+            board->history[i] = board->history[i - 1];
+        }
+        board->history[0] = *move;
+        if (board->history_count < MAX_MOVE_HISTORY) {
+            board->history_count++;
+        }
     }
-    board->history[0] = *move;
-    if (board->history_count < MAX_MOVE_HISTORY) {
-        board->history_count++;
-    }
-    
-    piece_type_t from_piece = board_get_piece(board, move->from_row, move->from_col);
-    piece_type_t to_piece = board_get_piece(board, move->to_row, move->to_col);
+
+    piece_type_t from_piece = board_get_piece_unchecked(board, move->from_row, move->from_col);
+    piece_type_t to_piece = board_get_piece_unchecked(board, move->to_row, move->to_col);
     
     if (type == MOVE_TYPE_EMPTY) {
         // Move to empty cell
@@ -407,11 +492,24 @@ bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_va
         // Some swap rules may clear swapped pieces as a result of swaps; currently no-op here
     }
     
+    board_update_winning_row_counts(board);
     board->move_count++;
-    // Ensure renderer updates immediately to reflect new piece states
-    extern void render_invalidate_cache(void);
-    render_invalidate_cache();
+
+    if (record_history) {
+        // Ensure renderer updates immediately to reflect new piece states
+        extern void render_invalidate_cache(void);
+        render_invalidate_cache();
+    }
+
     return true;
+}
+
+bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_val) {
+    return board_execute_move_internal(board, move, swap_rule_val, true);
+}
+
+bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule_val) {
+    return board_execute_move_internal(board, move, swap_rule_val, false);
 }
 
 void board_undo_last_move(board_t *board) {
@@ -453,19 +551,10 @@ bool board_check_win_fast(const board_t *board, player_t player) {
         return false;
     }
 
-    // Short-circuit: Check if player has pieces on each row between WIN_START_ROW and WIN_END_ROW
-    // If any row is missing the player's pieces, it's impossible to have a winning path
-    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
-        bool has_piece_on_row = false;
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            if (board_get_piece_owner(board_get_piece(board, row, col)) == player) {
-                has_piece_on_row = true;
-                break;
-            }
-        }
-        if (!has_piece_on_row) {
-            return false;
-        }
+    const uint8_t required_rows = (uint8_t)(WIN_END_ROW - WIN_START_ROW + 1u);
+    const uint8_t covered_rows = (player == PLAYER_WHITE) ? board->white_winning_rows : board->black_winning_rows;
+    if (covered_rows < required_rows) {
+        return false;
     }
 
     /* Optimized BFS for 6502: minimal memory usage, early termination */
@@ -481,7 +570,7 @@ bool board_check_win_fast(const board_t *board, player_t player) {
     // Seed queue with player's pieces in WIN_START_ROW
     for (uint8_t col = 0; col < BOARD_COLS; ++col) {
         uint8_t idx = (uint8_t)(WIN_START_ROW * BOARD_COLS + col);
-        piece_type_t piece = board_get_piece(board, WIN_START_ROW, col);
+        piece_type_t piece = board_get_piece_unchecked(board, WIN_START_ROW, col);
         if (board_get_piece_owner(piece) == player) {
             queue[q_back++] = idx;
             visited[idx] = 1;
@@ -513,7 +602,7 @@ bool board_check_win_fast(const board_t *board, player_t player) {
                 continue;
             }
 
-            piece_type_t neighbor_piece = board_get_piece(board, (uint8_t)next_row, (uint8_t)next_col);
+            piece_type_t neighbor_piece = board_get_piece_unchecked(board, (uint8_t)next_row, (uint8_t)next_col);
             if (board_get_piece_owner(neighbor_piece) != player) {
                 continue;
             }
@@ -537,18 +626,10 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
         return false;
     }
 
-    // Short-circuit: Check if player has pieces on each row between WIN_START_ROW and WIN_END_ROW
-    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
-        bool has_piece_on_row = false;
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            if (board_get_piece_owner(board_get_piece(board, row, col)) == player) {
-                has_piece_on_row = true;
-                break;
-            }
-        }
-        if (!has_piece_on_row) {
-            return false;
-        }
+    const uint8_t required_rows = (uint8_t)(WIN_END_ROW - WIN_START_ROW + 1u);
+    const uint8_t covered_rows = (player == PLAYER_WHITE) ? board->white_winning_rows : board->black_winning_rows;
+    if (covered_rows < required_rows) {
+        return false;
     }
 
     /* BFS traversal with path reconstruction */
@@ -566,7 +647,7 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
     // Seed queue with player's pieces in WIN_START_ROW
     for (uint8_t col = 0; col < BOARD_COLS; ++col) {
         uint8_t idx = (uint8_t)(WIN_START_ROW * BOARD_COLS + col);
-        piece_type_t piece = board_get_piece(board, WIN_START_ROW, col);
+        piece_type_t piece = board_get_piece_unchecked(board, WIN_START_ROW, col);
         if (board_get_piece_owner(piece) == player) {
             queue[q_back++] = idx;
             visited[idx] = 1;
@@ -602,7 +683,7 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
                 continue;
             }
 
-            piece_type_t neighbor_piece = board_get_piece(board, (uint8_t)next_row, (uint8_t)next_col);
+            piece_type_t neighbor_piece = board_get_piece_unchecked(board, (uint8_t)next_row, (uint8_t)next_col);
             if (board_get_piece_owner(neighbor_piece) != player) {
                 continue;
             }
@@ -656,7 +737,7 @@ bool board_has_legal_moves(const board_t *board, player_t player) {
     // Check if player has any pieces that can move
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
             if (board_get_piece_owner(piece) == player) {
                 // Check all 8 directions
                 for (uint8_t dir = 0; dir < 8; ++dir) {
@@ -685,7 +766,7 @@ uint8_t board_count_pieces(const board_t *board, player_t player) {
     uint8_t count = 0;
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
             if (board_get_piece_owner(piece) == player) {
                 count++;
             }

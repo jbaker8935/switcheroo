@@ -79,10 +79,14 @@ future work can extend the code base confidently.
 - Encapsulates the 8x4 board grid, piece states, and swap flags.
 - Implements legal-move enumeration for empty moves and swaps per rule variant
   (Classic, Clears Own, Swapped Clears, Swapped Clears Own).
-- Updates history via a fixed-size move ring buffer and exposes helper accessors
-  for rendering and HUD text.
+- Updates history via a fixed-size move ring buffer for live boards while
+  exposing `board_execute_move_without_history` so simulations skip history
+  churn.
 - Checks for win conditions using per-row connectivity and populates
   `win_path_t` so the renderer can highlight the victory path.
+- Maintains `white_winning_rows` and `black_winning_rows` counters that track
+  player occupancy across rows two through seven, enabling win checks to
+  short-circuit before launching the connectivity search.
 - Seeds win detection from row index one and targets row index six (rows two
   through seven in 1-based terms) so forced-win analysis aligns with the
   official puzzle definitions.
@@ -123,6 +127,9 @@ future work can extend the code base confidently.
 - Provides deterministic heuristic move ranking that evaluates goal-row
   progress, swap pressure, blocking coverage, and mobility while tracking
   immediate and forced-win signals.
+- Applies candidate moves on cloned boards via
+  `board_execute_move_without_history` so simulations avoid polluting move
+  history while cached counters stay in sync.
 - Filters candidate moves so immediate wins for the opponent are rejected and,
   on Standard and Expert, forced-win concessions are avoided unless the
   difficulty's blunder rule selects them.

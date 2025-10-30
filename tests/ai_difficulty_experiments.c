@@ -196,9 +196,7 @@ static void run_experiment(const experiment_config_t *config) {
 
             board_switch_turn(&board);
 
-            if (!board_has_legal_moves(&board, board.current_player)) {
-                break;
-            }
+
         }
 
         uint16_t white_advancement = compute_advancement_score(&board, PLAYER_WHITE);

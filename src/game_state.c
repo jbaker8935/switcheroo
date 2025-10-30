@@ -293,7 +293,7 @@ void game_state_start_new_game(game_state_t *state)
 void game_state_select_piece(game_state_t *state, uint8_t row, uint8_t col)
 {
     // Get piece at location
-    piece_type_t piece = board_get_piece(&state->board, row, col);
+    piece_type_t piece = board_get_piece_unchecked(&state->board, row, col);
 
     // Check if it belongs to current player
     if (board_get_piece_owner(piece) != state->board.current_player)

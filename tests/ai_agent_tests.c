@@ -510,9 +510,7 @@ static ai_self_play_metrics_t run_profiled_self_play_session(
         }
 
         board_switch_turn(&board);
-        if (!board_has_legal_moves(&board, board.current_player)) {
-            break;
-        }
+
     }
 
     metrics.white_advancement = compute_advancement_score(&board, PLAYER_WHITE);
@@ -595,9 +593,7 @@ static ai_self_play_metrics_t run_candidate_vs_random(
         }
 
         board_switch_turn(&board);
-        if (!board_has_legal_moves(&board, board.current_player)) {
-            break;
-        }
+
     }
 
     metrics.white_advancement = compute_advancement_score(&board, PLAYER_WHITE);

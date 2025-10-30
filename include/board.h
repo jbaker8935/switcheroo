@@ -186,6 +186,7 @@ bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t fr
 uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
                                move_t *moves, uint8_t max_moves);// Move execution
 bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);
+bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule);
 void board_undo_last_move(board_t *board);
 
 // Win detection
@@ -194,7 +195,7 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
 
 // Legacy function - automatically chooses optimized version
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path);
-bool board_has_legal_moves(const board_t *board, player_t player);
+
 
 // Utility
 void board_switch_turn(board_t *board);

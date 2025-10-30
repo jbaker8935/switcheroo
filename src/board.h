@@ -185,6 +185,8 @@ typedef struct {
     uint8_t history_count;
     uint8_t layout_id; // current starting layout id
     uint8_t swapped_count;  // Track number of swapped pieces for performance optimization
+    uint8_t white_winning_rows;  // Rows 2-7 (1-based) occupied by white pieces
+    uint8_t black_winning_rows;  // Rows 2-7 (1-based) occupied by black pieces
 } board_t;
 
 /**
@@ -240,17 +242,19 @@ uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col
 
 // Move execution
 bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);
+bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule);
 void board_undo_last_move(board_t *board);
 
 // Win detection
 bool board_check_win_fast(const board_t *board, player_t player);
 bool board_check_win_with_path(const board_t *board, player_t player, win_path_t *out_path);
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path);
-bool board_has_legal_moves(const board_t *board, player_t player);
+
 
 // Utility
 void board_switch_turn(board_t *board);
 uint8_t board_count_pieces(const board_t *board, player_t player);
 void board_clear_all_swapped(board_t *board);
+void board_update_winning_row_counts(board_t *board);
 
 #endif // GAME_BOARD_H
