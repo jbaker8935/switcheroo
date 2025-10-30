@@ -739,8 +739,16 @@ static int16_t ai_clamp_score(int32_t value) {
 bool ai_immediate_win_available(const board_t *board,
                                                                                    player_t player, swap_rule_t rule) {
     board_t scratch;
+
+    // Guard: if player doesn't have at least 5 pieces in winning rows, cannot have immediate win
+    if ((player == PLAYER_WHITE && board->white_winning_rows < 5) ||
+        (player == PLAYER_BLACK && board->black_winning_rows < 5)) {
+        return false;
+    }
+
     ai_board_copy(&scratch, board);
     scratch.current_player = player;
+
 
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -971,7 +979,13 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
     board_t scratch;
     ai_board_copy(&scratch, board);
 
-    bool last_move_by_player = (scratch.history_count > 0u && scratch.history[0].player == player);
+    // Guard: if player doesn't have at least 5 pieces in winning rows, cannot have forcing move
+    if ((player == PLAYER_WHITE && scratch.white_winning_rows < 5) ||
+        (player == PLAYER_BLACK && scratch.black_winning_rows < 5)) {
+        return false;
+    }
+
+    bool last_move_by_player = (scratch.last_moving_player == player);
 
     // If the most recent move was made by the player under consideration, we are looking at
     // the state immediately after their move. The opponent now moves first, so ensure every
@@ -981,7 +995,7 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
         ai_board_copy(&opponent_state, &scratch);
         opponent_state.current_player = opponent;
 
-    move_array_t response_moves;
+        move_array_t response_moves;
 
         for (uint8_t resp_row = 0; resp_row < BOARD_ROWS; ++resp_row) {
             for (uint8_t resp_col = 0; resp_col < BOARD_COLS; ++resp_col) {
@@ -1158,14 +1172,14 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     score += 120;
                 }
 
-                if (forcing_check &&
+                bool allows_opponent_win = (config->ai_player == current &&
+                    ai_move_allows_opponent_immediate_win(board, &move, config, config->ai_player));
+
+                if (allows_opponent_win) {
+                    score -= 12000;
+                } else if (forcing_check &&
                     ai_move_creates_forced_immediate_win(board, &move, config, config->ai_player)) {
                     score += 8000;
-                }
-
-                if (config->ai_player == current &&
-                    ai_move_allows_opponent_immediate_win(board, &move, config, config->ai_player)) {
-                    score -= 12000;
                 }
 
                 uint8_t slot_index = 0xFFu;  // Invalid index
@@ -1342,8 +1356,6 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
 
     return ai_clamp_score(total);
 }
-
-bool FAR10_ai_agent_find_best_move_impl(const board_t *board, const ai_config_t *config, move_t *out_move);
 
 void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player);
 
@@ -1825,23 +1837,6 @@ __attribute__((noinline, section(".block10"))) static bool FAR10_ai_choose_move_
         return true;
     }
 
-    if (blunder_enabled && blunder_count > 0u && ai_random_chance(config->blunder_chance_pct)) {
-        uint8_t choice = (uint8_t)ai_random_range(blunder_count);
-        uint8_t blunder_idx = blunder_indices[choice];
-        *out_move = (move_t){
-            .from_row = evaluated->moves.from_rows[blunder_idx],
-            .from_col = evaluated->moves.from_cols[blunder_idx],
-            .to_row = evaluated->moves.to_rows[blunder_idx],
-            .to_col = evaluated->moves.to_cols[blunder_idx],
-            .type = evaluated->moves.types[blunder_idx],
-            .player = evaluated->moves.players[blunder_idx]
-        };
-        if (applied_blunder) {
-            *applied_blunder = true;
-        }
-        return true;
-    }
-
     uint8_t fallback = (uint8_t)ai_random_range(count);
     *out_move = (move_t){
         .from_row = evaluated->moves.from_rows[fallback],
@@ -1937,7 +1932,7 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
         board_t analysed;
         ai_board_copy(&analysed, board);
         analysed.current_player = tuned.ai_player;
-    if (board_execute_move_without_history(&analysed, out_move, tuned.swap_rule)) {
+        if (board_execute_move_without_history(&analysed, out_move, tuned.swap_rule)) {
             board_switch_turn(&analysed);
             ai_eval_breakdown_t breakdown;
             ai_agent_evaluate_internal(&analysed, tuned.ai_player, &tuned, &breakdown);

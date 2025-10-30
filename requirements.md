@@ -6,14 +6,14 @@ microsoft_alias: "copilot"
 featured_image: ""
 categories: ["Architecture"]
 tags: ["Foenix F256", "Game Design", "Requirements"]
-ai_note: "Updated via code audit of the October 2025 C implementation."
+ai_note: "Updated via code audit of the October 2025 C implementation. Updated puzzle mode default difficulty to Standard."
 summary: "Requirements aligned with the current Switcharoo C runtime and identified gaps."
-post_date: 2025-10-19
+post_date: 2025-10-30
 ---
 
 ## Overview
 This revision reflects the behaviour observed in the C sources under `src/` on
-2025-10-19. Statements below capture what the program presently delivers on the
+2025-10-30. Statements below capture what the program presently delivers on the
 Foenix F256K2 and in the host harness while highlighting missing functionality
 in a dedicated discrepancies section.
 
@@ -104,7 +104,8 @@ in a dedicated discrepancies section.
 ### Menu Actions
 - WHEN the Game Mode icon or M key toggles, THE SYSTEM SHALL flip
   `is_puzzle_mode`, apply either the active puzzle or starting layout, reset
-  highlights, refresh puzzle text, and set phase to `GAME_PHASE_PLAYING`.
+  highlights, refresh puzzle text, set AI difficulty to STANDARD when entering
+  puzzle mode, and set phase to `GAME_PHASE_PLAYING`.
 - WHEN the Reset icon or R key is activated, THE SYSTEM SHALL reload the
   current mode's layout or puzzle, clear hints, and resume
   `GAME_PHASE_PLAYING` without toggling modes.

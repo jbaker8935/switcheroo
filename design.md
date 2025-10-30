@@ -6,12 +6,12 @@ microsoft_alias: "copilot"
 featured_image: ""
 categories: ["Architecture"]
 tags: ["Foenix F256", "Game Design", "Software Architecture"]
-ai_note: "Drafted with AI assistance based on provided materials."
+ai_note: "Drafted with AI assistance based on provided materials. Updated to reflect puzzle mode default difficulty change to Standard."
 summary: "Comprehensive architecture and design blueprint for the F256 Switcharoo game."
-post_date: 2025-10-19
+post_date: 2025-10-30
 ---
 
-F256 Switcharoo's C implementation was reviewed on 2025-10-19 to document the
+F256 Switcharoo's C implementation was reviewed on 2025-10-30 to document the
 current architecture on Foenix F256K2 hardware and its host-side harnesses.
 This design captures the realised structure, data flows, and remaining gaps so
 future work can extend the code base confidently.
@@ -74,6 +74,8 @@ future work can extend the code base confidently.
   scheduling AI work, and updating menu enable flags.
 - Provides the menu activation entry point so icons and keyboard shortcuts can
   trigger resets, puzzle navigation, hints, or difficulty changes.
+- Sets AI difficulty to STANDARD by default when entering puzzle mode to provide
+  an appropriate challenge level for puzzle solving.
 
 ### Board and Move Validation (`board.c/.h`)
 - Encapsulates the 8x4 board grid, piece states, and swap flags.

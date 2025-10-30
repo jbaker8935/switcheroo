@@ -494,6 +494,7 @@ static bool board_execute_move_internal(board_t *board, const move_t *move, uint
     
     board_update_winning_row_counts(board);
     board->move_count++;
+    board->last_moving_player = move->player;
 
     if (record_history) {
         // Ensure renderer updates immediately to reflect new piece states

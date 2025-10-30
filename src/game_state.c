@@ -147,6 +147,7 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     state->board.current_player = PLAYER_WHITE;
     state->board.move_count = 0;
     state->board.history_count = 0;
+    state->board.last_moving_player = PLAYER_NONE;
 
     state->prefs.swap_rule = puzzle->swap_rule;
     ai_difficulty_t difficulty = state->ai_config.difficulty;
@@ -218,14 +219,14 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 
     if (state->is_puzzle_mode)
     {
-        // Set AI difficulty to Expert when entering puzzle mode (always set default on mode change)
+        // Set AI difficulty to Standard when entering puzzle mode (always set default on mode change)
         if (mode_changed)
         {
-            state->prefs.difficulty_level = AI_DIFFICULTY_EXPERT;
-            state->ai_config.difficulty = AI_DIFFICULTY_EXPERT;
+            state->prefs.difficulty_level = AI_DIFFICULTY_STANDARD;
+            state->ai_config.difficulty = AI_DIFFICULTY_STANDARD;
             state->ai_config.blunder_enabled = false;
             state->ai_config.blunder_chance_pct = 0u;
-            state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EXPERT);
+            state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_STANDARD);
             state->ai_config.enable_forcing_check = true;
             state->difficulty_manually_set = false; // Reset manual flag since we're setting default
             

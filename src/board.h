@@ -187,6 +187,7 @@ typedef struct {
     uint8_t swapped_count;  // Track number of swapped pieces for performance optimization
     uint8_t white_winning_rows;  // Rows 2-7 (1-based) occupied by white pieces
     uint8_t black_winning_rows;  // Rows 2-7 (1-based) occupied by black pieces
+    player_t last_moving_player;
 } board_t;
 
 /**

@@ -6,15 +6,15 @@ microsoft_alias: "copilot"
 featured_image: ""
 categories: ["Architecture"]
 tags: ["Foenix F256", "Project Planning", "Tasks"]
-ai_note: "Drafted with AI assistance based on provided materials."
+ai_note: "Drafted with AI assistance based on provided materials. Added task for puzzle mode difficulty default change."
 summary: "Implementation roadmap and task breakdown for the F256 Switcharoo project."
-post_date: 2025-10-19
+post_date: 2025-10-30
 ---
 
 ## Overview
 
 This plan decomposes the current Switcharoo requirements into actionable tasks
-that match the implementation recorded on 2025-10-19. The board engine, puzzle
+that match the implementation recorded on 2025-10-30. The board engine, puzzle
 pipeline, rendering, and AI search are all active on hardware and in the host
 tests. Menu polish, audio, undo, and advanced error handling remain in the
 backlog.
@@ -48,6 +48,7 @@ backlog.
 | T23 | Forced Immediate Win Diagnostics | Expose host helper and expand regression logging to enumerate forced-win detection across legal moves. | `src/ai_agent.c`, `tests/ai_agent_tests.c` | T8, T9, T22 | Done |
 | T24 | Immediate Loss Guard | Penalise or discard AI moves that allow the opponent an immediate win and document the behaviour. | `src/ai_agent.c`, docs | T8, T20, T22 | Done |
 | T25 | AI Immediate-Win Prescan | Short-circuit deep search by checking all legal moves for immediate wins at the root. | `src/ai_agent.c`, requirements/design/tasks sync. | T8, T18, T20 | Done |
+| T26 | Puzzle Mode Standard Difficulty Default | Change puzzle mode AI difficulty default from Expert to Standard for better accessibility. | `src/game_state.c`, documentation updates. | T5, T8 | Done |
 | T26 | AI Search Simplification | Replace the negamax pipeline with heuristic-only move selection per `ai_agent_simplification.md`. | `ai_agent.c`, requirements/design/tasks updates, host regressions. | T8, T21 | Done |
 | T27 | AI Forcing Coverage Fix | Ensure immediate- and forced-win helpers iterate all legal moves beyond the ordered buffer limit and update diagnostics. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs | T8, T23, T25 | Done |
 | T28 | Host Profiling Pass | Instrument `tests/ai_agent_tests` with gprof, capture `gmon.out`, and archive profiling artefacts. | Profiling command log, `gmon.out`, hotspot summary. | T8, T9, T24 | Done |
