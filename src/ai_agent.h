@@ -8,6 +8,8 @@
 #ifndef AI_AGENT_H
 #define AI_AGENT_H
 
+#define AI_MAX_ORDERED_MOVES 32
+
 #include <stdint.h>
 
 #ifdef AI_AGENT_HOST_TEST
@@ -79,6 +81,30 @@ typedef struct {
     bool opponent_forced_win;
     bool forced_win_self;
 } ai_evaluated_move_t;
+
+typedef struct {
+    uint8_t from_rows[AI_MAX_ORDERED_MOVES];
+    uint8_t from_cols[AI_MAX_ORDERED_MOVES];
+    uint8_t to_rows[AI_MAX_ORDERED_MOVES];
+    uint8_t to_cols[AI_MAX_ORDERED_MOVES];
+    move_type_t types[AI_MAX_ORDERED_MOVES];
+    player_t players[AI_MAX_ORDERED_MOVES];
+} ai_moves_t;
+
+typedef struct {
+    ai_moves_t moves;
+    int16_t evaluations[AI_MAX_ORDERED_MOVES];
+    bool immediate_wins_self[AI_MAX_ORDERED_MOVES];
+    bool immediate_wins_opponent[AI_MAX_ORDERED_MOVES];
+    bool opponent_wins_next_move[AI_MAX_ORDERED_MOVES];
+    bool opponent_forced_wins[AI_MAX_ORDERED_MOVES];
+    bool forced_wins_self[AI_MAX_ORDERED_MOVES];
+} ai_evaluated_moves_t;
+
+typedef struct {
+    ai_moves_t moves;
+    int16_t order_scores[AI_MAX_ORDERED_MOVES];
+} ai_ordered_moves_t;
 
 // Evaluate a single move and fill the ai_evaluated_move_t struct
 // This is used for debugging and testing individual moves
