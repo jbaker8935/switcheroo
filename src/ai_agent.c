@@ -1172,6 +1172,14 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     score += 120;
                 }
 
+                // Check for immediate win
+                board_t after_move;
+                ai_board_copy(&after_move, &scratch);
+                if (board_execute_move_without_history(&after_move, &move, swap_rule) &&
+                    board_check_win_fast(&after_move, current)) {
+                    score += 25000;  // Very high bonus for immediate win
+                }
+
                 bool allows_opponent_win = (config->ai_player == current &&
                     ai_move_allows_opponent_immediate_win(board, &move, config, config->ai_player));
 
@@ -1574,6 +1582,19 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
             evaluated->evaluations[i] = 0;
             evaluated->opponent_wins_next_move[i] = false;
             evaluated->opponent_forced_wins[i] = false;
+            continue;
+        }
+
+        // Handle immediate wins directly
+        if (evaluated->immediate_wins_self[i]) {
+            evaluated->evaluations[i] = AI_SCORE_WIN - (int16_t)(root->move_count & 0x7FFF);
+            evaluated->forced_wins_self[i] = false;
+            evaluated->opponent_wins_next_move[i] = false;
+            evaluated->opponent_forced_wins[i] = false;
+            ++eval_count;
+            if (out_nodes) {
+                ++(*out_nodes);
+            }
             continue;
         }
 

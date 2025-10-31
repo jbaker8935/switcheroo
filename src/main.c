@@ -32,6 +32,8 @@ int main(int argc, char *argv[])
     f256Init();
     // Initialize subsystems
     video_init(); // Use default config
+    // Initialize rendering
+    render_init();
     text_display_init();
     input_init();
     input_handler_init();
@@ -41,8 +43,6 @@ int main(int argc, char *argv[])
     render_update_score(&g_game_state.stats);
     game_state_start_new_game(&g_game_state);
 
-    // Initialize rendering
-    render_init();
 
     // Main game loop
 

@@ -94,7 +94,7 @@ void render_init(void) {
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
 
     // Mark cache initialized
-    s_cache_initialized = true;
+    s_cache_initialized = false;
 
 }
 
