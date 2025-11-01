@@ -161,6 +161,9 @@ in a dedicated discrepancies section.
 - WHEN the AI evaluates a turn, THE SYSTEM SHALL score every legal move using
   the heuristic evaluator and annotate each candidate with immediate-win,
   opponent-win-next, and forced-win flags.
+- WHEN the AI generates candidate moves, THE SYSTEM SHALL discard any move that
+  results in the opponent having an immediate win state once the move is
+  applied.
 - WHEN the AI inspects immediate wins, THE SYSTEM SHALL consider every legal
   move for the player to move, even if the total exceeds the ordered-move
   buffer used for heuristic ranking.

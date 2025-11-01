@@ -132,8 +132,9 @@ future work can extend the code base confidently.
 - Applies candidate moves on cloned boards via
   `board_execute_move_without_history` so simulations avoid polluting move
   history while cached counters stay in sync.
-- Filters candidate moves so immediate wins for the opponent are rejected and,
-  on Standard and Expert, forced-win concessions are avoided unless the
+- Filters candidate moves so immediate wins for the opponent—including
+  own-goal positions that finish an opponent chain—are rejected and, on
+  Standard and Expert, forced-win concessions are avoided unless the
   difficulty's blunder rule selects them.
 - Supports Standard host regressions through `AI_AGENT_HOST_TEST`, bypassing
   MMU swaps while preserving move ordering.

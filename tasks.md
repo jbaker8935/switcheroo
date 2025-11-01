@@ -56,6 +56,9 @@ backlog.
 | T30 | Swapped Piece Tracking | Maintain per-player swapped piece indices so clearing routines avoid full-board scans; re-profile to validate gains. | `src/board.c`, `src/board.h`, profiling comparison. | T4, T28 | Done |
 | T31 | Winning Row Counters | Cache winning-row occupancy per player and refresh on init and move execution. | `src/board.c`, `src/board.h`, docs sync. | T4, T29 | Done |
 | T32 | Move History Isolation | Provide a no-history board move helper for AI simulations and refresh docs. | `src/board.c`, `src/board.h`, `ai_agent.c`, docs. | T4, T18, T31 | Done |
+| T33 | Expert Own-Goal Guard | Ensure fallback move selection never concedes an immediate win when only risky replies remain. | `src/ai_agent.c`, host regression notes. | T8, T24 | Done |
+| T34 | Forced-Loss Short-Circuit | Reinstate the forced-loss precheck so deep forcing analysis is skipped when every reply still loses. | `src/ai_agent.c`, profiling logs. | T8, T20 | Done |
+| T35 | AI Own-Goal Pruning | Remove own-goal moves during candidate generation so evaluation and fallback never select them. | `src/ai_agent.c`, documentation sync. | T8, T24, T33 | In Progress |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

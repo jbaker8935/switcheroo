@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game UI Mockups - Corrected</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #2a2a2a;
+            font-family: 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 30px;
+        }
+
+        h2 {
+            color: #fff;
+            font-size: 18px;
+            margin: 0 0 10px 0;
+        }
+
+        .mockup-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .game-screen {
+            width: 640px;
+            height: 480px;
+            background: #666;
+            position: relative;
+            border: 3px solid #333;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Mockup 1: Enhanced Contrast & Depth */
+        .mockup1 .achievements-panel {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 170px;
+            height: 480px;
+            padding: 15px;
+            box-sizing: border-box;
+        }
+
+        .mockup1 .text-backdrop {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-left: 3px solid #4a9eff;
+        }
+
+        .mockup1 .text-line {
+            color: #fff;
+            font-size: 11px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+            margin: 3px 0;
+            line-height: 1.4;
+        }
+
+        .mockup1 .stat-wins {
+            color: #4eff4a;
+        }
+
+        .mockup1 .stat-losses {
+            color: #ff6b6b;
+        }
+
+        .mockup1 .achievement {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 10px;
+            height: 150px;
+            margin-top: 10px;
+        }
+
+        .mockup1 .achievement-title {
+            color: #fff;
+            font-size: 11px;
+            margin-bottom: 6px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+        }
+
+        .mockup1 .board-container {
+            position: absolute;
+            left: 183px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #a8c5d8;
+            padding: 8px;
+            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.2), 0 3px 6px rgba(0, 0, 0, 0.3);
+            border: 2px solid #7a9fb5;
+        }
+
+        .mockup1 .board {
+            display: grid;
+            grid-template-columns: repeat(4, 52px);
+            grid-template-rows: repeat(8, 52px);
+            gap: 1px;
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .mockup1 .cell {
+            background: #b8d5e8;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .mockup1 .cell.dark {
+            background: #5a6e7f;
+        }
+
+        .mockup1 .cell.hover {
+            box-shadow: inset 0 0 0 3px rgba(255, 255, 100, 0.7);
+            background: #d8e8f5;
+        }
+
+        .mockup1 .cell.hover.dark {
+            background: #6a8090;
+        }
+
+        .mockup1 .piece {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3), inset -2px -2px 5px rgba(0, 0, 0, 0.2), inset 2px 2px 5px rgba(255, 255, 255, 0.3);
+        }
+
+        .mockup1 .piece.purple {
+            background: radial-gradient(circle at 35% 35%, #c89ddf, #8b4fb8);
+        }
+
+        .mockup1 .piece.blue {
+            background: radial-gradient(circle at 35% 35%, #7abaed, #3d7fc7);
+        }
+
+        .mockup1 .button-panel {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: grid;
+            grid-template-columns: repeat(2, 52px);
+            gap: 10px;
+        }
+
+        .mockup1 .button {
+            width: 52px;
+            height: 52px;
+            background: #2563eb;
+            border: 3px solid #1e40af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 3px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        .mockup1 .button:hover {
+            background: #3b82f6;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .mockup1 .button-icon {
+            font-size: 22px;
+            color: #fff;
+        }
+
+        /* Mockup 2: Refined Minimalist */
+        .mockup2 {
+            background: #3a3a3a;
+        }
+
+        .mockup2 .achievements-panel {
+            /* position: absolute;
+            left: 0;
+            top: 0; */
+            width: 640px;
+            height: auto;
+            /* background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1)); */
+            background: rgba(40, 40, 40, 1);
+            padding: 15px;
+            padding-top: 15px;
+            padding-left:4px;
+            padding-right:4px;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+        }
+
+        .mockup2 .right-panel {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 200px;
+            height: 480px;
+            /* background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1)); */
+            background: rgba(40, 40, 40, 1);
+            padding: 15px 8px;
+            box-sizing: border-box;
+        }
+
+        .mockup2 .stats-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .mockup2 .stat-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 10px;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex: 1;
+        }
+
+        .mockup2 .stat-label {
+            color: #aaa;
+            font-size: 8px;
+            margin-bottom: 3px;
+        }
+
+        .mockup2 .stat-value {
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .mockup2 .stat-value.wins {
+            color: #4eff89;
+        }
+
+        .mockup2 .stat-value.losses {
+            color: #ff6b6b;
+        }
+
+        .mockup2 .info-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 10px;
+            margin-bottom: 6px;
+            border-left: 3px solid #4a9eff;
+        }
+
+        .mockup2 .info-line {
+            color: #ddd;
+            font-size: 10px;
+            margin: 3px 0;
+            line-height: 1.4;
+        }
+
+        .mockup2 .achievement {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+            height: 168px;
+            margin-top: 8px;
+            margin-left: 2px;
+            margin-right: 2px;
+        }
+
+        .mockup2 .achievement-title {
+            color: #fff;
+            font-family: cursive;
+            font-weight: bold;
+            font-size: 12px;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .mockup2 .board-container {
+            position: absolute;
+            left: 184px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: #96b5ca;
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            border-radius: 2px;
+        }
+
+        .mockup2 .board {
+            display: grid;
+            grid-template-columns: repeat(4, 57px);
+            grid-template-rows: repeat(8, 57px);
+            gap: 2px;
+            background: rgba(0, 0, 0, 0.15);
+        }
+
+        .mockup2 .cell {
+            background: #afc8db;
+            position: relative;
+        }
+
+        .mockup2 .cell.dark {
+            background: #5a6e7f;
+        }
+
+        .mockup2 .cell.hover {
+            outline: 3px solid #ffd700;
+            outline-offset: -3px;
+            z-index: 10;
+        }
+
+        .mockup2 .piece {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            /* box-shadow: 0 1px 3px rgba(0,0,0,0.4); */
+        }
+
+        .mockup2 .piece.purple {
+            --purple-start: #c89ddf;
+            /*  #b57ed1; */
+            --purple-end: #693a8e;
+            /* #7d4ba8; */
+            --purple-lighter: color-mix(in srgb, var(--purple-start) 80%, white 20%);
+            background: linear-gradient(135deg, var(--purple-start) 0%, var(--purple-end) 100%);
+            border: 2px solid var(--purple-start);
+        }
+
+        .mockup2 .piece.blue {
+            --blue-start: #7abaed;
+            /* #6ba8e5; */
+            --blue-end: #2d619a;
+            /* #3573b5; */
+            --blue-lighter: color-mix(in srgb, var(--blue-start) 80%, white 20%);
+            background: linear-gradient(135deg, var(--blue-start) 0%, var(--blue-end) 100%);
+            border: 2px solid var(--blue-start);
+        }
+
+        .mockup2 .title-panel {
+            position: relative;
+            /* top: 8px;
+            left: 8px; */
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+            padding: 6px 10px;
+            height: 32px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+  
+
+        }
+
+        .mockup2 .logo {
+
+            width: 216px;
+            height: 32px;
+
+        }
+
+        .mockup2 .button-panel {
+            position: absolute;
+            right: 44px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .mockup2 .button-group {
+            display: grid;
+            grid-template-columns: repeat(2, 52px);
+            gap: 10px;
+        }
+
+        .mockup2 .button-separator {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 3px 0;
+        }
+
+        .mockup2 .button {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            border: 2px solid #1e40af;
+            border-radius: 3px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .mockup2 .button:hover {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+        }
+
+        .mockup2 .button-icon {
+            font-size: 40px;
+            color: #000;
+        }
+        .mockup2 .achievement-icon {
+            font-size: 36px;
+            color: #000;
+        }        
+    </style>
+</head>
+
+<body>
+
+    <div class="mockup-container">
+        <h2>Mockup: Achievements</h2>
+        <div class="game-screen mockup2">
+            <div class="title-panel">
+                Achievements
+            </div>
+            <div class="achievements-panel">
+
+
+                <div class="achievement">
+                    <div class="achievement-icon">🎯</div>
+                    <div class="achievement-title">First Blood</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">⚡</div>
+                    <div class="achievement-title">Speedster</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">💯</div>
+                    <div class="achievement-title">Perfectionist</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🧩</div>
+                    <div class="achievement-title">Puzzlemeister</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🏃</div>
+                    <div class="achievement-title">Runner</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🏆</div>
+                    <div class="achievement-title">Completionist</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🧠</div>
+                    <div class="achievement-title">Quick Thinker</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🎖️</div>
+                    <div class="achievement-title">You Win!</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🗡️</div>
+                    <div class="achievement-title">Giant Slayer</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🔥</div>
+                    <div class="achievement-title">Untouchable</div>
+                </div>
+            </div>
+
+
+
+
+        </div>
+    </div>
+    <div class="mockup-container">
+        <h2>Mockup: Achievements</h2>
+        <div class="game-screen mockup2">
+            <div class="title-panel">
+                Achievements
+            </div>
+            <div class="achievements-panel">
+
+
+                <div class="achievement">
+                    <div class="achievement-icon">🎯</div>
+                    <div class="achievement-title">First Blood</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">⚡</div>
+                    <div class="achievement-title">Speedster</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">💯</div>
+                    <div class="achievement-title">Perfectionist</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🧩</div>
+                    <div class="achievement-title">Puzzlemeister</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🏃</div>
+                    <div class="achievement-title">Runner</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🏆</div>
+                    <div class="achievement-title">Completionist</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🧠</div>
+                    <div class="achievement-title">Quick Thinker</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🎖️</div>
+                    <div class="achievement-title">You Win!</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🗡️</div>
+                    <div class="achievement-title">Giant Slayer</div>
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🔒</div>
+                    <div class="achievement-title">Locked</div>
+                </div>
+            </div>
+
+
+
+
+        </div>
+    </div>
+
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</body>
+
+</html>

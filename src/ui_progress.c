@@ -25,9 +25,8 @@ void ui_progress_register(ai_config_t *config, ui_progress_state_t *state) {
     ai_agent_set_progress_callback(config, ui_progress_on_search_progress, state);
 }
 
-void ui_progress_on_search_progress(uint8_t current_depth, uint32_t nodes, void *user_data) {
-    (void)current_depth;
-    (void)nodes;
+void ui_progress_on_search_progress(void *user_data) {
+
     // disable polling until better solution is found
     // poll_and_refresh_mouse_postion();
 

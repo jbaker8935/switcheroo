@@ -1113,10 +1113,10 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
 
     uint8_t count = 0;
     const player_t current = scratch.current_player;
+    const player_t opponent = (current == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
     swap_rule_t swap_rule = config->swap_rule;
     bool forcing_check = config->enable_forcing_check && (config->ai_player == current);
     move_array_t soa_moves;
-
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         board_cell_t *row_cells = scratch.cells[row];
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -1172,16 +1172,26 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     score += 120;
                 }
 
-                // Check for immediate win
+                // Apply move once for immediate outcome analysis
                 board_t after_move;
                 ai_board_copy(&after_move, &scratch);
-                if (board_execute_move_without_history(&after_move, &move, swap_rule) &&
-                    board_check_win_fast(&after_move, current)) {
+                if (!board_execute_move_without_history(&after_move, &move, swap_rule)) {
+                    continue;
+                }
+
+                if (board_check_win_fast(&after_move, opponent)) {
+                    continue;
+                }
+
+                bool self_wins_now = board_check_win_fast(&after_move, current);
+                if (self_wins_now) {
                     score += 25000;  // Very high bonus for immediate win
                 }
 
-                bool allows_opponent_win = (config->ai_player == current &&
-                    ai_move_allows_opponent_immediate_win(board, &move, config, config->ai_player));
+                bool allows_opponent_win = false;
+                if (config->ai_player == current) {
+                    allows_opponent_win = ai_move_allows_opponent_immediate_win(board, &move, config, config->ai_player);
+                }
 
                 if (allows_opponent_win) {
                     score -= 12000;
@@ -1289,6 +1299,10 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
                                                                                       const ai_config_t *config,
                                                                                       ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    
+    // if(config->progress_callback) {
+    //     config->progress_callback(config->progress_user_data);
+    // }
 
     if (board_check_win_fast(board, perspective)) {
         return AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
@@ -1858,14 +1872,24 @@ __attribute__((noinline, section(".block10"))) static bool FAR10_ai_choose_move_
         return true;
     }
 
-    uint8_t fallback = (uint8_t)ai_random_range(count);
+    if (count == 0u) {
+        return false;
+    }
+
+    uint8_t chosen_index = 0u;
+    for (uint8_t i = 1u; i < count; ++i) {
+        if (evaluated->evaluations[i] > evaluated->evaluations[chosen_index]) {
+            chosen_index = i;
+        }
+    }
+
     *out_move = (move_t){
-        .from_row = evaluated->moves.from_rows[fallback],
-        .from_col = evaluated->moves.from_cols[fallback],
-        .to_row = evaluated->moves.to_rows[fallback],
-        .to_col = evaluated->moves.to_cols[fallback],
-        .type = evaluated->moves.types[fallback],
-        .player = evaluated->moves.players[fallback]
+        .from_row = evaluated->moves.from_rows[chosen_index],
+        .from_col = evaluated->moves.from_cols[chosen_index],
+        .to_row = evaluated->moves.to_rows[chosen_index],
+        .to_col = evaluated->moves.to_cols[chosen_index],
+        .type = evaluated->moves.types[chosen_index],
+        .player = evaluated->moves.players[chosen_index]
     };
     return true;
 }
@@ -1909,6 +1933,12 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     ai_config_t tuned = *config;
     tuned.ai_player = root.current_player;
+
+    if (tuned.enable_forcing_check) {
+        if (ai_all_replies_allow_opponent_immediate_win(&root, &tuned)) {
+            tuned.enable_forcing_check = false;
+        }
+    }
 
     ai_evaluated_moves_t evaluated;
     uint32_t nodes_recorded = 0u;

@@ -22,7 +22,7 @@
 #include "../src/board.h"
 
 // Callback type for AI search progress updates
-typedef void (*ai_progress_callback_t)(uint8_t current_depth, uint32_t nodes_searched, void *user_data);
+typedef void (*ai_progress_callback_t)(void *user_data);
 
 // Difficulty levels
 typedef enum {
