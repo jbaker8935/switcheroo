@@ -73,19 +73,32 @@ typedef struct {
 } board_cell_t;
 
 /**
- * Board state
+ * Board state (cells only - context moved to board_context_t)
+ * NOTE: Keeping some legacy fields for test compatibility
  */
 typedef struct {
     board_cell_t cells[BOARD_ROWS][BOARD_COLS];
-    player_t current_player;
-    uint16_t move_count;
-    move_t history[MAX_MOVE_HISTORY];
-    uint8_t history_count;
-    uint8_t layout_id;
     uint8_t swapped_count;
     uint8_t white_winning_rows;
     uint8_t black_winning_rows;
+    uint16_t move_count;
+    // Legacy fields for test compatibility
+    player_t current_player;
+    move_t history[MAX_MOVE_HISTORY];
+    uint8_t history_count;
+    uint8_t layout_id;
 } board_t;
+
+/**
+ * Board context (player state, history, etc.)
+ */
+typedef struct {
+    player_t current_player;
+    move_t history[MAX_MOVE_HISTORY];
+    uint8_t history_count;
+    uint8_t layout_id;
+    player_t last_moving_player;
+} board_context_t;
 
 /**
  * Win path information
@@ -112,22 +125,22 @@ bool board_is_piece_normal(piece_type_t piece);
 // Move validation
 bool board_is_valid_cell(uint8_t row, uint8_t col);
 bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
-bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col, 
+bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col, 
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type);
-uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col, 
+uint8_t board_get_legal_moves(const board_t *board, player_t current_player, uint8_t row, uint8_t col, 
                                move_t *moves, uint8_t max_moves);
 
 // Move execution
-bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);
-bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule);
-void board_undo_last_move(board_t *board);
+bool board_execute_move(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule);
+bool board_execute_move_without_history(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule);
+void board_undo_last_move(board_t *board, board_context_t *context);
 
 // Win detection
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path);
 
 
 // Utility
-void board_switch_turn(board_t *board);
+void board_switch_turn(board_context_t *context);
 uint8_t board_count_pieces(const board_t *board, player_t player);
 void board_clear_all_swapped(board_t *board);
 void board_update_winning_row_counts(board_t *board);

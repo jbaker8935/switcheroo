@@ -69,6 +69,7 @@ typedef struct {
 typedef struct {
     game_phase_t phase;
     board_t board;
+    board_context_t context;
     session_stats_t stats;
     user_preferences_t prefs;
     menu_state_t menu;

@@ -19,7 +19,11 @@
 #include "platform_f256.h"
 #endif
 
+#include "../include/board.h"
+
+#ifdef AI_AGENT_HOST_TEST
 #include "../src/board.h"
+#endif
 
 // Callback type for AI search progress updates
 typedef void (*ai_progress_callback_t)(void *user_data);
@@ -108,7 +112,7 @@ typedef struct {
 
 // Evaluate a single move and fill the ai_evaluated_move_t struct
 // This is used for debugging and testing individual moves
-void ai_evaluate_single_move(const board_t *board, const move_t *move, const ai_config_t *config, ai_evaluated_move_t *result);
+void ai_evaluate_single_move(const board_t *board, player_t current_player, const move_t *move, const ai_config_t *config, ai_evaluated_move_t *result);
 
 // Initialize AI agent
 void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, 
@@ -116,7 +120,7 @@ void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
 
 // Find and return the best move for the current player
 // Returns true if a move was found, false otherwise
-bool ai_agent_find_best_move(const board_t *board, const ai_config_t *config,
+bool ai_agent_find_best_move(const board_t *board, const board_context_t *context, const ai_config_t *config,
                              move_t *out_move);
 
 // Evaluate a board position from the perspective of a player
@@ -138,17 +142,17 @@ ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
 void ai_agent_set_random_seed(uint16_t seed);
 
 #ifdef AI_AGENT_HOST_TEST
-bool ai_agent_detect_unavoidable_loss(const board_t *board, const ai_config_t *config);
-bool ai_agent_move_creates_forced_immediate_win(const board_t *board,
+bool ai_agent_detect_unavoidable_loss(const board_t *board, player_t current_player, const ai_config_t *config);
+bool ai_agent_move_creates_forced_immediate_win(const board_t *board, player_t current_player,
                                                 const move_t *move,
                                                 const ai_config_t *config,
                                                 player_t ai_player);
-bool ai_agent_move_allows_opponent_immediate_win(const board_t *board,
+bool ai_agent_move_allows_opponent_immediate_win(const board_t *board, player_t current_player,
                                                  const move_t *move,
                                                  const ai_config_t *config,
                                                  player_t ai_player);
-bool ai_forcing_move_available(const board_t *board, player_t player, swap_rule_t rule);
-bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule);
+bool ai_forcing_move_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule);
+bool ai_immediate_win_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule);
 #endif
 
 #endif // AI_AGENT_H

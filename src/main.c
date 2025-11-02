@@ -51,15 +51,15 @@ int main(int argc, char *argv[])
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     print_game_mode(g_game_state.is_puzzle_mode);
     print_swap_rule(g_game_state.ai_config.swap_rule);
-    print_current_player(g_game_state.board.current_player);
-    print_move_history(g_game_state.board.history, g_game_state.board.history_count);    
+    print_current_player(g_game_state.context.current_player);
+    print_move_history(g_game_state.context.history, g_game_state.context.history_count);    
     
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT)
     {
         // print_game_mode(g_game_state.is_puzzle_mode);
         // print_swap_rule(g_game_state.ai_config.swap_rule);
-        // print_current_player(g_game_state.board.current_player);
-        // print_move_history(g_game_state.board.history, g_game_state.board.history_count);
+        // print_current_player(g_game_state.context.current_player);
+        // print_move_history(g_game_state.context.history, g_game_state.context.history_count);
         // Update game state
         game_state_update(&g_game_state, 1.0f / 60.0f);
 
@@ -89,8 +89,8 @@ int main(int argc, char *argv[])
 
         if (g_game_state.board.move_count != old_move_count)
         {
-            print_move_history(g_game_state.board.history, g_game_state.board.history_count);
-            print_current_player(g_game_state.board.current_player);
+            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+            print_current_player(g_game_state.context.current_player);
             old_move_count = g_game_state.board.move_count;
         }
 
@@ -108,8 +108,8 @@ int main(int argc, char *argv[])
                 input_handler_process_event(&g_game_state, &event);
                 if (g_game_state.board.move_count != old_move_count)
                 {
-                    print_move_history(g_game_state.board.history, g_game_state.board.history_count);
-                    print_current_player(g_game_state.board.current_player);
+                    print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+                    print_current_player(g_game_state.context.current_player);
                     old_move_count = g_game_state.board.move_count;
                 }
             }

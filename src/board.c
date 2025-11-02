@@ -13,14 +13,14 @@
 extern piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
 extern void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
 extern bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
-extern bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
+extern bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
                            uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 
 // Internal versions that skip bounds checking for performance
 
 static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
-    piece_type_t old_piece = board->cells[row][col].piece;
-    board->cells[row][col].piece = piece;
+    piece_type_t old_piece = board->cells[row][col];
+    board->cells[row][col] = piece;
     
     // Update swapped piece count
     if (board_is_piece_swapped(old_piece) && !board_is_piece_swapped(piece)) {
@@ -42,7 +42,7 @@ void board_update_winning_row_counts(board_t *board) {
         bool black_present = false;
         board_cell_t *row_cells = board->cells[row];
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = row_cells[col].piece;
+            piece_type_t piece = row_cells[col];
             player_t owner = board_get_piece_owner(piece);
             if (owner == PLAYER_WHITE) {
                 white_present = true;
@@ -82,7 +82,7 @@ void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piec
         if (track_row) {
             board_cell_t *row_cells = board->cells[row];
             for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                player_t owner = board_get_piece_owner(row_cells[c].piece);
+                player_t owner = board_get_piece_owner(row_cells[c]);
                 if (owner == PLAYER_WHITE) {
                     white_before = true;
                 } else if (owner == PLAYER_BLACK) {
@@ -101,7 +101,7 @@ void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piec
             bool black_after = false;
             board_cell_t *row_cells = board->cells[row];
             for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                player_t owner = board_get_piece_owner(row_cells[c].piece);
+                player_t owner = board_get_piece_owner(row_cells[c]);
                 if (owner == PLAYER_WHITE) {
                     white_after = true;
                 } else if (owner == PLAYER_BLACK) {
@@ -132,7 +132,7 @@ void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piec
 }
 
 
-bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
+bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
     // Check adjacency
     if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
@@ -144,14 +144,14 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
     piece_type_t to_piece = board_get_piece_unchecked(board, to_row, to_col);
     
     // Check that source has a piece belonging to current player
-    if (board_get_piece_owner(from_piece) != board->current_player) {
+    if (board_get_piece_owner(from_piece) != current_player) {
         return false;
     }
     
     // Check that target cell does not contain current player's piece
     if (to_piece != PIECE_NONE) {
         player_t to_owner = board_get_piece_owner(to_piece);
-        if (to_owner == board->current_player) {
+        if (to_owner == current_player) {
             return false;  // Cannot move to cell occupied by own piece
         }
     }
@@ -164,7 +164,7 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
     
     // Swap move - target must be opponent's NORMAL piece
     player_t to_owner = board_get_piece_owner(to_piece);
-    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
+    if (to_owner != current_player && board_is_piece_normal(to_piece)) {
         if (out_type) *out_type = MOVE_TYPE_SWAP;
         return true;
     }
@@ -176,7 +176,7 @@ bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col,
 
 // Unchecked version of board_can_move - assumes all cells are valid
 // Used in performance-critical loops where bounds are already verified
-bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t from_col,
+bool board_can_move_unchecked(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
                               uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
     // Check adjacency
     if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
@@ -188,14 +188,14 @@ bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t fr
     piece_type_t to_piece = board_get_piece_unchecked(board, to_row, to_col);
     
     // Check that source has a piece belonging to current player
-    if (board_get_piece_owner(from_piece) != board->current_player) {
+    if (board_get_piece_owner(from_piece) != current_player) {
         return false;
     }
     
     // Check that target cell does not contain current player's piece
     if (to_piece != PIECE_NONE) {
         player_t to_owner = board_get_piece_owner(to_piece);
-        if (to_owner == board->current_player) {
+        if (to_owner == current_player) {
             return false;  // Cannot move to cell occupied by own piece
         }
     }
@@ -208,7 +208,7 @@ bool board_can_move_unchecked(const board_t *board, uint8_t from_row, uint8_t fr
     
     // Swap move - target must be opponent's NORMAL piece
     player_t to_owner = board_get_piece_owner(to_piece);
-    if (to_owner != board->current_player && board_is_piece_normal(to_piece)) {
+    if (to_owner != current_player && board_is_piece_normal(to_piece)) {
         if (out_type) *out_type = MOVE_TYPE_SWAP;
         return true;
     }
@@ -275,10 +275,8 @@ void board_init(board_t *board) {
 
 void board_reset(board_t *board) {
     // Copy selected starting layout
-    board_set_starting_layout(board, board->layout_id);
-    board->current_player = PLAYER_WHITE;
+    board_set_starting_layout(board, 0); // Default layout
     board->move_count = 0;
-    board->history_count = 0;
     board->swapped_count = 0;  // No swapped pieces in starting layout
 }
 
@@ -302,16 +300,13 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id) {
             break;
     }
     memcpy(board->cells, layout, sizeof(board->cells));
-    board->layout_id = layout_id;
-    board->current_player = PLAYER_WHITE;
     board->move_count = 0;
-    board->history_count = 0;
     board->swapped_count = 0;
     board_update_winning_row_counts(board);
 }
 
 
-uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
+uint8_t board_get_legal_moves(const board_t *board, player_t current_player, uint8_t row, uint8_t col,
                                move_t *moves, uint8_t max_moves) {
     uint8_t count = 0;
     
@@ -322,13 +317,13 @@ uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
         
         if (new_row >= 0 && new_row < BOARD_ROWS && new_col >= 0 && new_col < BOARD_COLS) {
             move_type_t type;
-            if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
+            if (board_can_move(board, current_player, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
                 moves[count].from_row = row;
                 moves[count].from_col = col;
                 moves[count].to_row = (uint8_t)new_row;
                 moves[count].to_col = (uint8_t)new_col;
                 moves[count].type = type;
-                moves[count].player = board->current_player;
+                moves[count].player = current_player;
                 count++;
             }
         }
@@ -338,8 +333,8 @@ uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col,
 }
 
 // SOA version for better 6502 performance - uses struct of arrays layout
-uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col,
-                                  move_array_t *moves) {
+uint8_t board_get_legal_moves_soa(const board_t *board, player_t current_player, uint8_t row, uint8_t col,
+                                  move_array_t *out_moves) {
     uint8_t count = 0;
     
     // Check all 8 directions
@@ -349,28 +344,28 @@ uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col
         
         if (new_row >= 0 && new_row < BOARD_ROWS && new_col >= 0 && new_col < BOARD_COLS) {
             move_type_t type;
-            if (board_can_move_unchecked(board, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
-                moves->from_row[count] = row;
-                moves->from_col[count] = col;
-                moves->to_row[count] = (uint8_t)new_row;
-                moves->to_col[count] = (uint8_t)new_col;
-                moves->type[count] = type;
-                moves->player[count] = board->current_player;
+            if (board_can_move_unchecked(board, current_player, row, col, (uint8_t)new_row, (uint8_t)new_col, &type)) {
+                out_moves->from_row[count] = row;
+                out_moves->from_col[count] = col;
+                out_moves->to_row[count] = (uint8_t)new_row;
+                out_moves->to_col[count] = (uint8_t)new_col;
+                out_moves->type[count] = type;
+                out_moves->player[count] = current_player;
                 count++;
             }
         }
     }
     
-    moves->count = count;
+    out_moves->count = count;
     return count;
 }
 
-static bool board_execute_move_internal(board_t *board, const move_t *move, uint8_t swap_rule_val,
+static bool board_execute_move_internal(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule_val,
                                         bool record_history) {
     swap_rule_t swap_rule = (swap_rule_t)swap_rule_val;
     // Validate move
     move_type_t type;
-    if (!board_can_move(board, move->from_row, move->from_col,
+    if (!board_can_move(board, context->current_player, move->from_row, move->from_col,
                         move->to_row, move->to_col, &type)) {
         return false;
     }
@@ -383,11 +378,11 @@ static bool board_execute_move_internal(board_t *board, const move_t *move, uint
     // Save to history when requested so live boards retain full tracking
     if (record_history) {
         for (int i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
-            board->history[i] = board->history[i - 1];
+            context->history[i] = context->history[i - 1];
         }
-        board->history[0] = *move;
-        if (board->history_count < MAX_MOVE_HISTORY) {
-            board->history_count++;
+        context->history[0] = *move;
+        if (context->history_count < MAX_MOVE_HISTORY) {
+            context->history_count++;
         }
     }
 
@@ -494,7 +489,7 @@ static bool board_execute_move_internal(board_t *board, const move_t *move, uint
     
     board_update_winning_row_counts(board);
     board->move_count++;
-    board->last_moving_player = move->player;
+    context->last_moving_player = move->player;
 
     if (record_history) {
         // Ensure renderer updates immediately to reflect new piece states
@@ -505,12 +500,12 @@ static bool board_execute_move_internal(board_t *board, const move_t *move, uint
     return true;
 }
 
-bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule_val) {
-    return board_execute_move_internal(board, move, swap_rule_val, true);
+bool board_execute_move(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule_val) {
+    return board_execute_move_internal(board, context, move, swap_rule_val, true);
 }
 
-bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule_val) {
-    return board_execute_move_internal(board, move, swap_rule_val, false);
+bool board_execute_move_without_history(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule_val) {
+    return board_execute_move_internal(board, context, move, swap_rule_val, false);
 }
 
 void board_undo_last_move(board_t *board) {
@@ -747,7 +742,7 @@ bool board_has_legal_moves(const board_t *board, player_t player) {
                     
                     if (new_row >= 0 && new_row < BOARD_ROWS &&
                         new_col >= 0 && new_col < BOARD_COLS) {
-                        if (board_can_move(board, row, col, (uint8_t)new_row, (uint8_t)new_col, NULL)) {
+                        if (board_can_move(board, player, row, col, (uint8_t)new_row, (uint8_t)new_col, NULL)) {
                             return true;
                         }
                     }
@@ -758,8 +753,8 @@ bool board_has_legal_moves(const board_t *board, player_t player) {
     return false;
 }
 
-void board_switch_turn(board_t *board) {
-    board->current_player = (board->current_player == PLAYER_WHITE) ? 
+void board_switch_turn(board_context_t *context) {
+    context->current_player = (context->current_player == PLAYER_WHITE) ? 
         PLAYER_BLACK : PLAYER_WHITE;
 }
 
@@ -775,3 +770,5 @@ uint8_t board_count_pieces(const board_t *board, player_t player) {
     }
     return count;
 }
+
+

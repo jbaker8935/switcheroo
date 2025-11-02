@@ -9,6 +9,8 @@
 #ifndef GAME_BOARD_H
 #define GAME_BOARD_H
 
+#include <string.h>
+
 #include <stdint.h>
 #ifdef AI_AGENT_HOST_TEST
 #include <stdbool.h>
@@ -45,15 +47,15 @@ typedef enum {
 #define NUM_STARTING_LAYOUTS 4
 
 /**
- * Piece types on the board
+ * Piece types on the board (bit-based for efficiency)
+ * Bit 0: White, Bit 1: Black, Bit 2: Swapped
  */
-typedef enum {
-    PIECE_NONE = 0,
-    PIECE_WHITE_NORMAL = 1,
-    PIECE_WHITE_SWAPPED = 2,
-    PIECE_BLACK_NORMAL = 3,
-    PIECE_BLACK_SWAPPED = 4
-} piece_type_t;
+typedef uint8_t piece_type_t;
+#define PIECE_NONE 0x00
+#define PIECE_WHITE_NORMAL 0x01
+#define PIECE_WHITE_SWAPPED 0x05
+#define PIECE_BLACK_NORMAL 0x02
+#define PIECE_BLACK_SWAPPED 0x06
 
 /**
  * Player identification
@@ -170,25 +172,32 @@ static inline void move_array_set_move(move_array_t *moves, uint8_t index, const
 /**
  * Board cell
  */
-typedef struct {
-    piece_type_t piece;
-} board_cell_t;
+typedef uint8_t board_cell_t;
 
 /**
  * Board state
  */
+/**
+ * AI-optimized board state (stripped for fast copying during search)
+ */
 typedef struct {
     board_cell_t cells[BOARD_ROWS][BOARD_COLS];
-    player_t current_player;
+    uint8_t swapped_count;
+    uint8_t white_winning_rows;
+    uint8_t black_winning_rows;
     uint16_t move_count;
+} board_t;
+
+/**
+ * Board context for additional state
+ */
+typedef struct {
+    player_t current_player;
     move_t history[MAX_MOVE_HISTORY];
     uint8_t history_count;
     uint8_t layout_id; // current starting layout id
-    uint8_t swapped_count;  // Track number of swapped pieces for performance optimization
-    uint8_t white_winning_rows;  // Rows 2-7 (1-based) occupied by white pieces
-    uint8_t black_winning_rows;  // Rows 2-7 (1-based) occupied by black pieces
     player_t last_moving_player;
-} board_t;
+} board_context_t;
 
 /**
  * Win path information
@@ -208,18 +217,19 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id);
 // Piece queries
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
 static inline piece_type_t board_get_piece_unchecked(const board_t *board, uint8_t row, uint8_t col) {
-    return board->cells[row][col].piece;
+    return board->cells[row][col];
 }
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
 static inline player_t board_get_piece_owner(piece_type_t piece) {
-    static const player_t owners[5] = { PLAYER_NONE, PLAYER_WHITE, PLAYER_WHITE, PLAYER_BLACK, PLAYER_BLACK };
-    return owners[piece];
+    if (piece & 0x01) return PLAYER_WHITE;
+    if (piece & 0x02) return PLAYER_BLACK;
+    return PLAYER_NONE;
 }
 static inline bool board_is_piece_swapped(piece_type_t piece) {
-    return piece == PIECE_WHITE_SWAPPED || piece == PIECE_BLACK_SWAPPED;
+    return (piece & 0x04) != 0;
 }
 static inline bool board_is_piece_normal(piece_type_t piece) {
-    return piece == PIECE_WHITE_NORMAL || piece == PIECE_BLACK_NORMAL;
+    return (piece & 0x04) == 0;
 }
 
 // Move validation
@@ -232,18 +242,18 @@ static inline bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t
     int8_t dc = (int8_t)(c2 - c1);
     return (dr >= -1 && dr <= 1 && dc >= -1 && dc <= 1 && (dr != 0 || dc != 0));
 }
-bool board_can_move(const board_t *board, uint8_t from_row, uint8_t from_col, 
+bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col, 
                     uint8_t to_row, uint8_t to_col, move_type_t *out_type);
-uint8_t board_get_legal_moves(const board_t *board, uint8_t row, uint8_t col, 
+uint8_t board_get_legal_moves(const board_t *board, player_t current_player, uint8_t row, uint8_t col, 
                                move_t *moves, uint8_t max_moves);
 
 // SOA version for better 6502 performance
-uint8_t board_get_legal_moves_soa(const board_t *board, uint8_t row, uint8_t col,
-                                  move_array_t *moves);
+uint8_t board_get_legal_moves_soa(const board_t *board, player_t current_player, uint8_t row, uint8_t col,
+                                  move_array_t *out_moves);
 
 // Move execution
-bool board_execute_move(board_t *board, const move_t *move, uint8_t swap_rule);
-bool board_execute_move_without_history(board_t *board, const move_t *move, uint8_t swap_rule);
+bool board_execute_move(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule);
+bool board_execute_move_without_history(board_t *board, board_context_t *context, const move_t *move, uint8_t swap_rule);
 void board_undo_last_move(board_t *board);
 
 // Win detection
@@ -251,9 +261,18 @@ bool board_check_win_fast(const board_t *board, player_t player);
 bool board_check_win_with_path(const board_t *board, player_t player, win_path_t *out_path);
 bool board_check_win(const board_t *board, player_t player, win_path_t *out_path);
 
+// AI board utilities
+static inline void board_copy(board_t *dest, const board_t *src) {
+    memcpy(dest, src, sizeof(board_t));
+}
+bool board_can_move_unchecked(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
+                                 uint8_t to_row, uint8_t to_col, move_type_t *out_type);
+uint8_t board_get_legal_moves_soa(const board_t *board, player_t current_player, uint8_t row, uint8_t col,
+                                  move_array_t *out_moves);
+
 
 // Utility
-void board_switch_turn(board_t *board);
+void board_switch_turn(board_context_t *context);
 uint8_t board_count_pieces(const board_t *board, player_t player);
 void board_clear_all_swapped(board_t *board);
 void board_update_winning_row_counts(board_t *board);
