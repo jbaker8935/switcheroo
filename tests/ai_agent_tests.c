@@ -1189,8 +1189,31 @@ static void test_all_win_in_2_puzzles(void) {
                moves_match ? "YES" : "NO");
 
         // Test if AI can find a forced win in 2 moves
-        bool has_forced_win = ai_forcing_move_available(&board, PLAYER_WHITE, PLAYER_WHITE, puzzle->swap_rule);
-
+        bool has_forced_win = false;
+        move_array_t candidate_moves;
+        int candidate_count = 0;
+        for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+            for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+                piece_type_t piece = board_get_piece(&board, row, col);
+                if (board_get_piece_owner(piece) != PLAYER_WHITE) continue;
+                uint8_t move_count = board_get_legal_moves_soa(&board, PLAYER_WHITE, row, col, &candidate_moves);
+                for (uint8_t i = 0; i < move_count; ++i) {
+                    move_t candidate;
+                    move_array_get_move(&candidate_moves, i, &candidate);
+                    candidate.player = PLAYER_WHITE;
+                    board_t after_move;
+                    board_copy(&after_move, &board);
+                    board_context_t move_context = {.current_player = PLAYER_WHITE};
+                    if (!board_execute_move_without_history(&after_move, &move_context, &candidate, puzzle->swap_rule)) continue;
+                    // Now check if this move is a Win in 2 (forcing)
+                    bool is_forcing = ai_forcing_move_available(&after_move, PLAYER_BLACK, PLAYER_WHITE, puzzle->swap_rule);
+                    if (is_forcing) {
+                        has_forced_win = true;
+                    }
+                    candidate_count++;
+                }
+            }
+        }
         if (has_forced_win) {
             printf("  SUCCESS: AI found a winning line that wins in 2 moves\n");
             passed++;
@@ -1210,8 +1233,129 @@ static void test_all_win_in_2_puzzles(void) {
 
 static void test_expert_forced_loss_layout2_sequence(void) {}
 
+static void test_puzzle_3_a5_b6_issue(void) {
+    printf("\n=== Testing actual puzzle 3 A5->B6 issue ===\n");
+    
+    // Set up the board from actual puzzle 3 (classic_d3.json index 2)
+    board_t board;
+    board_context_t context;
+    board_init(&board);
+    clear_board(&board, &context);
+    context.current_player = PLAYER_WHITE;
+
+    // From JSON: starting position for puzzle 3
+    board_set_piece(&board, 1, 1, PIECE_WHITE_SWAPPED);  // 2,B: A swapped
+    board_set_piece(&board, 2, 0, PIECE_BLACK_SWAPPED);  // 3,A: B swapped
+    board_set_piece(&board, 2, 2, PIECE_BLACK_NORMAL);   // 3,C: B normal
+    board_set_piece(&board, 2, 3, PIECE_BLACK_NORMAL);   // 3,D: B normal
+    board_set_piece(&board, 3, 1, PIECE_WHITE_SWAPPED);  // 4,B: A swapped
+    board_set_piece(&board, 3, 2, PIECE_BLACK_SWAPPED);  // 4,C: B swapped
+    board_set_piece(&board, 3, 3, PIECE_WHITE_SWAPPED);  // 4,D: A swapped
+    board_set_piece(&board, 4, 0, PIECE_WHITE_NORMAL);   // 5,A: A normal
+    board_set_piece(&board, 4, 2, PIECE_WHITE_NORMAL);   // 5,C: A normal
+    board_set_piece(&board, 4, 3, PIECE_BLACK_NORMAL);   // 5,D: B normal
+    board_set_piece(&board, 5, 1, PIECE_BLACK_NORMAL);   // 6,B: B normal
+    board_set_piece(&board, 5, 3, PIECE_BLACK_NORMAL);   // 6,D: B normal
+    board_set_piece(&board, 6, 0, PIECE_WHITE_NORMAL);   // 7,A: A normal
+    board_set_piece(&board, 7, 1, PIECE_BLACK_NORMAL);   // 8,B: B normal
+    board_set_piece(&board, 7, 2, PIECE_WHITE_NORMAL);   // 8,C: A normal
+    board_set_piece(&board, 7, 3, PIECE_WHITE_NORMAL);   // 8,D: A normal
+
+    printf("Initial board setup for actual puzzle 3:\n");
+    for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+        for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+            piece_type_t piece = board_get_piece(&board, r, c);
+            char piece_char = '?';
+            if (piece == PIECE_NONE) piece_char = '.';
+            else if (piece == PIECE_WHITE_NORMAL) piece_char = 'w';
+            else if (piece == PIECE_WHITE_SWAPPED) piece_char = 'W';
+            else if (piece == PIECE_BLACK_NORMAL) piece_char = 'b';
+            else if (piece == PIECE_BLACK_SWAPPED) piece_char = 'B';
+            printf("%c ", piece_char);
+        }
+        printf("\n");
+    }
+
+    // User makes move A5->B6 (white moves from 4,0 to 5,1)
+    move_t user_move = {
+        .from_row = 4, .from_col = 0, .to_row = 5, .to_col = 1,
+        .type = MOVE_TYPE_SWAP, .player = PLAYER_WHITE
+    };
+
+    printf("User move: A5->B6 (swap)\n");
+    bool move_success = board_execute_move(&board, &context, &user_move, SWAP_RULE_CLASSIC);
+    if (!move_success) {
+        printf("ERROR: Move A5->B6 failed!\n");
+        return;
+    }
+
+    printf("Board after user move:\n");
+    for (uint8_t r = 0; r < BOARD_ROWS; ++r) {
+        for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+            piece_type_t piece = board_get_piece(&board, r, c);
+            char piece_char = '?';
+            if (piece == PIECE_NONE) piece_char = '.';
+            else if (piece == PIECE_WHITE_NORMAL) piece_char = 'w';
+            else if (piece == PIECE_WHITE_SWAPPED) piece_char = 'W';
+            else if (piece == PIECE_BLACK_NORMAL) piece_char = 'b';
+            else if (piece == PIECE_BLACK_SWAPPED) piece_char = 'B';
+            printf("%c ", piece_char);
+        }
+        printf("\n");
+    }
+
+    // Now it's black's turn
+    board_switch_turn(&context);
+    printf("Switched to black's turn\n");
+
+    // Check legal moves for black
+    move_t all_moves[256];
+    uint8_t total_moves = 0;
+    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece(&board, row, col);
+            player_t owner = board_get_piece_owner(piece);
+            if (owner == PLAYER_BLACK) {
+                uint8_t piece_moves = board_get_legal_moves(&board, PLAYER_BLACK, row, col, &all_moves[total_moves], 256 - total_moves);
+                total_moves += piece_moves;
+            }
+        }
+    }
+    printf("Total legal moves for black: %d\n", total_moves);
+
+    // Configure AI as in game (EXPERT difficulty, black player)
+    ai_config_t black_config;
+    ai_agent_init(&black_config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_EXPERT, PLAYER_BLACK);
+
+    move_t ai_move;
+    bool ai_moved = false;
+    bool found = ai_agent_find_best_move(&board, &context, &black_config, &ai_move);
+    printf("ai_agent_find_best_move returned: %s\n", found ? "TRUE" : "FALSE");
+    if (found) {
+        bool exec_success = board_execute_move(&board, &context, &ai_move, black_config.swap_rule);
+        printf("board_execute_move returned: %s\n", exec_success ? "TRUE" : "FALSE");
+        if (exec_success) {
+            ai_moved = true;
+            char move_str[64];
+            format_test_move_string(move_str, sizeof(move_str), &ai_move);
+            printf("AI move selected: %s\n", move_str);
+            printf("AI moved\n");
+            // Simulate win check and turn switch
+            // (Stub: always switch turn, no win logic in test)
+            board_switch_turn(&context);
+            printf("Turn switched to player %d\n", context.current_player);
+        }
+    }
+    if (!ai_moved) {
+        printf("AI HAS NO MOVES\n");
+        board_switch_turn(&context);
+        printf("Turn switched to player %d\n", context.current_player);
+    }
+}
+
 int main(void) {
     puts("Running Switcharoo AI agent tests...");
     test_all_win_in_2_puzzles();
+    test_puzzle_3_a5_b6_issue();
     return 0;
 }

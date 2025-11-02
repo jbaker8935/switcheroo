@@ -240,7 +240,6 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
     buf = "Puzzle:               ";
     print_formatted_text(3, start_row, buf);
     uint8_t index_digits = countDigits(puzzle_index + 1);
-    uint8_t total_digits = countDigits(total_puzzles);
     textGotoXY(11, start_row);
     textPrintUInt(puzzle_index + 1);
     textGotoXY(11 + index_digits, start_row);

@@ -17,54 +17,6 @@ extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
 extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 
-static void gs_copy_text(char *dest, size_t dest_size, const char *src)
-{
-    if (!dest || dest_size == 0)
-    {
-        return;
-    }
-    size_t i = 0;
-    if (src)
-    {
-        while (i + 1 < dest_size && src[i] != '\0')
-        {
-            dest[i] = src[i];
-            ++i;
-        }
-    }
-    dest[i] = '\0';
-}
-
-static void gs_format_win_in(char *dest, size_t dest_size, unsigned value)
-{
-    if (!dest || dest_size == 0)
-    {
-        return;
-    }
-    static const char prefix[] = "WIN IN ";
-    size_t len = 0;
-    while (len + 1 < dest_size && prefix[len] != '\0')
-    {
-        dest[len] = prefix[len];
-        ++len;
-    }
-
-    char digits[6];
-    size_t count = 0;
-    do
-    {
-        digits[count++] = (char)('0' + (value % 10u));
-        value /= 10u;
-    } while (value != 0u && count < sizeof(digits));
-
-    while (count > 0 && len + 1 < dest_size)
-    {
-        dest[len++] = digits[--count];
-    }
-
-    dest[len] = '\0';
-}
-
 static void game_state_clear_win_path(game_state_t *state)
 {
     if (!state)
@@ -115,7 +67,7 @@ static void game_state_toggle_swap_rule(game_state_t *state)
 }
 
 
-#ifndef AI_AGENT_HOST_TEST
+
 static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 {
     game_state_clear_win_path(state);
@@ -156,7 +108,7 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 
     return true;
 }
-#endif
+
 
 void game_state_init(game_state_t *state)
 {
@@ -227,9 +179,9 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
         }
 
         // PUZZLE mode: initialize board to current puzzle
-#ifndef AI_AGENT_HOST_TEST
+
         if (!game_state_apply_current_puzzle(state, true))
-#endif
+
         {
             // If no puzzles, fallback to freeplay
             board_set_starting_layout(&state->board, state->context.layout_id);
@@ -427,7 +379,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             // if in puzzle mode, load next puzzle
             if (state->is_puzzle_mode)
             {
-                #ifndef AI_AGENT_HOST_TEST
+
                 const puzzle_collection_t *collection = get_puzzle_collection();
                 if (!collection || collection->count == 0u)
                 {
@@ -445,7 +397,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     }
                 }
                 if (game_state_apply_current_puzzle(state, true))
-                #endif
+
                 {
                     game_state_deselect_piece(state);
                     game_state_update_menu_enables(state);
@@ -507,7 +459,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             break;
 
         case MENU_ICON_HINT:
-            #ifndef AI_AGENT_HOST_TEST
+
             {
                 // Display the first solution move for the currently selected puzzle (hint)
                 const puzzle_collection_t *collection = get_puzzle_collection();
@@ -545,7 +497,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 
                 state->phase = GAME_PHASE_PLAYING;
             }
-            #endif
+
             break;
 
         case MENU_ICON_EXIT:

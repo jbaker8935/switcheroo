@@ -11,6 +11,7 @@
 #define AI_MAX_ORDERED_MOVES 32
 
 #include <stdint.h>
+#include "../src/board.h"
 
 #ifdef AI_AGENT_HOST_TEST
 #include <stdbool.h>
@@ -19,11 +20,7 @@
 #include "platform_f256.h"
 #endif
 
-#include "../include/board.h"
 
-#ifdef AI_AGENT_HOST_TEST
-#include "../src/board.h"
-#endif
 
 // Callback type for AI search progress updates
 typedef void (*ai_progress_callback_t)(void *user_data);
