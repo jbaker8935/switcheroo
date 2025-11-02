@@ -639,7 +639,7 @@ __attribute__((noinline, section(".block9")))
 
 uint16_t
 FAR9_ai_measure_mobility(const board_t *board, player_t player) {
-    board_t scratch;
+     board_t scratch;
     ai_board_copy(&scratch, board);
 
     uint16_t mobility = 0;
@@ -904,100 +904,78 @@ bool ai_forcing_move_available(const board_t *board, player_t current_player, pl
 
 __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_available(const board_t *board, player_t current_player, player_t player,
                                                                                   swap_rule_t rule) {
-
     if (!board || player == PLAYER_NONE) {
         return false;
     }
 
-    player_t opponent = (player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    player_t ai_player = (player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
-    // For each candidate move for player
-    move_array_t candidate_moves;
+    board_t base_state;
+    ai_board_copy(&base_state, board);
+
+    move_t candidate_moves[AI_MAX_ORDERED_MOVES];
+    move_t response_moves[AI_MAX_ORDERED_MOVES];
+    const uint8_t buffer_capacity = (uint8_t)(sizeof(candidate_moves) / sizeof(candidate_moves[0]));
+
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece_unchecked(board, row, col);
-            if (board_get_piece_owner(piece) != player) continue;
+            piece_type_t piece = board_get_piece_unchecked(&base_state, row, col);
+            if (board_get_piece_owner(piece) != player) {
+                continue;
+            }
 
-            uint8_t move_count = board_get_legal_moves_soa(board, player, row, col, &candidate_moves);
+            uint8_t move_count = board_get_legal_moves(&base_state, player, row, col, candidate_moves, buffer_capacity);
             for (uint8_t move_idx = 0; move_idx < move_count; ++move_idx) {
-                move_t candidate;
-                move_array_get_move(&candidate_moves, move_idx, &candidate);
+                board_t after_opponent;
+                ai_board_copy(&after_opponent, &base_state);
+                board_context_t move_ctx = {.current_player = player};
+                if (!board_execute_move_without_history(&after_opponent, &move_ctx, &candidate_moves[move_idx], rule)) {
+                    continue;
+                }
 
-                board_t after_move;
-                ai_board_copy(&after_move, board);
-                board_context_t candidate_context = {.current_player = player};
-                if (!board_execute_move_without_history(&after_move, &candidate_context, &candidate, rule)) continue;
+                if (board_check_win_fast(&after_opponent, player)) {
+                    return true;
+                }
 
-                // If candidate move is an immediate win, skip (not a Win in 2)
-                if (board_check_win_fast(&after_move, player)) continue;
+                board_switch_turn(&move_ctx);
+                /* Defender (ai_player) now to move */
+                bool defender_has_safe_move = false;
 
-                // For each possible opponent reply
-                bool all_replies_allow_win_next = true;
-                move_array_t opponent_moves;
-                for (uint8_t opp_row = 0; opp_row < BOARD_ROWS; ++opp_row) {
-                    for (uint8_t opp_col = 0; opp_col < BOARD_COLS; ++opp_col) {
-                        piece_type_t opp_piece = board_get_piece_unchecked(&after_move, opp_row, opp_col);
-                        if (board_get_piece_owner(opp_piece) != opponent) continue;
+                for (uint8_t resp_row = 0; resp_row < BOARD_ROWS && !defender_has_safe_move; ++resp_row) {
+                    for (uint8_t resp_col = 0; resp_col < BOARD_COLS && !defender_has_safe_move; ++resp_col) {
+                        piece_type_t resp_piece = board_get_piece_unchecked(&after_opponent, resp_row, resp_col);
+                        if (board_get_piece_owner(resp_piece) != ai_player) {
+                            continue;
+                        }
 
-                        uint8_t opp_move_count = board_get_legal_moves_soa(&after_move, opponent, opp_row, opp_col, &opponent_moves);
-                        for (uint8_t opp_idx = 0; opp_idx < opp_move_count; ++opp_idx) {
-                            move_t opp_move;
-                            move_array_get_move(&opponent_moves, opp_idx, &opp_move);
-
-                            board_t after_opp_move;
-                            ai_board_copy(&after_opp_move, &after_move);
-                            board_context_t opp_context = {.current_player = opponent};
-                            if (!board_execute_move_without_history(&after_opp_move, &opp_context, &opp_move, rule)) continue;
-
-                            // If opponent wins immediately, candidate is not forcing
-                            if (board_check_win_fast(&after_opp_move, opponent)) {
-                                all_replies_allow_win_next = false;
-                                goto next_candidate;
+                        uint8_t response_count = board_get_legal_moves(&after_opponent, ai_player, resp_row, resp_col, response_moves, buffer_capacity);
+                        for (uint8_t resp_idx = 0; resp_idx < response_count; ++resp_idx) {
+                            board_t after_ai;
+                            ai_board_copy(&after_ai, &after_opponent);
+                            board_context_t resp_ctx = {.current_player = ai_player};
+                            if (!board_execute_move_without_history(&after_ai, &resp_ctx, &response_moves[resp_idx], rule)) {
+                                continue;
                             }
 
-                            // Switch turn back to player
-                            board_switch_turn(&opp_context);
-
-                            // Check if player has an immediate win after opponent's reply
-                            if (ai_immediate_win_available(&after_opp_move, opp_context.current_player, player, rule)) {
-                                continue; // This reply is fine
+                            if (board_check_win_fast(&after_ai, player)) {
+                                /* Defender's reply gave player an immediate win; try other replies */
+                                continue;
                             }
 
-                            // Otherwise, check if player can win on their next move (Win in 2)
-                            bool player_can_win_next = false;
-                            move_array_t player_moves;
-                            for (uint8_t p_row = 0; p_row < BOARD_ROWS; ++p_row) {
-                                for (uint8_t p_col = 0; p_col < BOARD_COLS; ++p_col) {
-                                    piece_type_t p_piece = board_get_piece_unchecked(&after_opp_move, p_row, p_col);
-                                    if (board_get_piece_owner(p_piece) != player) continue;
-                                    uint8_t p_move_count = board_get_legal_moves_soa(&after_opp_move, player, p_row, p_col, &player_moves);
-                                    for (uint8_t p_idx = 0; p_idx < p_move_count; ++p_idx) {
-                                        move_t p_move;
-                                        move_array_get_move(&player_moves, p_idx, &p_move);
-                                        board_t after_p_move;
-                                        ai_board_copy(&after_p_move, &after_opp_move);
-                                        board_context_t p_context = {.current_player = player};
-                                        if (!board_execute_move_without_history(&after_p_move, &p_context, &p_move, rule)) continue;
-                                        if (board_check_win_fast(&after_p_move, player)) {
-                                            player_can_win_next = true;
-                                            goto found_win_next;
-                                        }
-                                    }
-                                }
-                            }
-                            found_win_next:
-                            if (!player_can_win_next) {
-                                all_replies_allow_win_next = false;
-                                goto next_candidate;
+                            board_switch_turn(&resp_ctx);
+                            resp_ctx.current_player = player;
+
+                            if (!ai_immediate_win_available(&after_ai, resp_ctx.current_player, player, rule)) {
+                                defender_has_safe_move = true;
+                                break;
                             }
                         }
                     }
                 }
-                // If all opponent replies allow player to win in 2, this is a forcing move
-                if (all_replies_allow_win_next) {
+
+                if (!defender_has_safe_move) {
                     return true;
                 }
-                next_candidate:;
             }
         }
     }
@@ -1036,8 +1014,11 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
         return 0u;
     }
 
-    board_t scratch;
-    uint8_t count = 0;
+     board_t scratch;
+     /* Initialize scratch with the current board so helper checks like
+         ai_move_clears_swapped read a valid board state. */
+     ai_board_copy(&scratch, board);
+     uint8_t count = 0;
     const player_t opponent = (current_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
     swap_rule_t swap_rule = config->swap_rule;
     bool forcing_check = config->enable_forcing_check && (config->ai_player == current_player);
@@ -1129,9 +1110,13 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                 if (count < AI_MAX_ORDERED_MOVES) {
                     slot_index = count++;
                 } else {
+                    /* We already filled the output buffer; find the current
+                       minimum-scoring slot within the valid range and replace
+                       it only if this move is better. Use AI_MAX_ORDERED_MOVES
+                       as the bound to avoid reading beyond the array. */
                     uint8_t min_index = 0u;
                     int16_t min_score = out_moves->order_scores[0];
-                    for (uint8_t j = 1u; j < count; ++j) {
+                    for (uint8_t j = 1u; j < AI_MAX_ORDERED_MOVES; ++j) {
                         if (out_moves->order_scores[j] < min_score) {
                             min_score = out_moves->order_scores[j];
                             min_index = j;
