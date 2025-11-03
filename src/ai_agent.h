@@ -102,9 +102,14 @@ typedef struct {
     bool forced_wins_self[AI_MAX_ORDERED_MOVES];
 } ai_evaluated_moves_t;
 
+#define AI_ORDER_FLAG_SELF_IMMEDIATE 0x01u
+#define AI_ORDER_FLAG_OPPONENT_IMMEDIATE 0x02u
+
 typedef struct {
     ai_moves_t moves;
     int16_t order_scores[AI_MAX_ORDERED_MOVES];
+    uint8_t indices[AI_MAX_ORDERED_MOVES];
+    uint8_t flags[AI_MAX_ORDERED_MOVES];
 } ai_ordered_moves_t;
 
 // Evaluate a single move and fill the ai_evaluated_move_t struct

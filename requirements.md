@@ -59,6 +59,9 @@ in a dedicated discrepancies section.
 - WHEN win detection runs, THE SYSTEM SHALL treat board rows two through seven
   (1-based numbering) as the victory span, declaring a win once a contiguous
   chain links those rows for a single player.
+- WHEN win detection constructs its traversal state, THE SYSTEM SHALL reuse
+  precomputed bit masks for the victory rows so repeated invocations avoid
+  per-call bit shifting on Foenix hardware.
 - WHEN `board_check_win` detects a continuous chain for a player, THE SYSTEM
   SHALL populate `win_path` with one cell per row and set `has_path` true so
   rendering can colour the winning path.
@@ -131,6 +134,9 @@ in a dedicated discrepancies section.
 - WHEN `game_state_apply_current_puzzle` succeeds, THE SYSTEM SHALL call
   `print_puzzle_info` and `clear_puzzle_hint` so the HUD reflects the selected
   puzzle.
+- WHEN a user manually sets the puzzle difficulty, THE SYSTEM SHALL retain that
+  selection across puzzle resets and puzzle navigation without reverting to the
+  catalog default.
 - WHEN move history changes, THE SYSTEM SHALL call `print_move_history` and
   `print_current_player` from the main loop to keep the HUD aligned with board
   history.
@@ -164,11 +170,20 @@ in a dedicated discrepancies section.
 - WHEN the AI generates candidate moves, THE SYSTEM SHALL discard any move that
   results in the opponent having an immediate win state once the move is
   applied.
+- WHEN the AI detects that applying a move hands the opponent an immediate win
+  on their reply, THE SYSTEM SHALL cache that flag on the candidate so later
+  evaluation passes can skip redundant win searches.
+- WHEN the AI determines whether every legal reply concedes an opponent
+  immediate win, THE SYSTEM SHALL reuse the cached candidate flags from the
+  current generation pass instead of recomputing board outcomes.
 - WHEN the AI inspects immediate wins, THE SYSTEM SHALL consider every legal
   move for the player to move, even if the total exceeds the ordered-move
   buffer used for heuristic ranking.
 - IF a candidate yields an immediate win for the AI, THEN THE SYSTEM SHALL
   select that move and end evaluation.
+- WHEN candidate generation identifies an immediate win for the side to move,
+  THE SYSTEM SHALL stop enumerating further moves and return only the winning
+  candidates for evaluation.
 - WHEN a candidate allows an opponent immediate win on their next turn, THE
   SYSTEM SHALL discard the candidate unless the configured blunder rules
   select it.
@@ -198,6 +213,18 @@ in a dedicated discrepancies section.
 - WHEN forced-win evaluation runs, THE SYSTEM SHALL examine every legal
   opponent reply after a candidate move so forced sequences are detected even
   when the move count surpasses the ordered buffer.
+- WHEN forced-win detection considers an opponent opportunity, THE SYSTEM
+  SHALL restrict the initiating candidate set to swap moves so early-game
+  forcing analysis avoids unnecessary enumeration.
+- WHEN the heuristic scoring stage runs after candidate generation, THE SYSTEM
+  SHALL reuse the previously computed forced-win flags instead of executing a
+  second forcing analysis pass.
+- WHEN any move changes swapped status, THE SYSTEM SHALL update per-player
+  swapped-piece counters on the board state so heuristic queries avoid full
+  board scans.
+- WHEN the AI orders candidate moves, THE SYSTEM SHALL sort an indirect index
+  list referencing the candidate buffer rather than relocating the underlying
+  move records to minimise memory churn.
 - WHEN the HINT system runs, THE SYSTEM SHALL reuse the same heuristic
   pipeline from the perspective of the requesting player while disabling
   randomisation and blunder effects.

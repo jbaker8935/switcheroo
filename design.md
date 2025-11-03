@@ -76,6 +76,9 @@ future work can extend the code base confidently.
   trigger resets, puzzle navigation, hints, or difficulty changes.
 - Sets AI difficulty to STANDARD by default when entering puzzle mode to provide
   an appropriate challenge level for puzzle solving.
+- Preserves any manually selected puzzle difficulty across resets and puzzle
+  navigation so subsequent AI turns reuse the lightweight or advanced profile
+  the player chose without reinitialisation churn.
 
 ### Board and Move Validation (`board.c/.h`)
 - Encapsulates the 8x4 board grid, piece states, and swap flags.
@@ -86,9 +89,16 @@ future work can extend the code base confidently.
   churn.
 - Checks for win conditions using per-row connectivity and populates
   `win_path_t` so the renderer can highlight the victory path.
+- Executes the connectivity search with a 24-bit frontier mask so the queue
+  reuse avoids frame-time `memset` churn on the 65C02.
+- Precomputes per-cell bit masks for the victory span so repeated win checks
+  avoid runtime shifting on the 65C816 path.
 - Maintains `white_winning_rows` and `black_winning_rows` counters that track
   player occupancy across rows two through seven, enabling win checks to
   short-circuit before launching the connectivity search.
+- Tracks `white_swapped_count`, `black_swapped_count`, and aggregate
+  `swapped_count` so swap-aware heuristics can query the board state without
+  rescanning all cells.
 - Seeds win detection from row index one and targets row index six (rows two
   through seven in 1-based terms) so forced-win analysis aligns with the
   official puzzle definitions.
@@ -141,9 +151,29 @@ future work can extend the code base confidently.
 - Generates candidate moves via a single adjacency scan with LUT-backed ownership
   checks, eliminating repeated `board_*` helper calls and improving 65C02
   execution efficiency.
+- Sorts move ordering through an indirect index array so the evaluation stage
+  reuses candidate buffers without performing multi-field data shuffles.
+- Annotates each candidate with cached immediate-win and forced-win flags so
+  the scoring pass can reuse the earlier analysis without reissuing board
+  queries.
+- Skips recomputation of opponent reply wins during evaluation when move flags
+  report the earlier detection results from candidate generation.
+- Reuses the cached candidate set to answer forced-loss queries so immediate
+  loss checks avoid rebuilding and reapplying every legal move.
+- Short-circuits move generation when an immediate win is detected and reuses
+  the post-move board state during evaluation so tactical checks (immediate
+  and forced wins) are computed only once per candidate.
+- Disables forcing checks during the subsequent scoring pass, relying on the
+  earlier detection results to apply penalties without repeating expensive
+  analysis.
+- Counts pieces via a nibble popcount lookup table instead of shift-based
+  loops, reducing per-candidate evaluation cost on the host and target builds.
 - Forced-win and immediate-win helpers iterate opponent replies directly from
   the SOA enumerator so they inspect every legal move even when the count
   exceeds the heuristic buffer length.
+- Forced-win detection now seeds its analysis exclusively from swap moves by
+  the threatening side, reflecting the early-game tactical focus while still
+  evaluating every opponent reply for those candidates.
 - Captures optional move diagnostics and hint traces to aid tuning and exposes
   host-callable getters for debugging.
 - Exposes helpers for inevitability analysis so host tests can flag positions

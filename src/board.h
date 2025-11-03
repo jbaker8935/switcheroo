@@ -183,6 +183,8 @@ typedef uint8_t board_cell_t;
 typedef struct {
     board_cell_t cells[BOARD_ROWS][BOARD_COLS];
     uint8_t swapped_count;
+    uint8_t white_swapped_count;
+    uint8_t black_swapped_count;
     uint8_t white_winning_rows;
     uint8_t black_winning_rows;
     uint16_t move_count;

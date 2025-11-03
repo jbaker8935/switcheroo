@@ -59,6 +59,18 @@ backlog.
 | T33 | Expert Own-Goal Guard | Ensure fallback move selection never concedes an immediate win when only risky replies remain. | `src/ai_agent.c`, host regression notes. | T8, T24 | Done |
 | T34 | Forced-Loss Short-Circuit | Reinstate the forced-loss precheck so deep forcing analysis is skipped when every reply still loses. | `src/ai_agent.c`, profiling logs. | T8, T20 | Done |
 | T35 | AI Own-Goal Pruning | Remove own-goal moves during candidate generation so evaluation and fallback never select them. | `src/ai_agent.c`, documentation sync. | T8, T24, T33 | In Progress |
+| T36 | AI Tactical Streamlining | Remove duplicate immediate/forced checks, stop enumeration after self wins, and force deterministic hint selection. | Updated `src/ai_agent.c`, docs refresh. | T8, T25 | Done |
+| T37 | Forced Win Swap Filter | Limit FORCED_WIN_A analysis to swap moves only, reducing early-game overhead while preserving reply coverage. | `src/ai_agent.c`, documentation updates. | T8, T36 | Done |
+| T38 | Swap Count Cache | Maintain per-player swapped-piece counters on the board so AI heuristics avoid repeated full-board scans. | `src/board.c`, `src/board.h`, `src/ai_agent.c`. | T4, T18 | Done |
+| T39 | Indexed Move Ordering | Use an indirect index table for AI move ordering to eliminate repeated struct shuffling. | `src/ai_agent.c`. | T8, T36 | Done |
+| T40 | Evaluation Forcing Shortcut | Skip redundant forcing checks during move evaluation while preserving penalty scoring hooks. | `src/ai_agent.c`, profiling notes. | T8, T37 | Done |
+| T41 | Bitmask Win Detection | Replace the BFS array visit tracking with a 24-bit mask in `board_check_win_fast` to eliminate memset overhead. | `src/board.c`, host benchmark logs. | T4, T30 | Done |
+| T42 | Move Flag Sharing | Cache immediate-win results during move generation and reuse them in evaluation to avoid duplicate win checks. | `src/ai_agent.c`. | T8, T40 | Done |
+| T43 | Popcount Lookup Table | Switch the popcount helper to nibble-table lookups for fewer shifts on 65C816. | `src/ai_agent.c`. | T8 | Done |
+| T44 | Win Mask Lookup Cache | Precompute victory-row bit masks so `board_check_win_fast` avoids dynamic shifts on target hardware. | `src/board.c`, profiling notes. | T41 | Done |
+| T45 | Opponent Immediate Flagging | Persist opponent immediate-win results from move generation to evaluation to cut redundant searches. | `src/ai_agent.c`. | T42 | Done |
+| T46 | Move Enumeration Cache | Reuse the generated candidate list for forced-loss checks and evaluation to eliminate redundant board simulations. | `src/ai_agent.c`. | T42 | Done |
+| T47 | Puzzle Difficulty Retention | Keep manually selected puzzle difficulty across resets and navigation so lightweight heuristics stay active. | `src/game_state.c`. | T14 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

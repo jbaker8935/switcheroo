@@ -94,9 +94,21 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     state->context.history_count = 0;
     state->prefs.swap_rule = puzzle->swap_rule;
 
-    ai_difficulty_t difficulty = puzzle->difficulty;
+    ai_difficulty_t difficulty;
+    if (state->difficulty_manually_set) {
+        difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
+    } else {
+        difficulty = puzzle->difficulty;
+        state->prefs.difficulty_level = difficulty;
+    }
+
     player_t ai_player = puzzle->is_solved ? PLAYER_BLACK : PLAYER_WHITE;
     game_state_configure_ai(state, puzzle->swap_rule, difficulty, ai_player);
+    if (state->is_puzzle_mode) {
+        state->ai_config.blunder_enabled = false;
+        state->ai_config.blunder_chance_pct = 0u;
+        state->ai_config.use_hint_profile = true;
+    }
 
     if (announce)
     {
@@ -432,29 +444,16 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             state->prefs.difficulty_level = (state->prefs.difficulty_level + 1) % 4;
             // Mark that difficulty has been manually set
             state->difficulty_manually_set = true;
-            // Update AI difficulty
-            state->ai_config.difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
-            // Update blunder settings based on new difficulty
-            switch (state->prefs.difficulty_level) {
-                case AI_DIFFICULTY_LEARNING:
-                    state->ai_config.blunder_enabled = true;
-                    state->ai_config.blunder_chance_pct = 20u;
-                    break;
-                case AI_DIFFICULTY_EASY:
-                    state->ai_config.blunder_enabled = true;
-                    state->ai_config.blunder_chance_pct = 15u;
-                    break;
-                case AI_DIFFICULTY_STANDARD:
-                    state->ai_config.blunder_enabled = true;
-                    state->ai_config.blunder_chance_pct = 10u;
-                    break;
-                case AI_DIFFICULTY_EXPERT:
-                default:
+            {
+                ai_difficulty_t new_difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
+                player_t ai_player = state->ai_config.ai_player;
+                game_state_configure_ai(state, state->prefs.swap_rule, new_difficulty, ai_player);
+                if (state->is_puzzle_mode) {
                     state->ai_config.blunder_enabled = false;
                     state->ai_config.blunder_chance_pct = 0u;
-                    break;
+                    state->ai_config.use_hint_profile = true;
+                }
             }
-            state->ai_config.blunder_type = ai_allowed_blunder_type(state->ai_config.difficulty);
             print_ai_difficulty(state->prefs.difficulty_level);
             break;
 
@@ -480,7 +479,10 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     ai_config_t ai_config = state->ai_config;
                     ai_config.ai_player = PLAYER_WHITE;
                     ai_config.swap_rule = state->prefs.swap_rule;
-                    ai_config.use_hint_profile = state->is_puzzle_mode;
+                    ai_config.use_hint_profile = true;
+                    ai_config.blunder_enabled = false;
+                    ai_config.random_top_k = 1u;
+                    ai_config.random_epsilon_pct = 0u;
                     bool ai_found = ai_agent_find_best_move(&state->board, &state->context, &ai_config, &ai_move);
                     if (ai_found)
                     {

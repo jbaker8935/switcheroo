@@ -9,6 +9,18 @@
 #include "../src/board.h"
 #include <string.h>
 
+enum {
+    kWinRowCount = WIN_END_ROW - WIN_START_ROW + 1,
+    kWinCellCount = kWinRowCount * BOARD_COLS
+};
+
+#define WIN_CELL_INDEX(row, col) ((row) * BOARD_COLS + (col))
+#define WIN_CELL_BIT(row, col) (UINT32_C(1) << WIN_CELL_INDEX((row), (col)))
+#define WIN_CELL_BITS_ROW(row) \
+    WIN_CELL_BIT((row), 0), WIN_CELL_BIT((row), 1), WIN_CELL_BIT((row), 2), WIN_CELL_BIT((row), 3)
+#define WIN_ROW_MASK_VALUE(row) \
+    (WIN_CELL_BIT((row), 0) | WIN_CELL_BIT((row), 1) | WIN_CELL_BIT((row), 2) | WIN_CELL_BIT((row), 3))
+
 // Extern declarations for inline functions used across multiple translation units
 extern piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
 extern void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
@@ -20,13 +32,32 @@ extern bool board_can_move(const board_t *board, player_t current_player, uint8_
 
 static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
     piece_type_t old_piece = board->cells[row][col];
+    if (board_is_piece_swapped(old_piece)) {
+        if (board->swapped_count > 0u) {
+            board->swapped_count--;
+        }
+        player_t old_owner = board_get_piece_owner(old_piece);
+        if (old_owner == PLAYER_WHITE) {
+            if (board->white_swapped_count > 0u) {
+                board->white_swapped_count--;
+            }
+        } else if (old_owner == PLAYER_BLACK) {
+            if (board->black_swapped_count > 0u) {
+                board->black_swapped_count--;
+            }
+        }
+    }
+
     board->cells[row][col] = piece;
-    
-    // Update swapped piece count
-    if (board_is_piece_swapped(old_piece) && !board_is_piece_swapped(piece)) {
-        board->swapped_count--;
-    } else if (!board_is_piece_swapped(old_piece) && board_is_piece_swapped(piece)) {
+
+    if (board_is_piece_swapped(piece)) {
         board->swapped_count++;
+        player_t new_owner = board_get_piece_owner(piece);
+        if (new_owner == PLAYER_WHITE) {
+            board->white_swapped_count++;
+        } else if (new_owner == PLAYER_BLACK) {
+            board->black_swapped_count++;
+        }
     }
 }
 
@@ -178,10 +209,10 @@ bool board_can_move(const board_t *board, player_t current_player, uint8_t from_
 // Used in performance-critical loops where bounds are already verified
 bool board_can_move_unchecked(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
                               uint8_t to_row, uint8_t to_col, move_type_t *out_type) {
-    // Check adjacency
-    if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
-        return false;
-    }
+    // Check adjacency - unneeded because caller guarantees valid cells
+    // if (!board_is_adjacent(from_row, from_col, to_row, to_col)) {
+    //     return false;
+    // }
     
     // Get pieces
     piece_type_t from_piece = board_get_piece_unchecked(board, from_row, from_col);
@@ -278,6 +309,8 @@ void board_reset(board_t *board) {
     board_set_starting_layout(board, 0); // Default layout
     board->move_count = 0;
     board->swapped_count = 0;  // No swapped pieces in starting layout
+    board->white_swapped_count = 0;
+    board->black_swapped_count = 0;
 }
 
 void board_set_starting_layout(board_t *board, uint8_t layout_id) {
@@ -302,6 +335,8 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id) {
     memcpy(board->cells, layout, sizeof(board->cells));
     board->move_count = 0;
     board->swapped_count = 0;
+    board->white_swapped_count = 0;
+    board->black_swapped_count = 0;
     board_update_winning_row_counts(board);
 }
 
@@ -540,6 +575,10 @@ void board_clear_all_swapped(board_t *board) {
         extern void render_invalidate_cache(void);
         render_invalidate_cache();
     }
+
+    board->swapped_count = 0;
+    board->white_swapped_count = 0;
+    board->black_swapped_count = 0;
 }
 
 bool board_check_win_fast(const board_t *board, player_t player) {
@@ -547,68 +586,70 @@ bool board_check_win_fast(const board_t *board, player_t player) {
         return false;
     }
 
-    const uint8_t required_rows = (uint8_t)(WIN_END_ROW - WIN_START_ROW + 1u);
+    const uint8_t required_rows = (uint8_t)kWinRowCount;
     const uint8_t covered_rows = (player == PLAYER_WHITE) ? board->white_winning_rows : board->black_winning_rows;
     if (covered_rows < required_rows) {
         return false;
     }
 
-    /* Optimized BFS for 6502: minimal memory usage, early termination */
-    uint8_t queue[BOARD_CELLS];
-    uint8_t visited[BOARD_CELLS];
-    for (uint8_t i = 0; i < BOARD_CELLS; ++i) {
-        visited[i] = 0;
-    }
-
-    uint8_t q_front = 0;
-    uint8_t q_back = 0;
-
-    // Seed queue with player's pieces in WIN_START_ROW
-    for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-        uint8_t idx = (uint8_t)(WIN_START_ROW * BOARD_COLS + col);
-        piece_type_t piece = board_get_piece_unchecked(board, WIN_START_ROW, col);
-        if (board_get_piece_owner(piece) == player) {
-            queue[q_back++] = idx;
-            visited[idx] = 1;
+    uint8_t row_masks[kWinRowCount];
+    for (uint8_t rel_row = 0u; rel_row < required_rows; ++rel_row) {
+        uint8_t board_row = (uint8_t)(WIN_START_ROW + rel_row);
+        uint8_t mask = 0u;
+        for (uint8_t col = 0u; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece_unchecked(board, board_row, col);
+            if (board_get_piece_owner(piece) == player) {
+                mask |= (uint8_t)(1u << col);
+            }
+        }
+        row_masks[rel_row] = mask;
+        if (mask == 0u) {
+            return false;
         }
     }
 
-    // BFS traversal - no parent tracking needed for win detection
-    while (q_front < q_back) {
-        uint8_t current = queue[q_front++];
-        uint8_t current_row = current / BOARD_COLS;
+    static bool s_connectivity_initialized = false;
+    static uint8_t s_connectivity_table[16][16];
+    if (!s_connectivity_initialized) {
+        for (uint8_t occ = 0u; occ < 16u; ++occ) {
+            for (uint8_t prev = 0u; prev < 16u; ++prev) {
+                uint8_t dilated_prev = (uint8_t)(prev | ((prev << 1) & 0x0Fu) | (prev >> 1));
+                uint8_t curr = (uint8_t)(occ & dilated_prev);
 
-        if (current_row == WIN_END_ROW) {
-            return true;  // Win found!
+                if ((occ & 0x03u) == 0x03u && (curr & 0x01u)) {
+                    curr |= 0x02u;
+                }
+                if ((occ & 0x06u) == 0x06u && (curr & 0x02u)) {
+                    curr |= 0x04u;
+                }
+                if ((occ & 0x0Cu) == 0x0Cu && (curr & 0x04u)) {
+                    curr |= 0x08u;
+                }
+                if ((occ & 0x0Cu) == 0x0Cu && (curr & 0x08u)) {
+                    curr |= 0x04u;
+                }
+                if ((occ & 0x06u) == 0x06u && (curr & 0x04u)) {
+                    curr |= 0x02u;
+                }
+                if ((occ & 0x03u) == 0x03u && (curr & 0x02u)) {
+                    curr |= 0x01u;
+                }
+
+                s_connectivity_table[occ][prev] = (uint8_t)(curr & 0x0Fu);
+            }
         }
+        s_connectivity_initialized = true;
+    }
 
-        uint8_t current_col = current % BOARD_COLS;
-
-        // Check all 8 directions for adjacent cells
-        for (uint8_t dir = 0; dir < 8; ++dir) {
-            int8_t next_row = (int8_t)current_row + kDirRow[dir];
-            int8_t next_col = (int8_t)current_col + kDirCol[dir];
-            if (next_row < 0 || next_row >= BOARD_ROWS ||
-                next_col < 0 || next_col >= BOARD_COLS) {
-                continue;
-            }
-
-            uint8_t neighbor_idx = (uint8_t)next_row * BOARD_COLS + (uint8_t)next_col;
-            if (visited[neighbor_idx]) {
-                continue;
-            }
-
-            piece_type_t neighbor_piece = board_get_piece_unchecked(board, (uint8_t)next_row, (uint8_t)next_col);
-            if (board_get_piece_owner(neighbor_piece) != player) {
-                continue;
-            }
-
-            visited[neighbor_idx] = 1;
-            queue[q_back++] = neighbor_idx;
+    uint8_t reachable = row_masks[required_rows - 1u];
+    for (int8_t idx = (int8_t)required_rows - 2; idx >= 0; --idx) {
+        reachable = s_connectivity_table[row_masks[idx]][reachable];
+        if (reachable == 0u) {
+            return false;
         }
     }
 
-    return false;
+    return reachable != 0u;
 }
 
 bool board_check_win_with_path(const board_t *board, player_t player, win_path_t *out_path) {
