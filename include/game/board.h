@@ -79,8 +79,6 @@ typedef struct {
 typedef struct {
     board_cell_t cells[BOARD_ROWS][BOARD_COLS];
     uint8_t swapped_count;
-    uint8_t white_winning_rows;
-    uint8_t black_winning_rows;
     uint16_t move_count;
     // Legacy fields for test compatibility
     player_t current_player;
@@ -143,6 +141,5 @@ bool board_check_win(const board_t *board, player_t player, win_path_t *out_path
 void board_switch_turn(board_context_t *context);
 uint8_t board_count_pieces(const board_t *board, player_t player);
 void board_clear_all_swapped(board_t *board);
-void board_update_winning_row_counts(board_t *board);
 
 #endif // GAME_BOARD_H

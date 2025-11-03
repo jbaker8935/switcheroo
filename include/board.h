@@ -183,8 +183,6 @@ typedef uint8_t board_cell_t;
 typedef struct {
     board_cell_t cells[BOARD_ROWS][BOARD_COLS];
     uint8_t swapped_count;
-    uint8_t white_winning_rows;
-    uint8_t black_winning_rows;
     uint16_t move_count;
 } board_t;
 
@@ -275,6 +273,5 @@ uint8_t board_get_legal_moves_soa(const board_t *board, player_t current_player,
 void board_switch_turn(board_context_t *context);
 uint8_t board_count_pieces(const board_t *board, player_t player);
 void board_clear_all_swapped(board_t *board);
-void board_update_winning_row_counts(board_t *board);
 
 #endif // GAME_BOARD_H

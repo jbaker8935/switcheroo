@@ -948,25 +948,6 @@ static void setup_board_from_puzzle(board_t *board, const puzzle_test_data_t *pu
             board_set_piece(board, (uint8_t)row, (uint8_t)col, piece);
         }
     }
-    // Count pieces in winning rows for each player
-    board->white_winning_rows = 0;
-    board->black_winning_rows = 0;
-    for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = board_get_piece(board, row, col);
-            if (piece == PIECE_WHITE_NORMAL || piece == PIECE_WHITE_SWAPPED) {
-                // Assume rows 0 and 7 are winning rows for white
-                if (row == 0 || row == 7) {
-                    board->white_winning_rows++;
-                }
-            } else if (piece == PIECE_BLACK_NORMAL || piece == PIECE_BLACK_SWAPPED) {
-                // Assume rows 0 and 7 are winning rows for black
-                if (row == 0 || row == 7) {
-                    board->black_winning_rows++;
-                }
-            }
-        }
-    }
 }
 
 static uint8_t collect_player_moves(const board_t *board, player_t player, move_t *out_moves, uint8_t max_moves) {

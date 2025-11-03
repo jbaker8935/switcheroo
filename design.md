@@ -93,9 +93,6 @@ future work can extend the code base confidently.
   reuse avoids frame-time `memset` churn on the 65C02.
 - Precomputes per-cell bit masks for the victory span so repeated win checks
   avoid runtime shifting on the 65C816 path.
-- Maintains `white_winning_rows` and `black_winning_rows` counters that track
-  player occupancy across rows two through seven, enabling win checks to
-  short-circuit before launching the connectivity search.
 - Tracks `white_swapped_count`, `black_swapped_count`, and aggregate
   `swapped_count` so swap-aware heuristics can query the board state without
   rescanning all cells.

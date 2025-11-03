@@ -311,6 +311,5 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
         board_set_piece(board, row, col, type);
     }
 
-    board_update_winning_row_counts(board);
 }
 

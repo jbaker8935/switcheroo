@@ -61,42 +61,6 @@ static inline void board_set_piece_unchecked(board_t *board, uint8_t row, uint8_
     }
 }
 
-void board_update_winning_row_counts(board_t *board) {
-    if (!board) {
-        return;
-    }
-
-    uint8_t white_rows = 0;
-    uint8_t black_rows = 0;
-    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
-        bool white_present = false;
-        bool black_present = false;
-        board_cell_t *row_cells = board->cells[row];
-        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
-            piece_type_t piece = row_cells[col];
-            player_t owner = board_get_piece_owner(piece);
-            if (owner == PLAYER_WHITE) {
-                white_present = true;
-            } else if (owner == PLAYER_BLACK) {
-                black_present = true;
-            }
-            if (white_present && black_present) {
-                break;
-            }
-        }
-
-        if (white_present) {
-            ++white_rows;
-        }
-        if (black_present) {
-            ++black_rows;
-        }
-    }
-
-    board->white_winning_rows = white_rows;
-    board->black_winning_rows = black_rows;
-}
-
 // Non-inline definitions for extern inline functions
 piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
     if (!board_is_valid_cell(row, col)) {
@@ -107,58 +71,7 @@ piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col) {
 
 void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece) {
     if (board_is_valid_cell(row, col)) {
-        bool track_row = (row >= WIN_START_ROW && row <= WIN_END_ROW);
-        bool white_before = false;
-        bool black_before = false;
-        if (track_row) {
-            board_cell_t *row_cells = board->cells[row];
-            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                player_t owner = board_get_piece_owner(row_cells[c]);
-                if (owner == PLAYER_WHITE) {
-                    white_before = true;
-                } else if (owner == PLAYER_BLACK) {
-                    black_before = true;
-                }
-                if (white_before && black_before) {
-                    break;
-                }
-            }
-        }
-
         board_set_piece_unchecked(board, row, col, piece);
-
-        if (track_row) {
-            bool white_after = false;
-            bool black_after = false;
-            board_cell_t *row_cells = board->cells[row];
-            for (uint8_t c = 0; c < BOARD_COLS; ++c) {
-                player_t owner = board_get_piece_owner(row_cells[c]);
-                if (owner == PLAYER_WHITE) {
-                    white_after = true;
-                } else if (owner == PLAYER_BLACK) {
-                    black_after = true;
-                }
-                if (white_after && black_after) {
-                    break;
-                }
-            }
-
-            if (white_before && !white_after) {
-                if (board->white_winning_rows > 0u) {
-                    board->white_winning_rows--;
-                }
-            } else if (!white_before && white_after) {
-                board->white_winning_rows++;
-            }
-
-            if (black_before && !black_after) {
-                if (board->black_winning_rows > 0u) {
-                    board->black_winning_rows--;
-                }
-            } else if (!black_before && black_after) {
-                board->black_winning_rows++;
-            }
-        }
     }
 }
 
@@ -337,7 +250,6 @@ void board_set_starting_layout(board_t *board, uint8_t layout_id) {
     board->swapped_count = 0;
     board->white_swapped_count = 0;
     board->black_swapped_count = 0;
-    board_update_winning_row_counts(board);
 }
 
 
@@ -522,7 +434,6 @@ static bool board_execute_move_internal(board_t *board, board_context_t *context
         // Some swap rules may clear swapped pieces as a result of swaps; currently no-op here
     }
     
-    board_update_winning_row_counts(board);
     board->move_count++;
     context->last_moving_player = move->player;
 
@@ -587,10 +498,6 @@ bool board_check_win_fast(const board_t *board, player_t player) {
     }
 
     const uint8_t required_rows = (uint8_t)kWinRowCount;
-    const uint8_t covered_rows = (player == PLAYER_WHITE) ? board->white_winning_rows : board->black_winning_rows;
-    if (covered_rows < required_rows) {
-        return false;
-    }
 
     uint8_t row_masks[kWinRowCount];
     for (uint8_t rel_row = 0u; rel_row < required_rows; ++rel_row) {
@@ -664,10 +571,6 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
     }
 
     const uint8_t required_rows = (uint8_t)(WIN_END_ROW - WIN_START_ROW + 1u);
-    const uint8_t covered_rows = (player == PLAYER_WHITE) ? board->white_winning_rows : board->black_winning_rows;
-    if (covered_rows < required_rows) {
-        return false;
-    }
 
     /* BFS traversal with path reconstruction */
     uint8_t queue[BOARD_CELLS];

@@ -34,9 +34,6 @@ in a dedicated discrepancies section.
   the active puzzle via `get_puzzle_by_index`, call `apply_puzzle_position`,
   reset move history, and align the AI configuration with the puzzle's swap
   rule.
-- WHEN a starting layout or puzzle position is applied, THE SYSTEM SHALL
-  recompute `board.white_winning_rows` and `board.black_winning_rows` so rows
-  two through seven (1-based) immediately reflect player coverage.
 - WHEN a player completes an empty-cell move, THE SYSTEM SHALL relocate the
   moving piece, clear the origin cell, and clear swapped status according to
   the active swap rule (Classic clears all, Clears Own restores the mover's
@@ -53,9 +50,6 @@ in a dedicated discrepancies section.
   them via `board_execute_move_without_history` so piece state and move counts
   update while cached winning rows refresh and move history remains
   unchanged.
-- WHEN `board_execute_move` finishes applying a legal move and any swap-rule
-  side effects, THE SYSTEM SHALL refresh `board.white_winning_rows` and
-  `board.black_winning_rows` before returning.
 - WHEN win detection runs, THE SYSTEM SHALL treat board rows two through seven
   (1-based numbering) as the victory span, declaring a win once a contiguous
   chain links those rows for a single player.

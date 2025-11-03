@@ -154,7 +154,7 @@ bool ai_agent_move_allows_opponent_immediate_win(const board_t *board, player_t 
                                                  const ai_config_t *config,
                                                  player_t ai_player);
 bool ai_forcing_move_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule);
-bool ai_immediate_win_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule);
+bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule);
 #endif
 
 #endif // AI_AGENT_H
