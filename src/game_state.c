@@ -201,6 +201,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             clear_puzzle_info();
             clear_puzzle_hint();
             game_state_clear_win_path(state);
+            set_mouse_cursor(MOUSE_CURSOR_NORMAL);
         }
     }
     else
@@ -225,6 +226,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
         clear_puzzle_info();
         clear_puzzle_hint();
         game_state_clear_win_path(state);
+        set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     }
 
     game_state_deselect_piece(state);
@@ -371,6 +373,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     clear_puzzle_info();
                     clear_puzzle_hint();
                     game_state_clear_win_path(state);
+                    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
                 }
                 game_state_deselect_piece(state);
                 game_state_update_menu_enables(state);
@@ -429,6 +432,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 state->phase = GAME_PHASE_PLAYING;
                 clear_puzzle_info();
                 clear_puzzle_hint();
+                set_mouse_cursor(MOUSE_CURSOR_NORMAL);
             }
             print_current_player(state->context.current_player);
             break;
@@ -550,6 +554,9 @@ void game_state_update(game_state_t *state, float delta_time)
         // Clear any previous blunder message
         clear_made_blunder();
         
+        // Set cursor to busy during AI thinking
+        set_mouse_cursor(MOUSE_CURSOR_BUSY);
+        
         // Add a small visual delay before AI makes move
         state->ai_think_frames++;
         // Wait at least 30 frames (~0.5 seconds) before executing AI move
@@ -587,6 +594,7 @@ void game_state_update(game_state_t *state, float delta_time)
                 state->phase = GAME_PHASE_PLAYING;
             }
 
+            set_mouse_cursor(MOUSE_CURSOR_NORMAL);
             state->ai_think_frames = 0;
             game_state_update_menu_enables(state);
         }

@@ -64,8 +64,6 @@ typedef struct {
     bool diagnostics_enabled;
     bool enable_forcing_check;
     bool use_hint_profile;
-    ai_progress_callback_t progress_callback;
-    void *progress_user_data;
     uint8_t random_top_k;
     uint8_t random_epsilon_pct;
     bool blunder_enabled;
@@ -135,8 +133,10 @@ int16_t ai_agent_evaluate_board(const board_t *board, player_t player,
 void ai_agent_get_last_breakdown(ai_eval_breakdown_t *out);
 
 // Register a callback for search progress updates
-void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t callback,
-                                    void *user_data);
+void ai_agent_set_progress_callback(ai_progress_callback_t callback, void *user_data);
+
+// Call the global progress callback if set
+void ai_agent_call_progress_callback(void);
 
 void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8_t epsilon_pct);
 void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_type_t type, uint8_t chance_pct);

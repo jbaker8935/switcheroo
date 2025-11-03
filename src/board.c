@@ -7,6 +7,7 @@
  */
 
 #include "../src/board.h"
+#include "../src/ai_agent.h"
 #include <string.h>
 
 enum {
@@ -27,6 +28,7 @@ extern void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type
 extern bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
 extern bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
                            uint8_t to_row, uint8_t to_col, move_type_t *out_type);
+
 
 // Internal versions that skip bounds checking for performance
 
@@ -498,7 +500,7 @@ bool board_check_win_fast(const board_t *board, player_t player) {
     }
 
     const uint8_t required_rows = (uint8_t)kWinRowCount;
-
+    ai_agent_call_progress_callback();
     uint8_t row_masks[kWinRowCount];
     for (uint8_t rel_row = 0u; rel_row < required_rows; ++rel_row) {
         uint8_t board_row = (uint8_t)(WIN_START_ROW + rel_row);
@@ -569,8 +571,6 @@ bool board_check_win_with_path(const board_t *board, player_t player, win_path_t
     if (!board || player == PLAYER_NONE) {
         return false;
     }
-
-    const uint8_t required_rows = (uint8_t)(WIN_END_ROW - WIN_START_ROW + 1u);
 
     /* BFS traversal with path reconstruction */
     uint8_t queue[BOARD_CELLS];

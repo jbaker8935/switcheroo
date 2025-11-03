@@ -206,6 +206,10 @@ typedef struct {
 
 static ai_eval_breakdown_t s_last_breakdown;
 
+// Global progress callback variables
+static ai_progress_callback_t s_progress_callback = NULL;
+static void *s_progress_user_data = NULL;
+
 static const ai_eval_weights_t kRuleWeights[4] = {
     {88, 58, 36, 44, 12},  // Classic
     {84, 54, 32, 44, 12},  // Clears Own
@@ -760,6 +764,34 @@ static bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_
     return true;
 }
 
+static bool ai_move_allows_opponent_immediate_win(const board_t *board, player_t current_player, const move_t *move,
+                                                  const ai_config_t *config, player_t ai_player) {
+    if (!config || !move) {
+        return false;
+    }
+
+    board_t after_ai;
+    ai_board_copy(&after_ai, board);
+    board_context_t move_context = {.current_player = current_player};
+    if (!board_execute_move_without_history(&after_ai, &move_context, move, config->swap_rule)) {
+        return false;
+    }
+
+    player_t opponent = (ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+    board_context_t after_context = {.current_player = current_player};
+    board_switch_turn(&after_context);
+
+    {
+        return ai_immediate_win_available(&after_ai, opponent, config->swap_rule);
+    }
+}
+
+static bool ai_all_replies_allow_opponent_immediate_win_from_ordered(const ai_ordered_moves_t *ordered,
+                                                                     uint8_t generated);
+#if defined(AI_AGENT_HOST_TEST)
+static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, player_t current_player,
+                                                        const ai_config_t *config);
+
 static bool ai_move_creates_forced_immediate_win(const board_t *board, player_t current_player, const move_t *move,
                                                  const ai_config_t *config, player_t ai_player) {
     if (!config || !move) {
@@ -802,11 +834,6 @@ static bool ai_move_allows_opponent_immediate_win(const board_t *board, player_t
     }
 }
 
-static bool ai_all_replies_allow_opponent_immediate_win_from_ordered(const ai_ordered_moves_t *ordered,
-                                                                     uint8_t generated);
-#if defined(AI_AGENT_HOST_TEST)
-static bool ai_all_replies_allow_opponent_immediate_win(const board_t *board, player_t current_player,
-                                                        const ai_config_t *config);
 #endif
 
 #if defined(AI_AGENT_HOST_TEST)
@@ -1208,9 +1235,7 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
                                                                                       ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
-    // if(config->progress_callback) {
-    //     config->progress_callback(config->progress_user_data);
-    // }
+
 
     if (board_check_win_fast(board, perspective)) {
         return AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
@@ -1368,12 +1393,16 @@ __attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_
     s_last_breakdown = (ai_eval_breakdown_t){0};
 }
 
-void ai_agent_set_progress_callback(ai_config_t *config, ai_progress_callback_t callback, void *user_data) {
-    if (!config) {
-        return;
+void ai_agent_set_progress_callback(ai_progress_callback_t callback, void *user_data) {
+    s_progress_callback = callback;
+    s_progress_user_data = user_data;
+}
+
+// Call the global progress callback if set
+void ai_agent_call_progress_callback(void) {
+    if (s_progress_callback) {
+        s_progress_callback(s_progress_user_data);
     }
-    config->progress_callback = callback;
-    config->progress_user_data = user_data;
 }
 
 ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty) {
