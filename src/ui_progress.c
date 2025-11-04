@@ -7,8 +7,9 @@
 
 #include "../src/mouse_pointer.h"
 #include "../src/text_display.h"
+#include "../src/timer.h"
 
-const uint8_t dot_frequency = 128u;
+const uint8_t dot_frequency = 30u;
 static uint8_t dot_counter = 0u;
 
 void ui_progress_init(ui_progress_state_t *state) {
@@ -25,8 +26,12 @@ void ui_progress_register(ai_config_t *config, ui_progress_state_t *state) {
 
 void ui_progress_on_search_progress(void *user_data) {
 
-    // disable polling until better solution is found
     poll_and_refresh_mouse_postion();
+
+    if(!isTimerDone()) {
+        return;
+    }
+    setTimer0();
 
     ui_progress_state_t *state = (ui_progress_state_t *)user_data;
     if (!state) {

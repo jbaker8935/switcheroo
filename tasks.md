@@ -71,6 +71,9 @@ backlog.
 | T45 | Opponent Immediate Flagging | Persist opponent immediate-win results from move generation to evaluation to cut redundant searches. | `src/ai_agent.c`. | T42 | Done |
 | T46 | Move Enumeration Cache | Reuse the generated candidate list for forced-loss checks and evaluation to eliminate redundant board simulations. | `src/ai_agent.c`. | T42 | Done |
 | T47 | Puzzle Difficulty Retention | Keep manually selected puzzle difficulty across resets and navigation so lightweight heuristics stay active. | `src/game_state.c`. | T14 | Done |
+| T48 | Default Game Mode Change | Change the default game mode from free play to puzzle mode on game start. | `src/game_state.c`, `requirements.md` updates. | T5 | Done |
+| T49 | Puzzle Filter Scaling | Replace fixed-size swap-rule index caches with on-demand catalog scans so large puzzle sets stay addressable. | `src/puzzle_data.c`, docs sync. | T7 | Done |
+| T50 | Puzzle Mode First Unsolved | Show the first unsolved puzzle whenever puzzle mode is entered from free play. | `src/game_state.c`, docs sync. | T7 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

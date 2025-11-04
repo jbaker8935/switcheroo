@@ -61,8 +61,15 @@ typedef struct {
 // Get the global puzzle collection
 const puzzle_collection_t *get_puzzle_collection(void);
 
-// Get puzzle by index. Returned pointer remains valid until the next call.
-const puzzle_t *get_puzzle_by_index(uint16_t index);
+// Get puzzle by filtered index. Returned pointer remains valid until the
+// next call.
+const puzzle_t *get_puzzle_by_index(uint16_t filtered_index);
+
+// Set the current swap rule for puzzle filtering
+void set_current_puzzle_swap_rule(swap_rule_t rule);
+
+// Get the current swap rule for puzzle filtering
+swap_rule_t get_current_puzzle_swap_rule(void);
 
 // Convert swap rule string to enum
 swap_rule_t swap_rule_from_string(const char *str);
@@ -76,6 +83,7 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle);
 // Display puzzle solution moves
 void display_puzzle_solution(const puzzle_t *puzzle);
 
-void mark_puzzle_solved(uint16_t index);
+// Mark the puzzle at the current swap-rule filtered index as solved
+void mark_puzzle_solved(uint16_t filtered_index);
 
 #endif // PUZZLE_DATA_H

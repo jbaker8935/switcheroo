@@ -64,7 +64,7 @@ in a dedicated discrepancies section.
 - WHEN `game_state_init` completes, THE SYSTEM SHALL initialise board,
   preferences, menu, and selection state, set phase to `GAME_PHASE_TITLE`, and
   set `board.current_player` to `PLAYER_WHITE`.
-- WHEN `game_state_start_new_game` runs, THE SYSTEM SHALL force free play mode,
+- WHEN `game_state_start_new_game` runs, THE SYSTEM SHALL force puzzle mode,
   clear highlights, and set phase to `GAME_PHASE_PLAYING`.
 - WHEN `game_state_execute_selected_move` applies a legal move and no win is
   detected, THE SYSTEM SHALL call `board_switch_turn`, update menu enables, and
@@ -145,6 +145,11 @@ in a dedicated discrepancies section.
 - WHEN `get_puzzle_collection` runs on hardware, THE SYSTEM SHALL lazy-load the
   catalog header from far memory, set the puzzle count, and avoid duplicating
   the pointer table.
+- WHEN the puzzle catalog contains more than 256 entries, THE SYSTEM SHALL
+  enumerate swap-rule filtered puzzles without truncating the collection so
+  every puzzle remains accessible.
+- WHEN the player switches from free play to puzzle mode, THE SYSTEM SHALL
+  display the first unsolved puzzle for the active swap-rule filter.
 - WHEN `mark_puzzle_solved` is invoked, THE SYSTEM SHALL write a value of one
   into the puzzle record's solved flag at `0x30000 + offset` and update the
   in-memory cache.

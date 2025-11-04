@@ -4,13 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Game UI Mockups - Corrected</title>
+    <title>Game UI Mockup - Achievements</title>
     <style>
         body {
             margin: 0;
             padding: 20px;
             background: #2a2a2a;
-            font-family: 'Courier New', monospace;
+            font-family:Verdana, Geneva, Tahoma, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -33,9 +33,11 @@
             width: 640px;
             height: 480px;
             background: #666;
+            /* background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1)); */
             position: relative;
-            border: 3px solid #333;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+
+            box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.15);
+            
         }
 
         /* Mockup 1: Enhanced Contrast & Depth */
@@ -47,6 +49,7 @@
             height: 480px;
             padding: 15px;
             box-sizing: border-box;
+      
         }
 
         .mockup1 .text-backdrop {
@@ -82,7 +85,7 @@
 
         .mockup1 .achievement-title {
             color: #fff;
-            font-size: 11px;
+            font-size: 12px;
             margin-bottom: 6px;
             text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
         }
@@ -184,21 +187,18 @@
         }
 
         .mockup2 .achievements-panel {
-            /* position: absolute;
-            left: 0;
-            top: 0; */
-            width: 640px;
-            height: auto;
-            /* background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.1)); */
-            background: rgba(40, 40, 40, 1);
-            padding: 15px;
-            padding-top: 15px;
-            padding-left:4px;
-            padding-right:4px;
-            box-sizing: border-box;
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
-        }
+            grid-template-columns:
+                16px 144px 8px 144px 16px 144px 8px 144px 16px;
+            grid-auto-rows: 184px;
+            justify-content: start;
+
+            row-gap: 16px;       /* 16px between rows */
+            /* padding-top: 32px;  
+            padding-bottom: 32px; */
+
+            box-sizing: border-box;
+            }
 
         .mockup2 .right-panel {
             position: absolute;
@@ -260,22 +260,28 @@
         }
 
         .mockup2 .achievement {
-            background: rgba(0, 0, 0, 0.4);
+            width: 144px;
+            height: 184px;
+            padding: 10px;
             border: 2px solid rgba(255, 255, 255, 0.15);
             border-radius: 10px;
-            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
             text-align: center;
-            height: 168px;
-            margin-top: 8px;
-            margin-left: 2px;
-            margin-right: 2px;
+            box-sizing: border-box;
+
         }
+
+        /* Place achievements in the correct columns */
+        .achievement:nth-child(4n+1) { grid-column: 2; }
+        .achievement:nth-child(4n+2) { grid-column: 4; }
+        .achievement:nth-child(4n+3) { grid-column: 6; }
+        .achievement:nth-child(4n+4) { grid-column: 8; }
 
         .mockup2 .achievement-title {
             color: #fff;
             font-family: cursive;
             font-weight: bold;
-            font-size: 12px;
+            font-size: 16px;
             margin-bottom: 6px;
             padding-bottom: 4px;
             border-bottom: 2px solid rgba(255, 255, 255, 0.2);
@@ -350,6 +356,9 @@
             position: relative;
             /* top: 8px;
             left: 8px; */
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
             background: rgba(0, 0, 0, 0.4);
             border: 2px solid rgba(255, 255, 255, 0.15);
             border-radius: 3px;
@@ -358,6 +367,7 @@
             display: flex;
             justify-content: center;
             align-items: center;
+            margin-bottom: 21px;
   
 
         }
@@ -415,9 +425,14 @@
             color: #000;
         }
         .mockup2 .achievement-icon {
-            font-size: 36px;
+            font-size: 48px;
             color: #000;
-        }        
+        }     
+        .mockup2 .achievement-desc {
+            font-family:'Courier New', Courier, monospace;
+            font-size: 16px;
+            color: #e9e6e6;
+        }      
     </style>
 </head>
 
@@ -427,7 +442,7 @@
         <h2>Mockup: Achievements</h2>
         <div class="game-screen mockup2">
             <div class="title-panel">
-                Achievements
+                Puzzle Achievements
             </div>
             <div class="achievements-panel">
 
@@ -435,99 +450,101 @@
                 <div class="achievement">
                     <div class="achievement-icon">🎯</div>
                     <div class="achievement-title">First Blood</div>
+                    <div class="achievement-desc">Solve first puzzle</div>
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">⚡</div>
-                    <div class="achievement-title">Speedster</div>
+                    <div class="achievement-title">Speed Demon</div>
+                    <div class="achievement-desc">Solve 10 in 30s each</div>
                 </div>
                 <div class="achievement">
-                    <div class="achievement-icon">💯</div>
-                    <div class="achievement-title">Perfectionist</div>
+                    <div class="achievement-icon">🤔</div>
+                    <div class="achievement-title">Thinker</div>
+                    <div class="achievement-desc">Solve Win in 3 without hints</div>                      
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">🧠</div>
+                    <div class="achievement-title">Deep Thinker</div>
+                    <div class="achievement-desc">Solve Win in 4 without hints</div>                       
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">🧩</div>
                     <div class="achievement-title">Puzzlemeister</div>
+                    <div class="achievement-desc">Solve 25 without hints</div>                      
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">🏃</div>
                     <div class="achievement-title">Runner</div>
+                    <div class="achievement-desc">Solve 50 in one session</div>                        
+                </div>
+                <div class="achievement">
+                    <div class="achievement-icon">💯</div>
+                    <div class="achievement-title">Perfectionist</div>
+                    <div class="achievement-desc">Solve all for a rule</div>                    
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">🏆</div>
                     <div class="achievement-title">Completionist</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🧠</div>
-                    <div class="achievement-title">Quick Thinker</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🎖️</div>
-                    <div class="achievement-title">You Win!</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🗡️</div>
-                    <div class="achievement-title">Giant Slayer</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🔥</div>
-                    <div class="achievement-title">Untouchable</div>
+                    <div class="achievement-desc">Solve all puzzles</div>                      
                 </div>
             </div>
-
-
-
-
+            
         </div>
     </div>
     <div class="mockup-container">
         <h2>Mockup: Achievements</h2>
         <div class="game-screen mockup2">
             <div class="title-panel">
-                Achievements
+                Free Play Achievements
             </div>
             <div class="achievements-panel">
-
+                
+                <div class="achievement">
+                    <div class="achievement-icon">🎖️</div>
+                    <div class="achievement-title">You Win!</div>
+                    <div class="achievement-desc">Win first game</div>                       
+                </div>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">🔥</div>
+                    <div class="achievement-title">Untouchable</div>
+                   <div class="achievement-desc">Win 10 in a row</div>                       
+                </div>
 
                 <div class="achievement">
-                    <div class="achievement-icon">🎯</div>
-                    <div class="achievement-title">First Blood</div>
+                    <div class="achievement-icon">🎲</div>
+                    <div class="achievement-title">Versatile</div>
+                    <div class="achievement-desc">Win all starting positions</div>                      
+                </div>
+
+                <div class="achievement">
+                    <div class="achievement-icon">💪</div>
+                    <div class="achievement-title">Unbreakable</div>
+                    <div class="achievement-desc">Win all game rules</div>                      
+                </div>
+
+                <div class="achievement">
+                    <div class="achievement-icon">🗡️</div>
+                    <div class="achievement-title">Slayer</div>
+                    <div class="achievement-desc">Win against Expert</div>  
+                </div>
+                
+                <div class="achievement">
+                    <div class="achievement-icon">👑</div>
+                    <div class="achievement-title">Master Slayer</div>
+                    <div class="achievement-desc">Win 10 against Expert</div>                      
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">⚡</div>
                     <div class="achievement-title">Speedster</div>
+                    <div class="achievement-desc">Win under 10 moves</div>
                 </div>
                 <div class="achievement">
                     <div class="achievement-icon">💯</div>
-                    <div class="achievement-title">Perfectionist</div>
+                    <div class="achievement-title">Century Club</div>
+                    <div class="achievement-desc">Win 100 games</div>                    
                 </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🧩</div>
-                    <div class="achievement-title">Puzzlemeister</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🏃</div>
-                    <div class="achievement-title">Runner</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🏆</div>
-                    <div class="achievement-title">Completionist</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🧠</div>
-                    <div class="achievement-title">Quick Thinker</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🎖️</div>
-                    <div class="achievement-title">You Win!</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🗡️</div>
-                    <div class="achievement-title">Giant Slayer</div>
-                </div>
-                <div class="achievement">
-                    <div class="achievement-icon">🔒</div>
-                    <div class="achievement-title">Locked</div>
-                </div>
+
             </div>
 
 

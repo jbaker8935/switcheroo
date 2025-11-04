@@ -70,6 +70,8 @@ future work can extend the code base confidently.
 - Drives the finite set of phases (`TITLE`, `PLAYING`, `AI_THINKING`,
   `AI_MOVING`, `EXIT`) and transitions based on menu input, move outcomes, and
   puzzle availability.
+- When switching from free play to puzzle mode, selects the first unsolved
+  puzzle for the active swap-rule filter before reloading puzzle state.
 - Normalises turn flow by calling `board_execute_move`, swapping turns,
   scheduling AI work, and updating menu enable flags.
 - Provides the menu activation entry point so icons and keyboard shortcuts can
@@ -127,6 +129,9 @@ future work can extend the code base confidently.
 - Supplies `get_puzzle_collection`, `get_puzzle_by_index`, and
   `mark_puzzle_solved` to the game state without duplicating large buffers in
   low memory.
+- Maintains per-swap-rule counts and maps filtered indices on demand so
+  catalogs larger than 256 entries remain fully addressable without dedicated
+  per-rule index arrays.
 - Emits on-screen diagnostics when catalog loads fail or indices fall outside
   the available count so hardware debugging is straightforward.
 - Applies puzzle layouts through `apply_puzzle_position`, synchronising swap
@@ -210,8 +215,9 @@ future work can extend the code base confidently.
 - Core state (`board_t`, move history, selection) resides in low memory.
 - AI overlay is copied into the 0xA000 window before evaluation; host builds
   bypass the copy.
-- Puzzle catalog stays in far memory; only the active puzzle identifier, piece
-  buffer, and solution words occupy low-memory buffers.
+- Puzzle catalog stays in far memory; only the active puzzle identifier,
+  piece buffer, and solution words occupy low-memory buffers while filtered
+  lookups reuse the far-memory stream for index mapping.
 - Sprite attribute tables and palette registers are configured via `f256lib`
   utilities and updated incrementally by the renderer.
 

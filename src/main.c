@@ -9,6 +9,7 @@
 #include "../src/puzzle_data.h"
 #include "../src/ai_agent.h"
 #include "../src/video.h"
+#include "../src/timer.h"
 #include "stddef.h"
 #include <stdio.h>
 #include <stdint.h>
@@ -38,6 +39,8 @@ int main(int argc, char *argv[])
     input_init();
     input_handler_init();
 
+    setTimer0(); // Initialize timer for UI updates and other periodic tasks
+
     // Initialize game state
     game_state_init(&g_game_state);
     render_update_score(&g_game_state.stats);
@@ -46,7 +49,6 @@ int main(int argc, char *argv[])
 
     // Main game loop
 
-    // display_test();
 
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     print_game_mode(g_game_state.is_puzzle_mode);

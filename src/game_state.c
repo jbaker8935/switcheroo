@@ -45,32 +45,42 @@ static void game_state_configure_ai(game_state_t *state, swap_rule_t swap_rule, 
     ui_progress_register(&state->ai_config, &state->ui_progress);
 }
 
-static void game_state_toggle_swap_rule(game_state_t *state)
+static void game_state_focus_first_unsolved_puzzle(game_state_t *state)
 {
     if (!state)
     {
         return;
     }
 
-    if(state->is_puzzle_mode) {
-        print_swap_unavailable();
-    } 
-    
-    if (!state->is_puzzle_mode && state->phase == GAME_PHASE_PLAYING && state->board.move_count == 0) {
-        state->prefs.swap_rule = (state->prefs.swap_rule + 1) % NUMBER_OF_SWAP_RULES;
-        ai_difficulty_t difficulty = state->ai_config.difficulty;
-        player_t ai_player = state->ai_config.ai_player;
-        game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
-        print_swap_rule(state->prefs.swap_rule);
-        clear_swap_unavailable();
-    } 
+    set_current_puzzle_swap_rule(state->prefs.swap_rule);
+
+    const puzzle_collection_t *collection = get_puzzle_collection();
+    if (!collection || collection->count == 0u)
+    {
+        state->prefs.current_puzzle_index = 0u;
+        return;
+    }
+
+    uint16_t first_unsolved_index = 0u;
+    bool found_unsolved = false;
+    for (uint16_t i = 0u; i < collection->count; ++i)
+    {
+        const puzzle_t *puzzle = get_puzzle_by_index(i);
+        if (puzzle && !puzzle->is_solved)
+        {
+            first_unsolved_index = i;
+            found_unsolved = true;
+            break;
+        }
+    }
+
+    state->prefs.current_puzzle_index = found_unsolved ? first_unsolved_index : 0u;
 }
-
-
 
 static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 {
     game_state_clear_win_path(state);
+    set_current_puzzle_swap_rule(state->prefs.swap_rule);
 
     const puzzle_collection_t *collection = get_puzzle_collection();
     if (!collection || collection->count == 0u)
@@ -92,7 +102,6 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     apply_puzzle_position(&state->board, puzzle);
     state->context.current_player = PLAYER_WHITE;
     state->context.history_count = 0;
-    state->prefs.swap_rule = puzzle->swap_rule;
 
     ai_difficulty_t difficulty;
     if (state->difficulty_manually_set) {
@@ -103,7 +112,7 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     }
 
     player_t ai_player = puzzle->is_solved ? PLAYER_BLACK : PLAYER_WHITE;
-    game_state_configure_ai(state, puzzle->swap_rule, difficulty, ai_player);
+    game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
     if (state->is_puzzle_mode) {
         state->ai_config.blunder_enabled = false;
         state->ai_config.blunder_chance_pct = 0u;
@@ -119,6 +128,33 @@ static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     }
 
     return true;
+}
+
+static void game_state_toggle_swap_rule(game_state_t *state)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    if (state->is_puzzle_mode) {
+        // In puzzle mode, allow changing swap rule and reload puzzle
+        state->prefs.swap_rule = (state->prefs.swap_rule + 1) % NUMBER_OF_SWAP_RULES;
+        game_state_focus_first_unsolved_puzzle(state);
+        game_state_apply_current_puzzle(state, true);
+        print_swap_rule(state->prefs.swap_rule);
+    } else if (state->phase == GAME_PHASE_PLAYING && state->board.move_count == 0) {
+        // In free play, only change if no moves made
+        state->prefs.swap_rule = (state->prefs.swap_rule + 1) % NUMBER_OF_SWAP_RULES;
+        ai_difficulty_t difficulty = state->ai_config.difficulty;
+        player_t ai_player = state->ai_config.ai_player;
+        game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
+        print_swap_rule(state->prefs.swap_rule);
+        clear_swap_unavailable();
+    } else {
+        // Cannot change swap rule in free play after moves
+        print_swap_unavailable();
+    }
 }
 
 
@@ -188,6 +224,8 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             state->difficulty_manually_set = false; // Reset manual flag since we're setting default
             
             print_ai_difficulty(state->prefs.difficulty_level);
+
+            game_state_focus_first_unsolved_puzzle(state);
         }
 
         // PUZZLE mode: initialize board to current puzzle
@@ -248,7 +286,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 void game_state_start_new_game(game_state_t *state)
 {
     clear_made_blunder();
-    game_state_set_game_mode(state, false); // Always start in FREEPLAY mode
+    game_state_set_game_mode(state, true); // Always start in PUZZLE mode
     state->phase = GAME_PHASE_PLAYING;
 }
 
