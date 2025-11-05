@@ -124,4 +124,7 @@ typedef enum {
 extern const uint32_t s_video_icon_vram_addrs[VIDEO_ICON_COUNT];
 extern void video_init(void);
 
+void video_text_overlay_on(bool enable);
+void clear_text_matrix(void);
+
 #endif // VIDEO_H

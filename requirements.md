@@ -137,9 +137,7 @@ in a dedicated discrepancies section.
 - WHEN `game_state_check_win` reports a winner, THE SYSTEM SHALL call
   `print_game_winner` and `print_win_loss` to update scoreboard text and
   session totals.
-- WHEN the AI provides a hint or puzzle solution, THE SYSTEM SHALL render the
-  suggestion via `print_AI_hint` or `display_puzzle_solution` and allow clearing
-  through `clear_puzzle_hint`.
+- WHEN the help screen is displayed, THE SYSTEM SHALL render the embedded help text from the `help_text` constant in `src/help.c`.
 
 ### Puzzle Tracking
 - WHEN `get_puzzle_collection` runs on hardware, THE SYSTEM SHALL lazy-load the

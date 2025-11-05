@@ -48,4 +48,6 @@ void print_swap_unavailable(void);
 void clear_swap_unavailable(void);
 void print_made_blunder(void);
 void clear_made_blunder(void); 
+void display_show_help_screen(void);
+void display_hide_help_screen(void);
 

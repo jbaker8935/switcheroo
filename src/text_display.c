@@ -4,6 +4,8 @@
 #include "../src/puzzle_data.h"
 #include "../src/mouse_pointer.h"
 #include "../src/twidget.h"
+#include "../src/help_text.h"
+#include "../src/video.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -41,6 +43,53 @@ CharMap char_map;
     return count;
 }
 
+
+void display_hide_help_screen(void) {
+    // Clear help text area
+    clear_text_matrix();
+    textEnableBackgroundColors(false);
+}
+
+void display_show_help_screen(void) {
+    // Clear text area
+    clear_text_matrix();
+
+    textEnableBackgroundColors(true);
+
+    textSetColor(1,1);
+    // Display help text
+    const char *line_start = help_text;
+    uint8_t row = 0;
+
+    while (*line_start != '\0' && row < 60) {
+        const char *line_end = line_start;
+        // Find the end of the current line
+        while (*line_end != '\n' && *line_end != '\0') {
+            line_end++;
+        }
+
+        // Calculate line length
+        size_t line_length = line_end - line_start;
+
+
+        // Create a buffer for the line
+        char buffer[81]; // 80 chars + null terminator
+        strncpy(buffer, line_start, line_length);
+        buffer[line_length] = '\0';
+
+        // Print the line
+        print_formatted_text(0, row, buffer);
+        row++;
+
+        // Move to the next line
+        if (*line_end == '\n') {
+            line_start = line_end + 1;
+        } else {
+            break; // End of text
+        }
+    }
+
+}
 
 void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
     
@@ -98,7 +147,8 @@ void text_display_init(void) {
     textDefineForegroundColor(3,0xff,0x6b,0x6b);  // #ff6b6b Loss Text
     textDefineForegroundColor(4,0x7a,0xba,0xed);  // #7abaed - Blue for Logo
     textDefineForegroundColor(5,0xc8,0x9d,0xdf);     // #c89ddf - Light Purple for Logo
-    textSetColor(1,0);   // Default to normal text color
+    textDefineBackgroundColor(1, 40,40,40);    
+    textSetColor(1,1);   // Default to normal text color
 }
 
 void print_win_loss(uint16_t win_count, uint16_t loss_count) {
@@ -170,6 +220,9 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
 void print_game_mode(bool is_puzzle_mode) {
     const char *mode_str = is_puzzle_mode ? "Mode: Puzzle   " : "Mode: Free Play";
     print_formatted_text(3, 15, mode_str);
+
+    // sneak F1 for Help message
+    print_formatted_text(3, 58, "Press F1 for Help");
 }
 
 void print_swap_rule(swap_rule_t rule) {
@@ -261,13 +314,13 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
 }
 
 void print_swap_unavailable(void) {
-    print_formatted_text(1, 40, "Clear Rule cannot be  ");
-    print_formatted_text(1, 41, "changed in Puzzle Mode ");
+    print_formatted_text(3, 55, "Rule cannot be  ");
+    print_formatted_text(3, 56, "changed mid-game");
 }
 
 void clear_swap_unavailable(void) {
-    print_formatted_text(1, 40, "                         ");
-    print_formatted_text(1, 41, "                         ");
+    print_formatted_text(3, 55, "                         ");
+    print_formatted_text(3, 56, "                         ");
 }
 
 void print_made_blunder(void) {

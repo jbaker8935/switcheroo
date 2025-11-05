@@ -218,8 +218,7 @@ future work can extend the code base confidently.
 - Puzzle catalog stays in far memory; only the active puzzle identifier,
   piece buffer, and solution words occupy low-memory buffers while filtered
   lookups reuse the far-memory stream for index mapping.
-- Sprite attribute tables and palette registers are configured via `f256lib`
-  utilities and updated incrementally by the renderer.
+- Help text is embedded as a read-only string constant in `src/help.c` for display during help screens.
 
 ## State Management
 - Phase machine (`game_state.c`) governs title, playing, AI thinking, AI moving,

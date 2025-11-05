@@ -34,10 +34,9 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0x64: return KEY_D;       // D
         case 0x68: return KEY_H;       // H
         case 0x78: return KEY_X;       // X
-        case 0x81: return KEY_PLUS;    // F1/F2 (Volume up)
-        case 0x83: return KEY_MINUS;   // F3/F4 (Volume down)
         case 0x75: return KEY_U;       // U
-        case 0x20: return KEY_SPACE;    // Spacebar
+        case 0x20: return KEY_SPACE;   // Spacebar
+        case 0x81: return KEY_F1;      // F1
         default: return KEY_NONE;
     }
 }
@@ -80,24 +79,24 @@ bool input_translate_event(input_event_t *event) {
             event->data.key.code = key;
             event->data.key.ascii = kernelEventData.key.ascii;
             event->data.key.is_repeat = false;
-            s_input_state.keyboard_mode = true;
+
 
             return true;
         }
     }
     
-    if (kernelEventData.type == kernelEvent(key.RELEASED)) {
-        key_code_t key = scan_to_key(kernelEventData.key.raw);
+    // if (kernelEventData.type == kernelEvent(key.RELEASED)) {
+    //     key_code_t key = scan_to_key(kernelEventData.key.raw);
         
-        if (key != KEY_NONE && event) {
-            event->type = INPUT_EVENT_KEY_UP;
-            event->data.key.code = key;
-            event->data.key.ascii = kernelEventData.key.ascii;
-            event->data.key.is_repeat = false;
+    //     if (key != KEY_NONE && event) {
+    //         event->type = INPUT_EVENT_KEY_UP;
+    //         event->data.key.code = key;
+    //         event->data.key.ascii = kernelEventData.key.ascii;
+    //         event->data.key.is_repeat = false;
 
-            return true;
-        }
-    }
+    //         return true;
+    //     }
+    // }
     
     // Handle mouse events
     if (kernelEventData.type == kernelEvent(mouse.DELTA)) {

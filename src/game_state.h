@@ -21,6 +21,7 @@
 // Game phases
 typedef enum {
     GAME_PHASE_TITLE,
+    GAME_PHASE_HELP,
     GAME_PHASE_PLAYING,
     GAME_PHASE_AI_THINKING,
     GAME_PHASE_GAME_OVER,
@@ -115,6 +116,8 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon);
 
 // Win detection
 bool game_state_check_win_condition(game_state_t *state);
+
+bool game_state_apply_current_puzzle(game_state_t *state, bool announce);
 
 // Update
 void game_state_update(game_state_t *state, float delta_time);

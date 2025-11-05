@@ -6,8 +6,12 @@
 #include "../src/input_handler.h"
 #include "../src/mouse_pointer.h"
 #include "../src/video.h"
+#include "../src/text_display.h"
+#include "../src/render.h"
+#include "../src/game_state.h"
 #include <string.h>
 
+static game_phase_t old_phase = GAME_PHASE_TITLE;
 
 void input_handler_init(void) {
 
@@ -129,6 +133,25 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
             break;
             
         case INPUT_EVENT_KEY_DOWN:
+
+            if ( state->phase == GAME_PHASE_HELP && event->data.key.code != KEY_SPACE) {
+                break; // Ignore all keys except SPACE when in help screen
+            } else if (state->phase == GAME_PHASE_HELP && event->data.key.code == KEY_SPACE) {
+                // Exit help screen on SPACE key
+                game_state_set_phase(state, old_phase);
+                display_hide_help_screen();
+                render_update_score(&state->stats);
+                print_ai_difficulty(state->ai_config.difficulty);
+                print_game_mode(state->is_puzzle_mode);
+                print_swap_rule(state->ai_config.swap_rule);
+                print_current_player(state->context.current_player);
+                print_move_history(state->context.history, state->context.history_count);                          
+                if(state->is_puzzle_mode) { 
+                    clear_swap_unavailable();
+                    game_state_apply_current_puzzle(state, true);
+                }
+            }
+
  
             switch (event->data.key.code) {
                 case KEY_UP:
@@ -148,6 +171,7 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                     if (state->selection.has_selection) {
                         game_state_deselect_piece(state);
                     }
+                  
                     break;
                     
                 case KEY_M:  // Game Mode Toggle
@@ -201,6 +225,12 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                 case KEY_U:  // Undo
                     // TODO: Implement undo
                     break;
+
+                case KEY_F1:  // F1 for Help
+                    old_phase = state->phase;
+                    game_state_set_phase(state, GAME_PHASE_HELP);
+                    display_show_help_screen();
+                    break;
                     
                 default:
                     break;
@@ -232,7 +262,7 @@ void input_handler_move_focus(game_state_t *state, key_code_t direction) {
             if (col < BOARD_COLS - 1) col++;
             break;
         default:
-            break;
+            return;
     }
     
     // Update focus

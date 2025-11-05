@@ -74,6 +74,7 @@ backlog.
 | T48 | Default Game Mode Change | Change the default game mode from free play to puzzle mode on game start. | `src/game_state.c`, `requirements.md` updates. | T5 | Done |
 | T49 | Puzzle Filter Scaling | Replace fixed-size swap-rule index caches with on-demand catalog scans so large puzzle sets stay addressable. | `src/puzzle_data.c`, docs sync. | T7 | Done |
 | T50 | Puzzle Mode First Unsolved | Show the first unsolved puzzle whenever puzzle mode is entered from free play. | `src/game_state.c`, docs sync. | T7 | Done |
+| T51 | Help Text Embedding | Embed the help text from `assets/mockup/help_text.txt` as a C string constant in `src/help.c` for in-game display. | `src/help.c`, build validation. | None | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

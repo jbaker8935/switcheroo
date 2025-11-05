@@ -77,7 +77,7 @@ static void game_state_focus_first_unsolved_puzzle(game_state_t *state)
     state->prefs.current_puzzle_index = found_unsolved ? first_unsolved_index : 0u;
 }
 
-static bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
+bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 {
     game_state_clear_win_path(state);
     set_current_puzzle_swap_rule(state->prefs.swap_rule);
@@ -241,6 +241,10 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             game_state_clear_win_path(state);
             set_mouse_cursor(MOUSE_CURSOR_NORMAL);
         }
+
+        // Clear move history when switching to puzzle mode
+        state->context.history_count = 0;
+        state->context.current_player = PLAYER_WHITE;
     }
     else
     {
@@ -265,6 +269,10 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
         clear_puzzle_hint();
         game_state_clear_win_path(state);
         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+
+        // Clear move history when switching to freeplay mode
+        state->context.history_count = 0;
+        state->context.current_player = PLAYER_WHITE;
     }
 
     game_state_deselect_piece(state);
@@ -606,6 +614,7 @@ void game_state_update(game_state_t *state, float delta_time)
 
             bool ai_moved = false;
             if (ai_agent_find_best_move(&state->board, &state->context, &state->ai_config, &ai_move))
+
             {
                 if (board_execute_move(&state->board, &state->context, &ai_move, state->ai_config.swap_rule))
                 {
@@ -616,6 +625,10 @@ void game_state_update(game_state_t *state, float delta_time)
                     {
                         clear_made_blunder();
                         state->phase = GAME_PHASE_GAME_OVER;
+                        set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+                        state->ai_think_frames = 0;
+                        game_state_update_menu_enables(state);
+                        break;
                     }
                     else
                     {

@@ -711,7 +711,7 @@ bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule
 
 // Determine whether executing `move` guarantees the AI an immediate win on its
 // following turn assuming the opponent plays optimally.
-static bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_ai, player_t mover, player_t ai_player,
+bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_ai, player_t mover, player_t ai_player,
                                                            swap_rule_t rule) {
     if (!after_ai) {
         return false;
@@ -762,28 +762,6 @@ static bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_
     }
 
     return true;
-}
-
-static bool ai_move_allows_opponent_immediate_win(const board_t *board, player_t current_player, const move_t *move,
-                                                  const ai_config_t *config, player_t ai_player) {
-    if (!config || !move) {
-        return false;
-    }
-
-    board_t after_ai;
-    ai_board_copy(&after_ai, board);
-    board_context_t move_context = {.current_player = current_player};
-    if (!board_execute_move_without_history(&after_ai, &move_context, move, config->swap_rule)) {
-        return false;
-    }
-
-    player_t opponent = (ai_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
-    board_context_t after_context = {.current_player = current_player};
-    board_switch_turn(&after_context);
-
-    {
-        return ai_immediate_win_available(&after_ai, opponent, config->swap_rule);
-    }
 }
 
 static bool ai_all_replies_allow_opponent_immediate_win_from_ordered(const ai_ordered_moves_t *ordered,
@@ -1856,15 +1834,24 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     if (!move_found) {
         if (generated > 0u) {
-            uint8_t idx = (uint8_t)ai_random_range(generated);
-            uint8_t slot = ordered.indices[idx % generated];
-            if (slot < AI_MAX_ORDERED_MOVES) {
-                chosen_move = (move_t){.from_row = ordered.moves.from_rows[slot],
-                                       .from_col = ordered.moves.from_cols[slot],
-                                       .to_row = ordered.moves.to_rows[slot],
-                                       .to_col = ordered.moves.to_cols[slot],
-                                       .type = ordered.moves.types[slot],
-                                       .player = ordered.moves.players[slot]};
+            // Fallback: pick the first valid move (should not happen for STANDARD/EXPERT)
+            for (uint8_t i = 0u; i < generated && !move_found; ++i) {
+                uint8_t slot = ordered.indices[i];
+                if (slot >= AI_MAX_ORDERED_MOVES) {
+                    continue;
+                }
+                // For STANDARD and EXPERT, skip WIN_NEXT_MOVE_A moves
+                if (tuned.difficulty >= AI_DIFFICULTY_STANDARD &&
+                    (ordered.flags[slot] & AI_ORDER_FLAG_OPPONENT_IMMEDIATE) != 0u) {
+                    continue;
+                }
+                move_t candidate = {.from_row = ordered.moves.from_rows[slot],
+                                   .from_col = ordered.moves.from_cols[slot],
+                                   .to_row = ordered.moves.to_rows[slot],
+                                   .to_col = ordered.moves.to_cols[slot],
+                                   .type = ordered.moves.types[slot],
+                                   .player = ordered.moves.players[slot]};
+                chosen_move = candidate;
                 move_found = true;
             }
         }
@@ -1872,19 +1859,20 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     if (!move_found) {
         /* As a final fallback (should not happen), attempt to pick the first legal move. */
-        for (uint8_t i = 0u; i < generated; ++i) {
+        for (uint8_t i = 0u; i < generated && !move_found; ++i) {
             uint8_t slot = ordered.indices[i];
             if (slot >= AI_MAX_ORDERED_MOVES) {
                 continue;
             }
-            chosen_move = (move_t){.from_row = ordered.moves.from_rows[slot],
-                                   .from_col = ordered.moves.from_cols[slot],
-                                   .to_row = ordered.moves.to_rows[slot],
-                                   .to_col = ordered.moves.to_cols[slot],
-                                   .type = ordered.moves.types[slot],
-                                   .player = ordered.moves.players[slot]};
+            // Final fallback: accept any legal move, even WIN_NEXT_MOVE_A
+            move_t candidate = {.from_row = ordered.moves.from_rows[slot],
+                               .from_col = ordered.moves.from_cols[slot],
+                               .to_row = ordered.moves.to_rows[slot],
+                               .to_col = ordered.moves.to_cols[slot],
+                               .type = ordered.moves.types[slot],
+                               .player = ordered.moves.players[slot]};
+            chosen_move = candidate;
             move_found = true;
-            break;
         }
     }
 

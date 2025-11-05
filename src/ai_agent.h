@@ -1,3 +1,10 @@
+
+#ifdef AI_AGENT_HOST_TEST
+// Expose for test harness symmetry
+#include <stdbool.h>
+#include "../src/board.h"
+bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_ai, player_t mover, player_t ai_player, swap_rule_t rule);
+#endif
 /**
  * @file ai_agent.h
  * @brief AI agent for F256 Switcharoo

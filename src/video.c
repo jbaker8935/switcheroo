@@ -78,7 +78,27 @@ void clear_text_matrix(void) {
             POKE(0xC000 + row * 80 + col, 0x20); // Clear text matrix
         }
     }
+
+        // set i/o page to 3
+    POKE(MMU_IO_CTRL, 3);
+    for (uint8_t row = 0; row < 60; ++row) {
+        for (uint8_t col = 0; col < 80; ++col) {
+            POKE(0xC000 + row * 80 + col, 0x11); // set color matrix
+        }
+    }
+
     POKE(MMU_IO_CTRL, 0); // Restore i/o page to 0
+}
+
+void video_text_overlay_on(bool enable) {
+    // Enable or disable text overlay in master control
+    uint8_t ctrl1 = PEEK(VKY_MSTR_CTRL_1);
+    if (enable) {
+        ctrl1 &= ~0b00010000; // Clear FON_OVLY bit
+    } else {
+        ctrl1 |= 0b00010000; // Set FON_OVLY bit
+    }
+    POKE(VKY_MSTR_CTRL_1, ctrl1);
 }
 
 void video_init(void) {
