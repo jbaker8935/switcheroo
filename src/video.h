@@ -13,6 +13,8 @@
 #define VIDEO_PIECES_CLUT 1
 #define VIDEO_MENU_CLUT 2
 #define VIDEO_BITMAP_PAGE 2
+#define VIDEO_SPLASH_PAGE 0
+#define VIDEO_SPLASH_CLUT 3
 
 #define VIDEO_SCREEN_WIDTH 320u
 #define VIDEO_SCREEN_HEIGHT 240u
@@ -42,6 +44,7 @@
 // SRAM layout - bitmap and sprite addresses matching EMBED locations
 #define SRAM_PUZZLE_CATALOG 0x30000
 #define SRAM_BITMAP_BASE 0x44000
+#define SRAM_SPLASH_BASE 0x6c000
 #define SRAM_PIECE_A_NORMAL_LIGHT 0x56c00
 #define SRAM_PIECE_A_SWAPPED_LIGHT 0x56e40
 #define SRAM_PIECE_B_NORMAL_LIGHT 0x57080
@@ -74,6 +77,7 @@
 #define SRAM_BOARD_PALETTE 0x5ae80
 #define SRAM_PIECES_PALETTE 0x5b280
 #define SRAM_MENU_PALETTE 0x5b680
+#define SRAM_SPLASH_PALETTE 0x7ec00
 
 // Sprite ID assignments
 #define VIDEO_SPRITE_FOCUS_PIECE 0u
@@ -126,5 +130,9 @@ extern void video_init(void);
 
 void video_text_overlay_on(bool enable);
 void clear_text_matrix(void);
+
+void video_show_splash(void);
+void video_hide_splash();
+void video_wait_vblank(void);
 
 #endif // VIDEO_H

@@ -1,6 +1,8 @@
 #include "f256lib.h"
 #include "../src/timer.h"
 
+static uint16_t alarm_ticks = 0;
+
 // 0x0CAD37 for 30 Hz
 void setTimer0()
 {
@@ -23,4 +25,22 @@ uint32_t readTimer0()
 bool isTimerDone()
 {
 	return (PEEK(T0_PEND) & 0x10) != 0;
+}
+
+	
+void setAlarm(uint16_t ticks) {
+	setTimer0();
+	alarm_ticks = ticks;
+}
+
+bool checkAlarm() {
+	
+	if (isTimerDone()) {
+		if (alarm_ticks > 0) {
+			alarm_ticks--;
+		}
+		setTimer0(); 
+	}
+	
+	return (alarm_ticks == 0);
 }

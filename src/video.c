@@ -42,6 +42,9 @@ EMBED(pieces_palette_data, "../assets/ui/ui_pieces_palette.bin", 0x5b280);
 EMBED(menu_palette_data, "../assets/ui/ui_menu_palette.bin", 0x5b680);
 
 
+EMBED(splash_data, "../assets/ui/ui_splash.bin", 0x6c000);
+EMBED(splash_clut_data, "../assets/ui/ui_splash_palette.bin",  0x7ec00);
+
 // Function declarations 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col);
 void video_reset_board_cell_color(uint8_t row, uint8_t col);
@@ -101,11 +104,54 @@ void video_text_overlay_on(bool enable) {
     POKE(VKY_MSTR_CTRL_1, ctrl1);
 }
 
+void video_show_splash() {
+    // Set bitmap address to splash data
+    clear_text_matrix();
+    // setup clut 0xDC00
+    POKE(MMU_IO_CTRL, 1);    
+    for (uint16_t i = 0; i < 1024; ++i) {
+        uint8_t color_component = FAR_PEEK(SRAM_SPLASH_PALETTE + i);
+        POKE(0xDC00 + i, color_component);
+        
+    }
+    
+    POKE(MMU_IO_CTRL, 0);
+    
+    // Set master control exactly like the example
+    // XXX GAMMA  SPRITE   TILE  | BITMAP  GRAPH  OVRLY  TEXT
+    POKE(VKY_MSTR_CTRL_0, 0b00101111); // sprite, bitmap, graph enabled 
+    // XXX XXX  FON_SET FON_OVLY | MON_SLP DBL_Y  DBL_X  CLK_70
+    POKE(VKY_MSTR_CTRL_1, 0b00000000); // 320x240 at 60 Hz with font overlay
+    
+    
+    
+    graphicsSetLayerBitmap(VIDEO_SPLASH_PAGE, 0);
+    bitmapSetActive(VIDEO_SPLASH_PAGE);
+    
+    bitmapSetCLUT(VIDEO_SPLASH_CLUT);
+    
+    bitmapSetVisible(1, false);
+    bitmapSetVisible(2, false);
+    
+    bitmapSetAddress(VIDEO_SPLASH_PAGE, SRAM_SPLASH_BASE);
+    bitmapSetVisible(VIDEO_SPLASH_PAGE, true);
+    
+    disable_mouse();
+    
+}
+
+void video_hide_splash() {
+
+    bitmapSetVisible(VIDEO_SPLASH_PAGE, false);
+
+}
+
 void video_init(void) {
     // Set up configuration
     
     clear_text_matrix();
 
+    spriteReset();
 
     video_setup_clut();
 

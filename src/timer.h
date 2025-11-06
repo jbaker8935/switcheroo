@@ -28,3 +28,5 @@ void setTimer0(void);
 void resetTimer0(void);
 uint32_t readTimer0(void);
 uint8_t isTimerDone(void);
+void setAlarm(uint16_t ticks);
+bool checkAlarm(void);
