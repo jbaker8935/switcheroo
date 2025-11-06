@@ -37,6 +37,16 @@ future work can extend the code base confidently.
 | Input | Mouse/keyboard event translation, focus management | `src/input.c`, `src/input_handler.c`, `src/mouse_pointer.c` |
 | Puzzle Services | High-memory streaming, solve tracking, diagnostics | `src/puzzle_data.c`, `src/puzzle_data.h` |
 
+## Lightweight Screen Management
+
+To support extensible and maintainable screen flow (see `ScreenFlow.md`), a lightweight screen state enum and variable (`g_screen_state`) are used in `main.c` and guarded in `input_handler.c`.
+
+- **Screen transitions** are handled in the main loop after input events, making it easy to add new screens and transition rules.
+- **Input guards** in `input_handler_process_event` ensure only relevant inputs are processed for the current screen, reducing accidental input handling and improving clarity.
+- **Extensibility**: To add a new screen, update the enum, add transition logic in the main loop, and add input guards in the handler.
+
+This approach is lightweight, suitable for 6502 targets, and keeps input polling centralized in the main loop.
+
 ## Runtime Flow
 1. `main()` initialises Foenix video, sprite, and text layers via `video_init`
    and primes the mouse cursor macros.

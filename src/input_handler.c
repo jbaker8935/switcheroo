@@ -11,7 +11,7 @@
 #include "../src/game_state.h"
 #include <string.h>
 
-static game_phase_t old_phase = GAME_PHASE_TITLE;
+#include "../src/screen.h"
 
 void input_handler_init(void) {
 
@@ -77,82 +77,44 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
 }
 
 void input_handler_process_event(game_state_t *state, const input_event_t *event) {
-    if (state->phase == GAME_PHASE_EXIT) {
-        return;  // Don't process input when exiting
-    }
-    
+
     switch (event->type) {
         case INPUT_EVENT_MOUSE_DOWN:
             if (event->data.mouse.button == MOUSE_BUTTON_LEFT) {
-                // Hit test to see what was clicked
                 hit_result_t hit = input_handler_hit_test(event->data.mouse.x, event->data.mouse.y);
-                
                 if (hit.type == HIT_BOARD_CELL) {
-                    // Clicked on board cell
                     uint8_t row = hit.data.cell.row;
                     uint8_t col = hit.data.cell.col;
-                    
                     if (state->selection.has_selection) {
-                        // A piece is already selected
-                        // Check if clicked on a legal move destination
                         bool found_move = false;
                         for (uint8_t i = 0; i < state->selection.legal_move_count; i++) {
                             if (state->selection.legal_moves[i].to_row == row &&
                                 state->selection.legal_moves[i].to_col == col) {
-                                // Execute the move (this will deselect automatically)
                                 game_state_execute_selected_move(state, i);
                                 found_move = true;
                                 break;
                             }
                         }
-                        
                         if (!found_move) {
-                            // Not a legal move - check if clicking the same selected cell to deselect
                             if (row == state->selection.selected_row && col == state->selection.selected_col) {
-                                // Clicking selected piece again - deselect it
                                 game_state_deselect_piece(state);
                             }
-                            // Otherwise, ignore the click (don't select a different piece while one is selected)
                         }
                     } else {
-                        // No selection - try to select this piece (will only work if it's current player's piece)
                         game_state_select_piece(state, row, col);
                     }
                 } else if (hit.type == HIT_MENU_ICON) {
-                    // Clicked on menu icon
                     if (state->menu.enabled[hit.data.icon]) {
                         game_state_activate_menu_icon(state, hit.data.icon);
                     }
                 }
             }
             break;
-            
         case INPUT_EVENT_MOUSE_MOVE:
             // Update hover state for highlights
             // TODO: Set hovered_move or hovered_icon based on mouse position
             break;
-            
         case INPUT_EVENT_KEY_DOWN:
-
-            if ( state->phase == GAME_PHASE_HELP && event->data.key.code != KEY_SPACE) {
-                break; // Ignore all keys except SPACE when in help screen
-            } else if (state->phase == GAME_PHASE_HELP && event->data.key.code == KEY_SPACE) {
-                // Exit help screen on SPACE key
-                game_state_set_phase(state, old_phase);
-                display_hide_help_screen();
-                render_update_score(&state->stats);
-                print_ai_difficulty(state->ai_config.difficulty);
-                print_game_mode(state->is_puzzle_mode);
-                print_swap_rule(state->ai_config.swap_rule);
-                print_current_player(state->context.current_player);
-                print_move_history(state->context.history, state->context.history_count);                          
-                if(state->is_puzzle_mode) { 
-                    clear_swap_unavailable();
-                    game_state_apply_current_puzzle(state, true);
-                }
-            }
-
- 
             switch (event->data.key.code) {
                 case KEY_UP:
                 case KEY_DOWN:
@@ -160,86 +122,67 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                 case KEY_RIGHT:
                     input_handler_move_focus(state, event->data.key.code);
                     break;
-                    
                 case KEY_ENTER:
                 case KEY_SPACE:
                     input_handler_activate_focused(state);
                     break;
-                    
                 case KEY_ESCAPE:
-                    // Deselect piece or close overlay
                     if (state->selection.has_selection) {
                         game_state_deselect_piece(state);
                     }
-                  
                     break;
-                    
-                case KEY_M:  // Game Mode Toggle
+                case KEY_M:
                     if (state->menu.enabled[MENU_ICON_GAME_MODE]) {
                         game_state_activate_menu_icon(state, MENU_ICON_GAME_MODE);
                     }
                     break;
-                                        
-                case KEY_R:  // Reset
+                case KEY_R:
                     if (state->menu.enabled[MENU_ICON_RESET]) {
                         game_state_activate_menu_icon(state, MENU_ICON_RESET);
                     }
                     break;
-                    
-                case KEY_P:  // Previous
-                if (state->menu.enabled[MENU_ICON_PREVIOUS]) {
-                    game_state_activate_menu_icon(state, MENU_ICON_PREVIOUS);
-                }
-                break;
-                
-                case KEY_N:  // Next
-                if (state->menu.enabled[MENU_ICON_NEXT]) {
-                    game_state_activate_menu_icon(state, MENU_ICON_NEXT);
-                }
-                break;
-
-                case KEY_S:  // Swap
-                if (state->menu.enabled[MENU_ICON_SWAP]) {
-                    game_state_activate_menu_icon(state, MENU_ICON_SWAP);
-                }
-                break;
-
-                case KEY_D:  // Difficulty
-                if (state->menu.enabled[MENU_ICON_DIFFICULTY]) {
-                    game_state_activate_menu_icon(state, MENU_ICON_DIFFICULTY);
-                }
-                break;
-                
-                case KEY_H:  // Hint
+                case KEY_P:
+                    if (state->menu.enabled[MENU_ICON_PREVIOUS]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_PREVIOUS);
+                    }
+                    break;
+                case KEY_N:
+                    if (state->menu.enabled[MENU_ICON_NEXT]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_NEXT);
+                    }
+                    break;
+                case KEY_S:
+                    if (state->menu.enabled[MENU_ICON_SWAP]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_SWAP);
+                    }
+                    break;
+                case KEY_D:
+                    if (state->menu.enabled[MENU_ICON_DIFFICULTY]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_DIFFICULTY);
+                    }
+                    break;
+                case KEY_H:
                     if (state->menu.enabled[MENU_ICON_HINT]) {
                         game_state_activate_menu_icon(state, MENU_ICON_HINT);
                     }
                     break;
-                    
-                case KEY_X:  // Exit
-                if (state->menu.enabled[MENU_ICON_EXIT]) {
-                    game_state_activate_menu_icon(state, MENU_ICON_EXIT);
-                }
-                break;
-                    
-                case KEY_U:  // Undo
+                case KEY_X:
+                    if (state->menu.enabled[MENU_ICON_EXIT]) {
+                        game_state_activate_menu_icon(state, MENU_ICON_EXIT);
+                    }
+                    break;
+                case KEY_U:
                     // TODO: Implement undo
                     break;
 
-                case KEY_F1:  // F1 for Help
-                    old_phase = state->phase;
-                    game_state_set_phase(state, GAME_PHASE_HELP);
-                    display_show_help_screen();
-                    break;
-                    
                 default:
                     break;
             }
             break;
-            
         default:
             break;
     }
+    // To add a new screen: update screen_state_t, add a case above, and implement input guards and transitions as needed.
 }
 
 void input_handler_move_focus(game_state_t *state, key_code_t direction) {

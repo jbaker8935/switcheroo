@@ -10,16 +10,20 @@
 #include "../src/ai_agent.h"
 #include "../src/video.h"
 #include "../src/timer.h"
+#include "../src/screen.h"
 #include "stddef.h"
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+
+screen_state_t g_screen_state = SCREEN_SPLASH;
 
 // Forward declarations
 extern void platform_bootstrap(void);
 extern void platform_idle(void);
 extern void video_reset(void);
 extern void display_test(void);
+
 // Global game state
 static game_state_t g_game_state;
 
@@ -45,6 +49,9 @@ int main(int argc, char *argv[])
     game_state_init(&g_game_state);
     render_update_score(&g_game_state.stats);
     game_state_start_new_game(&g_game_state);
+
+    // Initialize screen state - start in main (splash will come later)
+    g_screen_state = SCREEN_MAIN;
 
 
     // Main game loop
@@ -97,8 +104,7 @@ int main(int argc, char *argv[])
         }
 
         // Process input events - drain all pending events like sprites example
-        do
-        {
+        do {
             // Get next kernel event (always call, like the example)
             kernelNextEvent();
 
@@ -108,6 +114,59 @@ int main(int argc, char *argv[])
             {
                 // Process event through input handler
                 input_handler_process_event(&g_game_state, &event);
+
+                // Screen transition logic (extensible pattern)
+                switch (g_screen_state) {
+                    case SCREEN_SPLASH:
+                        if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
+                            (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                            g_screen_state = SCREEN_MAIN;
+                            // TODO: Call main screen draw/init if needed
+                        }
+                        break;
+                    case SCREEN_MAIN:
+                        if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_F1) {
+                            display_show_help_screen();
+                            g_screen_state = SCREEN_HELP;
+                        }
+                        // Add other main screen transitions here
+                        break;
+                    case SCREEN_HELP:
+                        if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
+                            (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                            g_screen_state = SCREEN_MAIN;
+                            // Hide help screen and restore main display
+                            display_hide_help_screen();
+                            render_update_score(&g_game_state.stats);
+                            print_ai_difficulty(g_game_state.ai_config.difficulty);
+                            print_game_mode(g_game_state.is_puzzle_mode);
+                            print_swap_rule(g_game_state.ai_config.swap_rule);
+                            print_current_player(g_game_state.context.current_player);
+                            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+                            if(g_game_state.is_puzzle_mode) {
+                                clear_swap_unavailable();
+                                game_state_apply_current_puzzle(&g_game_state, true);
+                            }
+                        }
+                        break;
+                    case SCREEN_ACHIEVEMENTS1:
+                        if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_A) {
+                            g_screen_state = SCREEN_ACHIEVEMENTS2;
+                            // TODO: Show second achievements screen
+                        } else if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
+                                   (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                            g_screen_state = SCREEN_MAIN;
+                            // TODO: Restore main screen
+                        }
+                        break;
+                    case SCREEN_ACHIEVEMENTS2:
+                        if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
+                            (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                            g_screen_state = SCREEN_MAIN;
+                            // TODO: Restore main screen
+                        }
+                        break;
+                }
                 if (g_game_state.board.move_count != old_move_count)
                 {
                     print_move_history(g_game_state.context.history, g_game_state.context.history_count);
