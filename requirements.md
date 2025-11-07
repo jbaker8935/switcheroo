@@ -248,6 +248,50 @@ in a dedicated discrepancies section.
 - WHEN `mark_puzzle_solved` succeeds, THE SYSTEM SHALL refresh puzzle info text
   so the HUD reflects the updated solved status.
 
+### Achievements
+- WHEN the achievements subsystem initialises, THE SYSTEM SHALL load persistent
+  progress into a struct-of-arrays state with bit-packed unlock flags and per-
+  achievement counters sized for the 6502 memory budget.
+- WHEN achievements are enumerated for presentation, THE SYSTEM SHALL emit them
+  in the order specified in the Freeplay and Puzzle lists of this revision so
+  screen layouts can display progress without re-sorting.
+- WHEN a freeplay win is recorded, THE SYSTEM SHALL increment the cumulative
+  win counter, unlock the one-, ten-, and one-hundred-win achievements at the
+  respective thresholds, and refresh per-achievement progress values.
+- WHEN a freeplay win occurs on a starting layout, THE SYSTEM SHALL set the bit
+  corresponding to that layout and unlock "Win all starting positions" once all
+  layout bits are set.
+- WHEN a freeplay win occurs under a swap rule, THE SYSTEM SHALL set the bit
+  for that rule and unlock "Win a game in all swap rules" once every rule bit
+  is present.
+- WHEN a freeplay win is achieved against Expert difficulty, THE SYSTEM SHALL
+  increment the Expert win counter and unlock the one- and ten-win Expert
+  achievements at their thresholds.
+- WHEN a freeplay win ends with a total move count under ten plies, THE SYSTEM
+  SHALL record the best move count and unlock the "Win in under 10 moves"
+  achievement.
+- WHEN a puzzle attempt starts, THE SYSTEM SHALL reset the no-hint flag, start
+  a 900-tick countdown via Timer0 for the thirty-second benchmark, and track the
+  swap rule and solution length for the active puzzle.
+- WHEN the main loop polls Timer0, THE SYSTEM SHALL forward the alarm tick to
+  the achievements subsystem so timed puzzle counters expire exactly when the
+  900-tick budget is exhausted.
+- WHEN a puzzle is solved without hints and within the tracked timer budget,
+  THE SYSTEM SHALL update the fast-solve counter, unlock the "Solve first
+  puzzle" and "Solve 10 puzzles in under 30 seconds each" achievements at their
+  thresholds, and increment the no-hint solve counter toward the "Solve 35"
+  milestone.
+- WHEN the player solves a qualifying "Win in 3" or "Win in 4" puzzle without
+  hints, THE SYSTEM SHALL unlock the respective achievements based on the
+  puzzle's solution length metadata.
+- WHEN puzzles are solved without hints while puzzle mode remains active, THE
+  SYSTEM SHALL increment the session counter and unlock "Solve 50 puzzles in
+  one session" once the counter reaches fifty.
+- WHEN a puzzle is newly marked solved for its swap rule, THE SYSTEM SHALL
+  update per-rule completion counts, unlock "Solve all puzzles for a swap rule"
+  once every puzzle in that rule is solved, and unlock "Solve all puzzles in the
+  collection" once the aggregate solved count equals the catalog total.
+
 ## Non-Functional Requirements
 - THE SYSTEM SHALL wait for the raster to reach the VBLANK window before
   calling `render_update` to avoid tearing on VICKY hardware.

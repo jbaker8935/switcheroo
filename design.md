@@ -147,6 +147,23 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - Applies puzzle layouts through `apply_puzzle_position`, synchronising swap
   rules and AI configuration with the puzzle metadata.
 
+### Achievements (`achievements.c/.h`)
+- Maintains achievement progress in a struct-of-arrays layout that packs unlock
+  flags into a bitmask and stores per-achievement counters and detail bitsets
+  as contiguous arrays sized for 6502-era memory budgets.
+- Snapshots puzzle catalog totals per swap rule at startup by iterating the
+  far-memory catalog, caching solved counts so rule-wide and catalog-wide
+  completion can be detected without rescanning.
+- Exposes update hooks for freeplay wins, puzzle hints, puzzle loads, and
+  puzzle completions; each hook updates the SoA counters and conditionally sets
+  unlock bits when thresholds are met.
+- Drives the thirty-second puzzle benchmark by starting Timer0 for 900 ticks on
+  puzzle load and consuming the shared timer pulses through a per-frame tick
+  handler invoked from the main loop.
+- Provides compact (versioned) serialisation routines that pack the SoA state
+  into a byte buffer for persistence and repopulate the state on load without
+  heap allocation.
+
 ### Artificial Intelligence (`ai_agent.c/.h`)
 - Provides deterministic heuristic move ranking that evaluates goal-row
   progress, swap pressure, blocking coverage, and mobility while tracking

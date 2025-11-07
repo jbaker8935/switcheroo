@@ -75,6 +75,8 @@ backlog.
 | T49 | Puzzle Filter Scaling | Replace fixed-size swap-rule index caches with on-demand catalog scans so large puzzle sets stay addressable. | `src/puzzle_data.c`, docs sync. | T7 | Done |
 | T50 | Puzzle Mode First Unsolved | Show the first unsolved puzzle whenever puzzle mode is entered from free play. | `src/game_state.c`, docs sync. | T7 | Done |
 | T51 | Help Text Embedding | Embed the help text from `assets/mockup/help_text.txt` as a C string constant in `src/help.c` for in-game display. | `src/help.c`, build validation. | None | Done |
+| T52 | Achievement Tracking Core | Implement struct-of-arrays achievement state, persistence helpers, and freeplay/puzzle event integration. | `src/achievements.c/.h`, `src/game_state.c`, docs sync. | T5, T7 | In Progress |
+| T53 | Timed Puzzle Achievement Timer | Start and poll the 900-tick puzzle timer through the achievements subsystem and integrate hint/no-hint tracking. | `src/achievements.c`, `src/main.c`, `src/game_state.c`, docs sync. | T5, T7, T52 | In Progress |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

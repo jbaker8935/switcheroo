@@ -31,9 +31,9 @@
 // Move encoding: [priority:3][to_pos:6][from_pos:6][type:1]
 // type: 0=swap, 1=empty_move
 #define MOVE_PACK_SWAP(from_row, from_col, to_row, to_col, priority) \
-    (((uint16_t)(priority) << 13) | ((uint16_t)POS_PACK(to_row, to_col) << 7) | ((uint16_t)POS_PACK(from_row, from_col) << 1) | 0)
+(((uint16_t)(priority) << 13) | ((uint16_t)POS_PACK(to_row, to_col) << 7) | ((uint16_t)POS_PACK(from_row, from_col) << 1) | 0)
 #define MOVE_PACK_EMPTY(row, col, priority) \
-    (((uint16_t)(priority) << 13) | ((uint16_t)POS_PACK(row, col) << 7) | ((uint16_t)0 << 1) | 1)
+(((uint16_t)(priority) << 13) | ((uint16_t)POS_PACK(row, col) << 7) | ((uint16_t)0 << 1) | 1)
 #define MOVE_UNPACK_TYPE(packed) ((packed) & 0x1)
 #define MOVE_UNPACK_FROM_POS(packed) (((packed) >> 1) & 0x3F)
 #define MOVE_UNPACK_TO_POS(packed) (((packed) >> 7) & 0x3F)
@@ -41,11 +41,11 @@
 #define MOVE_UNPACK_PRIORITY(packed) (((packed) >> 13) & 0x7)
 
 // Puzzle data structure
-typedef struct {
+typedef struct puzzle_t {
     const char *id;                    // Puzzle identifier string
     swap_rule_t swap_rule;             // Swap rule for this puzzle
     uint8_t difficulty;                // Difficulty level
-    bool is_solved;                     // Whether the puzzle is solved
+    bool is_solved;                    // Whether the puzzle is solved
     uint8_t piece_count;               // Number of pieces in starting position
     const uint8_t *pieces;             // Packed pieces: [row][packed_piece]...
     uint8_t solution_length;           // Number of moves in solution
@@ -85,5 +85,11 @@ void display_puzzle_solution(const puzzle_t *puzzle);
 
 // Mark the puzzle at the current swap-rule filtered index as solved
 void mark_puzzle_solved(uint16_t filtered_index);
+
+// Serialize the solved state of all puzzles (1 bit per puzzle, packed into bytes)
+size_t puzzle_catalog_serialize_solved(uint8_t *buffer, size_t max_bytes);
+
+// Deserialize the solved state of all puzzles from a buffer (1 bit per puzzle, packed into bytes)
+uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length);
 
 #endif // PUZZLE_DATA_H

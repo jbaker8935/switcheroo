@@ -88,8 +88,24 @@ int main(int argc, char *argv[]) {
                 if (g_game_state.win_path.winner == PLAYER_WHITE) {
                     const puzzle_collection_t *collection = get_puzzle_collection();
                     const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-                    if (puzzle && !puzzle->is_solved &&
-                        ((g_game_state.board.move_count + 1) / 2) <= puzzle->difficulty) {
+                    bool qualifies_for_mark = false;
+                    bool newly_marked = false;
+                    if (puzzle) {
+                        uint8_t white_moves = (uint8_t)((g_game_state.board.move_count + 1u) / 2u);
+                        qualifies_for_mark = (white_moves <= puzzle->difficulty);
+                        newly_marked = qualifies_for_mark && !puzzle->is_solved;
+                        achievements_on_puzzle_attempt_completed(&g_game_state.achievements,
+                                                                 puzzle,
+                                                                 qualifies_for_mark,
+                                                                 newly_marked);
+                    } else {
+                        achievements_on_puzzle_attempt_completed(&g_game_state.achievements,
+                                                                 NULL,
+                                                                 false,
+                                                                 false);
+                    }
+
+                    if (puzzle && newly_marked) {
                         // Mark puzzle as solved in persistent storage
                         mark_puzzle_solved(g_game_state.prefs.current_puzzle_index);
                         // confirm write.
@@ -110,11 +126,14 @@ int main(int argc, char *argv[]) {
         // Process input events - drain all pending events like sprites example
         do {
 
-            if(checkAlarm() && g_screen_state == SCREEN_SPLASH) {
+            bool alarm_elapsed = checkAlarm();
+            if(alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
                 // Time to exit splash screen
                 g_screen_state = SCREEN_MAIN;
                 display_main_screen();
             }   
+
+            achievements_update_timer(&g_game_state.achievements, alarm_elapsed);
 
             // Get next kernel event (always call, like the example)
             kernelNextEvent();
@@ -154,9 +173,11 @@ int main(int argc, char *argv[]) {
                             print_swap_rule(g_game_state.ai_config.swap_rule);
                             print_current_player(g_game_state.context.current_player);
                             print_move_history(g_game_state.context.history, g_game_state.context.history_count);
-                            if (g_game_state.is_puzzle_mode) {
-                                clear_swap_unavailable();
-                                game_state_apply_current_puzzle(&g_game_state, true);
+                            const puzzle_collection_t *collection = get_puzzle_collection();
+                            const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
+                            if (puzzle) {
+                                print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
+                                                puzzle->difficulty, puzzle->is_solved);
                             }
                         }
                         break;

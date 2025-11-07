@@ -79,6 +79,7 @@ static void game_state_focus_first_unsolved_puzzle(game_state_t *state)
 
 bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
 {
+    achievements_on_puzzle_failed(&state->achievements);
     game_state_clear_win_path(state);
     set_current_puzzle_swap_rule(state->prefs.swap_rule);
 
@@ -127,6 +128,8 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
         print_puzzle_info(state->prefs.current_puzzle_index, total_puzzles, puzzle->difficulty, puzzle->is_solved);
     }
 
+    achievements_on_puzzle_loaded(&state->achievements, puzzle);
+
     return true;
 }
 
@@ -162,6 +165,7 @@ void game_state_init(game_state_t *state)
 {
     memset(state, 0, sizeof(game_state_t));
 
+    achievements_init(&state->achievements);
     ui_progress_init(&state->ui_progress);
 
     // Initialize board
@@ -182,6 +186,10 @@ void game_state_init(game_state_t *state)
 
     // Difficulty not manually set initially
     state->difficulty_manually_set = false;
+
+    achievements_refresh_catalog(&state->achievements,
+                                  state->prefs.swap_rule,
+                                  state->prefs.current_puzzle_index);
 
     // Initialize AI config - Classic swap rules, AI plays as Black (second player)
     game_state_configure_ai(state, state->prefs.swap_rule, state->prefs.difficulty_level, PLAYER_BLACK);
@@ -208,7 +216,10 @@ game_phase_t game_state_get_phase(const game_state_t *state)
 void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 {
     bool mode_changed = (state->is_puzzle_mode != puzzle_mode);
+    bool previous_mode = state->is_puzzle_mode;
     state->is_puzzle_mode = puzzle_mode;
+
+    achievements_on_game_mode_changed(&state->achievements, previous_mode, puzzle_mode);
 
     if (state->is_puzzle_mode)
     {
@@ -412,6 +423,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 if (state->is_puzzle_mode) {
                     // Reset puzzle mode - reload current puzzle
                     game_state_apply_current_puzzle(state, false);
+                    state->phase = GAME_PHASE_PLAYING;
                 } else {
                     // Reset freeplay mode - reset to starting layout
                     board_set_starting_layout(&state->board, state->context.layout_id);
@@ -420,6 +432,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     clear_puzzle_hint();
                     game_state_clear_win_path(state);
                     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+                    state->context.current_player = PLAYER_WHITE;
                 }
                 game_state_deselect_piece(state);
                 game_state_update_menu_enables(state);
@@ -548,6 +561,11 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 }
 
                 state->phase = GAME_PHASE_PLAYING;
+
+                if (state->is_puzzle_mode)
+                {
+                    achievements_on_puzzle_hint(&state->achievements);
+                }
             }
 
             break;
@@ -569,6 +587,14 @@ bool game_state_check_win_condition(game_state_t *state)
     if (white_wins)
     {
         state->stats.white_wins++;
+        if (!state->is_puzzle_mode)
+        {
+            achievements_on_freeplay_win(&state->achievements,
+                                          state->context.layout_id,
+                                          state->prefs.swap_rule,
+                                          state->ai_config.difficulty,
+                                          state->board.move_count);
+        }
         render_invalidate_cache();
         return true;
     }
@@ -578,6 +604,10 @@ bool game_state_check_win_condition(game_state_t *state)
 
     if (black_wins)
     {
+        if (state->is_puzzle_mode)
+        {
+            achievements_on_puzzle_failed(&state->achievements);
+        }
         state->stats.black_wins++;
         state->win_path = black_path;
         render_invalidate_cache();

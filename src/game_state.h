@@ -13,6 +13,7 @@
 #else
 #include "platform_f256.h"
 #endif
+#include "../src/achievements.h"
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include "../src/ui_progress.h"
@@ -82,6 +83,7 @@ typedef struct {
     board_t board;
     board_context_t context;
     session_stats_t stats;
+    achievements_state_t achievements;
     user_preferences_t prefs;
     menu_state_t menu;
     selection_state_t selection;

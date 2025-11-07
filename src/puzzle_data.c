@@ -1,8 +1,11 @@
 
+
 #include "../src/puzzle_data.h"
 #include "../src/board.h"
 #include "../src/text_display.h"
+#include "../src/video.h"
 #include <stdbool.h>
+#include <stddef.h>
 #include <string.h>
 
 #if defined(__llvm_mos__)
@@ -21,8 +24,7 @@ enum {
     PUZZLE_SOLUTION_BYTES = PUZZLE_SOLUTION_WORDS * 2u,
     PUZZLE_HEADER_BYTES = 2u,
     PUZZLE_RECORD_BYTES = PUZZLE_ID_BYTES + 2u + 1u + 1u + 1u +
-    PUZZLE_PIECE_BYTES + 1u + PUZZLE_SOLUTION_BYTES,
-    PUZZLE_CATALOG_BASE_ADDRESS = 0x30000u
+    PUZZLE_PIECE_BYTES + 1u + PUZZLE_SOLUTION_BYTES
 };
 
 static char s_puzzle_id_buffer[PUZZLE_ID_BYTES];
@@ -123,7 +125,7 @@ static void puzzle_catalog_host_load(void) {
 
 static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
     #if defined(__llvm_mos__)
-    return platform_far_read_byte(PUZZLE_CATALOG_BASE_ADDRESS + offset);
+    return platform_far_read_byte(SRAM_PUZZLE_CATALOG + offset);
     #elif defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
     if (s_host_catalog_data == NULL || offset >= s_host_catalog_size) {
@@ -138,7 +140,7 @@ static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
 
 static inline uint16_t puzzle_catalog_read_word(uint32_t offset) {
     #if defined(__llvm_mos__)
-    return platform_far_read_word(PUZZLE_CATALOG_BASE_ADDRESS + offset);
+    return platform_far_read_word(SRAM_PUZZLE_CATALOG + offset);
     #elif defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
     if (s_host_catalog_data == NULL || (offset + 1u) >= s_host_catalog_size) {
@@ -314,7 +316,7 @@ void mark_puzzle_solved(uint16_t filtered_index) {
     uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)actual_index * PUZZLE_RECORD_BYTES;
     uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
 #if defined(__llvm_mos__)
-    platform_far_write_byte(PUZZLE_CATALOG_BASE_ADDRESS + is_solved_offset, 1u);
+    platform_far_write_byte(SRAM_PUZZLE_CATALOG + is_solved_offset, 1u);
 #endif
 #if defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
@@ -419,4 +421,55 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
     }
 
 }
+
+
+// Serialize the solved state of all puzzles (1 bit per puzzle, packed into bytes)
+size_t puzzle_catalog_serialize_solved(uint8_t *buffer, size_t max_bytes) {
+    puzzle_catalog_ensure_header();
+    uint16_t count = s_puzzle_collection.count;
+    size_t needed_bytes = (count + 7) / 8;
+    if (!buffer || max_bytes < needed_bytes) {
+        return 0;
+    }
+    memset(buffer, 0, needed_bytes);
+    for (uint16_t i = 0; i < count; ++i) {
+        if (!puzzle_catalog_load_record(i)) continue;
+        if (s_puzzle_cache.is_solved) {
+            buffer[i / 8] |= (1u << (i % 8));
+        }
+    }
+    return needed_bytes;
+}
+
+// Deserialize the solved state of all puzzles from a buffer (1 bit per puzzle, packed into bytes)
+uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length) {
+    puzzle_catalog_ensure_header();
+    uint16_t count = s_puzzle_collection.count;
+    size_t needed_bytes = (count + 7) / 8;
+    if (!buffer || length < needed_bytes) {
+        return 0u;
+    }
+    for (uint16_t i = 0; i < count; ++i) {
+        if (!puzzle_catalog_load_record(i)) continue;
+        uint8_t solved = (buffer[i / 8] >> (i % 8)) & 1u;
+        s_puzzle_cache.is_solved = solved;
+#if defined(__llvm_mos__)
+        // Write back to hardware/ROM if needed
+        const uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)i * PUZZLE_RECORD_BYTES;
+        const uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
+        platform_far_write_byte(SRAM_PUZZLE_CATALOG + is_solved_offset, solved);
+#endif
+#if defined(AI_AGENT_HOST_TEST)
+        if (s_host_catalog_data != NULL) {
+            const uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)i * PUZZLE_RECORD_BYTES;
+            const uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
+            if (is_solved_offset < s_host_catalog_size) {
+                s_host_catalog_data[is_solved_offset] = solved;
+            }
+        }
+#endif
+    }
+    return 1u;
+}
+
 
