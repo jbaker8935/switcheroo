@@ -71,7 +71,7 @@
 
 // Focus VRAM addresses
 #define SRAM_FOCUS_PIECE 0x5a680
-#define SRAM_FOCUS_ICON 0x5aa80
+
 
 // Palette VRAM addresses
 #define SRAM_BOARD_PALETTE 0x5ae80
@@ -81,7 +81,7 @@
 
 // Sprite ID assignments
 #define VIDEO_SPRITE_FOCUS_PIECE 0u
-#define VIDEO_SPRITE_FOCUS_ICON 1u
+#define VIDEO_SPRITE_RESERVED 1u
 #define VIDEO_SPRITE_HIGHLIGHT_BASE 2u  // After focus sprites
 #define VIDEO_SPRITE_PIECE_BASE 18u
 #define VIDEO_SPRITE_ICON_BASE 34u

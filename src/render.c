@@ -90,8 +90,7 @@ void render_init(void) {
     // Define focus sprites (piece and icon) on layer 0
     spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, SRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_ICON, SRAM_FOCUS_ICON, VIDEO_ICON_SPRITE_SIZE, VIDEO_MENU_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
-    spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
+
 
     // Mark cache initialized
     s_cache_initialized = false;
@@ -349,7 +348,7 @@ static void render_update_focus(void) {
         // Hide both focus sprites
         enable_mouse();
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
-        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
+
         return;
     }
 
@@ -361,13 +360,7 @@ static void render_update_focus(void) {
         render_cell_to_screen(row, col, &x, &y);
         spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 1);
-        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 0);
     } else {
-        // Map focus to icon index (col used for icon index)
-        uint8_t icon_index = col % 6; // defensive
-        uint16_t y = s_icon_start_y + (icon_index * (VIDEO_ICON_SPRITE_SIZE + 8));
-        spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_ICON, VIDEO_SPRITE_OFFSET + s_icon_x, VIDEO_SPRITE_OFFSET + y);
-        spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_ICON, 1);
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
     }
 }

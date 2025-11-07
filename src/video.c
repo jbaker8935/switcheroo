@@ -34,7 +34,6 @@ EMBED(highlight_empty_bitmap, "../assets/ui/highlight_empty.bin", 0x5a200);
 EMBED(highlight_occupied_bitmap, "../assets/ui/highlight_occupied.bin", 0x5a440);
 // Focus indicator bitmaps
 EMBED(focus_piece_bitmap, "../assets/ui/cell_focus.bin", 0x5a680);
-EMBED(focus_icon_bitmap, "../assets/generated/focus_icon_bitmap.bin", 0x5aa80);
 
 // Palette VRAM areas
 EMBED(board_palette_data, "../assets/ui/ui_board_palette.bin", 0x5ae80);
