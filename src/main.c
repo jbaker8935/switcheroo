@@ -15,6 +15,7 @@
 #include "../src/timer.h"
 #include "../src/video.h"
 #include "../src/mouse_pointer.h"
+#include "../src/achievements.h"
 #include "f256lib.h"
 #include "stddef.h"
 
@@ -49,6 +50,23 @@ void display_main_screen(void) {
 
 }
 
+void restore_main_screen(void) {
+    init_main_screen();    
+    render_update_score(&g_game_state.stats);
+    print_ai_difficulty(g_game_state.ai_config.difficulty);
+    print_game_mode(g_game_state.is_puzzle_mode);
+    print_swap_rule(g_game_state.ai_config.swap_rule);
+    print_current_player(g_game_state.context.current_player);
+    print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+    refresh_win_path(&g_game_state.win_path);
+    const puzzle_collection_t *collection = get_puzzle_collection();
+    const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
+    if (puzzle) {
+        print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
+                        puzzle->difficulty, puzzle->is_solved);
+    }
+}
+
 int main(int argc, char *argv[]) {
     (void)argc;
     (void)argv;
@@ -69,6 +87,7 @@ int main(int argc, char *argv[]) {
     // Initialize game state
     game_state_init(&g_game_state);
 
+    achievements_init(&g_game_state.achievements);
 
 
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
@@ -79,8 +98,9 @@ int main(int argc, char *argv[]) {
         // Update game state
         game_state_update(&g_game_state, 1.0f / 60.0f);
 
-        if (g_game_state.phase == GAME_PHASE_GAME_OVER) {
+        if (g_screen_state == SCREEN_MAIN && g_game_state.phase == GAME_PHASE_GAME_OVER) {
             print_game_winner(g_game_state.win_path.winner);
+            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
             if (g_game_state.is_puzzle_mode) {
                 // In puzzle mode, mark puzzle as solved if player won
                 // in N Player A moves or less
@@ -89,35 +109,26 @@ int main(int argc, char *argv[]) {
                     const puzzle_collection_t *collection = get_puzzle_collection();
                     const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
                     bool qualifies_for_mark = false;
-                    bool newly_marked = false;
-                    if (puzzle) {
+                    if (puzzle && !puzzle->is_solved) {
                         uint8_t white_moves = (uint8_t)((g_game_state.board.move_count + 1u) / 2u);
                         qualifies_for_mark = (white_moves <= puzzle->difficulty);
-                        newly_marked = qualifies_for_mark && !puzzle->is_solved;
                         achievements_on_puzzle_attempt_completed(&g_game_state.achievements,
                                                                  puzzle,
-                                                                 qualifies_for_mark,
-                                                                 newly_marked);
-                    } else {
-                        achievements_on_puzzle_attempt_completed(&g_game_state.achievements,
-                                                                 NULL,
-                                                                 false,
-                                                                 false);
-                    }
-
-                    if (puzzle && newly_marked) {
+                                                                 qualifies_for_mark);
                         // Mark puzzle as solved in persistent storage
-                        mark_puzzle_solved(g_game_state.prefs.current_puzzle_index);
-                        // confirm write.
-                        const puzzle_t *puzzle_updated = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-                        print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
-                                          puzzle_updated->difficulty, puzzle_updated->is_solved);
-                    }
+                        if (qualifies_for_mark) {
+                            mark_puzzle_solved(g_game_state.prefs.current_puzzle_index);
+                            // confirm write.
+                            const puzzle_t *puzzle_updated = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
+                            print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
+                                            puzzle_updated->difficulty, puzzle_updated->is_solved);
+                        }
+                    } 
                 }
             }
         }
 
-        if (g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
+        if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
             print_move_history(g_game_state.context.history, g_game_state.context.history_count);
             print_current_player(g_game_state.context.current_player);
             old_move_count = g_game_state.board.move_count;
@@ -155,6 +166,9 @@ int main(int argc, char *argv[]) {
                         if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_F1) {
                             display_show_help_screen();
                             g_screen_state = SCREEN_HELP;
+                        } else if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_A) {
+                            display_achievements_screen(&g_game_state.achievements, 0);
+                            g_screen_state = SCREEN_ACHIEVEMENTS1;
                         } else {
                             // Process other main screen events through input handler
                             input_handler_process_event(&g_game_state, &event);
@@ -167,40 +181,35 @@ int main(int argc, char *argv[]) {
                             g_screen_state = SCREEN_MAIN;
                             // Hide help screen and restore main display
                             display_hide_help_screen();
-                            render_update_score(&g_game_state.stats);
-                            print_ai_difficulty(g_game_state.ai_config.difficulty);
-                            print_game_mode(g_game_state.is_puzzle_mode);
-                            print_swap_rule(g_game_state.ai_config.swap_rule);
-                            print_current_player(g_game_state.context.current_player);
-                            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
-                            const puzzle_collection_t *collection = get_puzzle_collection();
-                            const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-                            if (puzzle) {
-                                print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
-                                                puzzle->difficulty, puzzle->is_solved);
-                            }
+                            restore_main_screen();
                         }
                         break;
                     case SCREEN_ACHIEVEMENTS1:
                         if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_A) {
                             g_screen_state = SCREEN_ACHIEVEMENTS2;
-                            // TODO: Show second achievements screen
+                            display_achievements_screen(&g_game_state.achievements, 1);
                         } else if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
                                    (event.type == INPUT_EVENT_MOUSE_DOWN &&
                                     event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             g_screen_state = SCREEN_MAIN;
-                            // TODO: Restore main screen
+                            hide_achievements_screen();
+                            restore_main_screen();
                         }
                         break;
                     case SCREEN_ACHIEVEMENTS2:
-                        if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
-                            (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                        if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_A) {
+                            g_screen_state = SCREEN_ACHIEVEMENTS1;
+                            display_achievements_screen(&g_game_state.achievements, 0);
+                        } else if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
+                                   (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             g_screen_state = SCREEN_MAIN;
-                            // TODO: Restore main screen
+                            hide_achievements_screen();
+                            restore_main_screen();
                         }
                         break;
                 }
-                if (g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
+                if (g_game_state.board.move_count != old_move_count && 
+                    g_game_state.phase != GAME_PHASE_GAME_OVER && g_screen_state == SCREEN_MAIN  ) {
                     print_move_history(g_game_state.context.history, g_game_state.context.history_count);
                     print_current_player(g_game_state.context.current_player);
                     old_move_count = g_game_state.board.move_count;
@@ -211,7 +220,10 @@ int main(int argc, char *argv[]) {
         // Diagnostic text output disabled in release builds to conserve ROM/RAM.
 
         // Update rendering
-        render_update(&g_game_state);
+        if(g_screen_state == SCREEN_MAIN) {
+
+            render_update(&g_game_state);
+        }
 
         // Idle/wait for next frame
         platform_idle();

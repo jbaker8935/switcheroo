@@ -51,7 +51,7 @@ typedef enum {
 	ACH_PUZZLE_FAST_TEN = 9,
 	ACH_PUZZLE_WIN_IN_THREE = 10,
 	ACH_PUZZLE_WIN_IN_FOUR = 11,
-	ACH_PUZZLE_NO_HINT_THIRTY_FIVE = 12,
+	ACH_PUZZLE_NO_HINT_TWENTY_FIVE = 12,
 	ACH_PUZZLE_SESSION_FIFTY = 13,
 	ACH_PUZZLE_RULE_COMPLETE = 14,
 	ACH_PUZZLE_CATALOG_COMPLETE = 15
@@ -85,7 +85,7 @@ void achievements_on_game_mode_changed(achievements_state_t *state, bool was_puz
 void achievements_on_freeplay_win(achievements_state_t *state, uint8_t layout_id, swap_rule_t rule, ai_difficulty_t difficulty, uint8_t move_count);
 void achievements_on_puzzle_loaded(achievements_state_t *state, const struct puzzle_t *puzzle);
 void achievements_on_puzzle_hint(achievements_state_t *state);
-void achievements_on_puzzle_attempt_completed(achievements_state_t *state, const struct puzzle_t *puzzle, bool qualifies_for_mark, bool newly_marked);
+void achievements_on_puzzle_attempt_completed(achievements_state_t *state, const struct puzzle_t *puzzle,  bool qualifies_for_mark);
 void achievements_on_puzzle_failed(achievements_state_t *state);
 void achievements_update_timer(achievements_state_t *state, bool alarm_elapsed);
 
@@ -104,6 +104,9 @@ static inline const uint16_t *achievements_progress(const achievements_state_t *
 static inline const uint8_t *achievements_detail_bits(const achievements_state_t *state) {
 	return state ? state->detail_bits : NULL;
 }
+
+void display_achievements_screen(achievements_state_t *state, uint8_t page);
+void hide_achievements_screen(void);
 
 #endif // ACHIEVEMENTS_H
 

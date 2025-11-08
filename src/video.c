@@ -1,4 +1,5 @@
 #include "../src/platform_f256.h"
+#include "../include/f256lib.h"
 #include <stdint.h>
 #include <stddef.h>
 #include "../src/board.h"
@@ -7,42 +8,52 @@
 #include "../src/text_display.h"
 
 // EMBED statements for assets at specific memory addresses
-EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x30000);
-EMBED(board_bitmap, "../assets/ui/ui_board.bin", 0x44000);
-EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", 0x56c00);
-EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", 0x56e40);
-EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", 0x57080);
-EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", 0x572c0);
-EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", 0x57500);
-EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", 0x57740);
-EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", 0x57980);
-EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x57bc0);
+EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x20000);
+EMBED(board_bitmap, "../assets/ui/ui_board.bin", 0x2FA00);
+EMBED(splash_bitmap, "../assets/ui/ui_splash.bin", 0x42600);
+EMBED(achievement_bitmap, "../assets/ui/ui_achievements.bin", 0x55200);
+EMBED(board_palette, "../assets/ui/ui_board_palette.bin", 0x67E00);
+EMBED(pieces_palette, "../assets/ui/ui_pieces_palette.bin", 0x68200);
+EMBED(menu_icon_palette, "../assets/ui/ui_menu_palette.bin", 0x68600);
+EMBED(splash_palette, "../assets/ui/ui_splash_palette.bin", 0x68A00);
+EMBED(achieve_base_palette, "../assets/ui/ui_achieve_base_palette.bin", 0x68E00);
+EMBED(achieve_color_palette, "../assets/ui/ui_achieve_color_palette.bin", 0x69200);
+EMBED(achieve_grey_palette, "../assets/ui/ui_achieve_grey_palette.bin", 0x69600);
+EMBED(icon_game_mode_ai, "../assets/ui/ui_menu_robot_32x32.bin", 0x69A00);
+EMBED(icon_game_mode_puzzle, "../assets/ui/ui_menu_puzzle_32x32.bin", 0x69E00);
+EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", 0x6A200);
+EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", 0x6A600);
+EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", 0x6AA00);
+EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", 0x6AE00);
+EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", 0x6B200);
+EMBED(icon_hint, "../assets/ui/ui_menu_hint_32x32.bin", 0x6B600);
+EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", 0x6BA00);
+EMBED(achieve_award, "../assets/ui/award.bin", 0x6BE00);
+EMBED(achieve_100, "../assets/ui/achieve_100.bin", 0x6C040);
+EMBED(achieve_runner, "../assets/ui/runner.bin", 0x6C280);
+EMBED(achieve_brain, "../assets/ui/brain.bin", 0x6C4C0);
+EMBED(achieve_puzzle, "../assets/ui/achieve_puzzle.bin", 0x6C700);
+EMBED(achieve_thinker, "../assets/ui/thinker.bin", 0x6C940);
+EMBED(achieve_lightning, "../assets/ui/lightning.bin", 0x6CB80);
+EMBED(achieve_bullseye, "../assets/ui/bullseye.bin", 0x6CDC0);
+EMBED(achieve_sword, "../assets/ui/sword.bin", 0x6D000);
+EMBED(achieve_arm_flex, "../assets/ui/arm_flex.bin", 0x6D240);
+EMBED(achieve_dice, "../assets/ui/dice.bin", 0x6D480);
+EMBED(achieve_flame, "../assets/ui/flame.bin", 0x6D6C0);
+EMBED(achieve_medal, "../assets/ui/medal.bin", 0x6D900);
+EMBED(achieve_crown, "../assets/ui/crown.bin", 0x6DB40);
+EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", 0x6DD80);
+EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", 0x6DFC0);
+EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", 0x6E200);
+EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", 0x6E440);
+EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", 0x6E680);
+EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", 0x6E8C0);
+EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", 0x6EB00);
+EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x6ED40);
+EMBED(highlight_empty, "../assets/ui/highlight_empty.bin", 0x6EF80);
+EMBED(highlight_occupied, "../assets/ui/highlight_occupied.bin", 0x6F1C0);
+EMBED(focus_piece, "../assets/ui/cell_focus.bin", 0x6F400);
 
-// Icon bitmaps
-EMBED(icon_game_ai_mode, "../assets/ui/ui_menu_robot_32x32.bin", 0x57e00);
-EMBED(icon_game_puzzle_mode, "../assets/ui/ui_menu_puzzle_32x32.bin", 0x58200);
-EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", 0x58600);
-EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", 0x58a00);
-EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", 0x58e00);
-EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", 0x59200);
-EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", 0x59600);
-EMBED(icon_info, "../assets/ui/ui_menu_hint_32x32.bin", 0x59a00);
-EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", 0x59e00);
-
-// Move Highlight sprite bitmaps
-EMBED(highlight_empty_bitmap, "../assets/ui/highlight_empty.bin", 0x5a200);
-EMBED(highlight_occupied_bitmap, "../assets/ui/highlight_occupied.bin", 0x5a440);
-// Focus indicator bitmaps
-EMBED(focus_piece_bitmap, "../assets/ui/cell_focus.bin", 0x5a680);
-
-// Palette VRAM areas
-EMBED(board_palette_data, "../assets/ui/ui_board_palette.bin", 0x5ae80);
-EMBED(pieces_palette_data, "../assets/ui/ui_pieces_palette.bin", 0x5b280);
-EMBED(menu_palette_data, "../assets/ui/ui_menu_palette.bin", 0x5b680);
-
-
-EMBED(splash_data, "../assets/ui/ui_splash.bin", 0x6c000);
-EMBED(splash_clut_data, "../assets/ui/ui_splash_palette.bin",  0x7ec00);
 
 // Function declarations 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col);
@@ -61,6 +72,7 @@ const uint32_t s_video_icon_vram_addrs[VIDEO_ICON_COUNT] = {
     SRAM_ICON_HINT,
     SRAM_ICON_EXIT
 };
+
 
 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col) {

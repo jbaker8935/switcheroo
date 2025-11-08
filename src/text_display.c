@@ -101,11 +101,12 @@ void text_display_init(void) {
     }
 
     /* Text Colors */
-    textDefineForegroundColor(1,170,170,170); // Normal Text
+    textDefineForegroundColor(1,0xaa,0xaa,0xaa); // #aaaaaa Normal Text
     textDefineForegroundColor(2,0x4e,0xff,0x89); // #4eff89 Win Text
     textDefineForegroundColor(3,0xff,0x6b,0x6b);  // #ff6b6b Loss Text
     textDefineForegroundColor(4,0x7a,0xba,0xed);  // #7abaed - Blue for Logo
     textDefineForegroundColor(5,0xc8,0x9d,0xdf);     // #c89ddf - Light Purple for Logo
+    textDefineForegroundColor(6,0xcc,0xcc,0xcc);     // #cccccc - Lighter Text    
     textDefineBackgroundColor(1, 40,40,40);    
     textSetColor(1,1);   // Default to normal text color
 }

@@ -365,6 +365,11 @@ static void render_update_focus(void) {
     }
 }
 
+void refresh_win_path(const win_path_t *path) {
+    s_win_path_applied = false;
+    render_update_win_path(path);
+}
+
 void render_update_win_path(const win_path_t *path) {
     // If there's no path, ensure board colors are normal and clear the applied flag
     if (!path || !path->has_path) {

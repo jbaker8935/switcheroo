@@ -37,6 +37,7 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0x75: return KEY_U;       // U
         case 0x20: return KEY_SPACE;   // Spacebar
         case 0x81: return KEY_F1;      // F1
+        case 0x61: return KEY_A;      // A
         default: return KEY_NONE;
     }
 }

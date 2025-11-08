@@ -60,5 +60,5 @@ const char *help_text =
 "    4. Move to empty cells for better positioning or to break blockades.\n"
 "\n"
 "\n"
-"                         Hit Space to exit this screen.\n";
+"                            Press [SPACE] to exit.\n";
 

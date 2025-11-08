@@ -1,12 +1,91 @@
 #include "../src/achievements.h"
 #include "../src/puzzle_data.h"
 #include "../src/timer.h"
-
+#include "../src/video.h"
+#include "../src/mouse_pointer.h"
+#include "../src/text_display.h"
+#include "f256lib.h"
 #include <string.h>
 
 enum {
 	ACHIEVEMENTS_STORAGE_VERSION = 1u
 };
+
+const uint32_t s_video_achievement_vram_addrs[ACHIEVEMENT_COUNT] = {
+	SRAM_ACHIEVE_MEDAL,
+	SRAM_ACHIEVE_FLAME,
+	SRAM_ACHIEVE_DICE,
+	SRAM_ACHIEVE_ARM_FLEX,
+	SRAM_ACHIEVE_SWORD,
+	SRAM_ACHIEVE_CROWN,
+	SRAM_ACHIEVE_LIGHTNING,
+	SRAM_ACHIEVE_100,
+	SRAM_ACHIEVE_BULLSEYE,
+	SRAM_ACHIEVE_LIGHTNING,
+	SRAM_ACHIEVE_THINKER,
+	SRAM_ACHIEVE_BRAIN,
+	SRAM_ACHIEVE_PUZZLE,
+	SRAM_ACHIEVE_RUNNER,
+	SRAM_ACHIEVE_100,
+	SRAM_ACHIEVE_AWARD
+};
+
+const char* s_achievement_names[ACHIEVEMENT_COUNT] = {
+	"You Win",
+	"Untouchable",
+	"Versatile",
+	"Unbreakable",
+	"Slayer",
+	"Master Slayer",
+	"Speedster",
+	"Century Club",
+	"First Blood",
+	"Speed Demon",
+	"Thinker",
+	"Deep Thinker",
+	"Puzzlemeister",
+	"Runner",
+	"Perfectionist",
+	"Completionist"
+};
+
+const char* s_achievement_descriptions[ACHIEVEMENT_COUNT] = {
+	"Win first game",
+	"Win 10|in a row",
+	"Win all|starting|boards",
+	"Win all|game rules",
+	"Win against|Expert",
+	"Win 10 against|Expert",
+	"Win under 10|moves",
+	"Win 100|games",
+	"Solve|first puzzle|no hints",
+	"Solve 10|in 30s each|no hints",
+	"Solve Win in 3|no hints",
+	"Solve Win in 4|no hints",
+	"Solve 25|no hints",
+	"Solve 50|in one session",
+	"Solve all|for a rule",
+	"Solve all|puzzles"
+};
+
+const uint8_t s_achievement_char_x[ACHIEVEMENT_COUNT] = {
+	3, 22, 42, 61,
+	3, 22, 42, 61,
+	3, 22, 42, 61,
+	3, 22, 42, 61
+};
+const uint8_t s_achievement_char_y[ACHIEVEMENT_COUNT] = {
+	9, 9, 9, 9,
+	34, 34, 34, 34,
+	9, 9, 9, 9,
+	34, 34, 34, 34
+};
+const uint8_t center_offset_x = 7;
+const uint8_t title_offset_y = 10;
+const uint8_t desc_offset_y = 13;
+const uint8_t icon_offset_x_px = 20;
+const uint8_t icon_offset_y_px = 8;
+
 
 static uint16_t clamp_u16(uint16_t value, uint16_t limit) {
 	return (value > limit) ? limit : value;
@@ -36,6 +115,7 @@ static bool achievements_is_unlocked(const achievements_state_t *state, achievem
 	if (!state) {
 		return false;
 	}
+
 	return (state->unlocked_mask & (uint16_t)(1u << achievement)) != 0u;
 }
 
@@ -187,35 +267,33 @@ void achievements_on_freeplay_win(achievements_state_t *state,
 	state->progress_count[ACH_FREEPLAY_TEN_WINS] = clamp_u16(state->freeplay_total_wins, 10u);
 	state->progress_count[ACH_FREEPLAY_HUNDRED_WINS] = clamp_u16(state->freeplay_total_wins, 100u);
 
-	if (state->freeplay_total_wins >= 1u) {
+	if (state->progress_count[ACH_FREEPLAY_FIRST_WIN] >= 1u) {
 		achievements_unlock(state, ACH_FREEPLAY_FIRST_WIN);
 	}
-	if (state->freeplay_total_wins >= 10u) {
+	if (state->progress_count[ACH_FREEPLAY_TEN_WINS] >= 10u) {
 		achievements_unlock(state, ACH_FREEPLAY_TEN_WINS);
 	}
-	if (state->freeplay_total_wins >= 100u) {
+	if (state->progress_count[ACH_FREEPLAY_HUNDRED_WINS] >= 100u) {
 		achievements_unlock(state, ACH_FREEPLAY_HUNDRED_WINS);
 	}
 
-	if (layout_id < NUM_STARTING_LAYOUTS) {
-		state->detail_bits[ACH_FREEPLAY_ALL_LAYOUTS] |= (uint8_t)(1u << layout_id);
-		state->progress_count[ACH_FREEPLAY_ALL_LAYOUTS] = count_bits8(
-			state->detail_bits[ACH_FREEPLAY_ALL_LAYOUTS]
-		);
-		if (state->progress_count[ACH_FREEPLAY_ALL_LAYOUTS] >= NUM_STARTING_LAYOUTS) {
-			achievements_unlock(state, ACH_FREEPLAY_ALL_LAYOUTS);
-		}
+	state->detail_bits[ACH_FREEPLAY_ALL_LAYOUTS] |= (uint8_t)(1u << layout_id);
+	state->progress_count[ACH_FREEPLAY_ALL_LAYOUTS] = count_bits8(
+		state->detail_bits[ACH_FREEPLAY_ALL_LAYOUTS]
+	);
+	if (state->progress_count[ACH_FREEPLAY_ALL_LAYOUTS] >= NUM_STARTING_LAYOUTS) {
+		achievements_unlock(state, ACH_FREEPLAY_ALL_LAYOUTS);
 	}
 
-	if (rule < NUMBER_OF_SWAP_RULES) {
-		state->detail_bits[ACH_FREEPLAY_ALL_SWAP_RULES] |= (uint8_t)(1u << rule);
-		state->progress_count[ACH_FREEPLAY_ALL_SWAP_RULES] = count_bits8(
-			state->detail_bits[ACH_FREEPLAY_ALL_SWAP_RULES]
-		);
-		if (state->progress_count[ACH_FREEPLAY_ALL_SWAP_RULES] >= NUMBER_OF_SWAP_RULES) {
-			achievements_unlock(state, ACH_FREEPLAY_ALL_SWAP_RULES);
-		}
+
+	state->detail_bits[ACH_FREEPLAY_ALL_SWAP_RULES] |= (uint8_t)(1u << rule);
+	state->progress_count[ACH_FREEPLAY_ALL_SWAP_RULES] = count_bits8(
+		state->detail_bits[ACH_FREEPLAY_ALL_SWAP_RULES]
+	);
+	if (state->progress_count[ACH_FREEPLAY_ALL_SWAP_RULES] >= NUMBER_OF_SWAP_RULES) {
+		achievements_unlock(state, ACH_FREEPLAY_ALL_SWAP_RULES);
 	}
+
 
 	if (difficulty == AI_DIFFICULTY_EXPERT) {
 		if (state->freeplay_expert_wins < UINT16_MAX) {
@@ -273,8 +351,7 @@ void achievements_on_puzzle_hint(achievements_state_t *state) {
 
 void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 											  const struct puzzle_t *puzzle,
-											  bool qualifies_for_mark,
-											  bool newly_marked) {
+											  bool qualifies_for_mark) {
 	if (!state) {
 		return;
 	}
@@ -282,14 +359,12 @@ void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 	uint8_t solved_fast = (state->puzzle_timer_expired == 0u) ? 1u : 0u;
 	uint8_t no_hint = (state->puzzle_hint_used == 0u) ? 1u : 0u;
 
-	if (qualifies_for_mark) {
+	if (qualifies_for_mark) {  // only if the puzzle was solved within allowed moves
 		if (state->puzzle_total_solves < UINT16_MAX) {
 			++state->puzzle_total_solves;
 		}
-		state->progress_count[ACH_PUZZLE_FIRST_SOLVE] = clamp_u16(state->puzzle_total_solves, 1u);
-		achievements_unlock(state, ACH_PUZZLE_FIRST_SOLVE);
-
-		if (solved_fast) {
+		
+		if (no_hint && solved_fast) {
 			if (state->puzzle_fast_solves < UINT16_MAX) {
 				++state->puzzle_fast_solves;
 			}
@@ -298,24 +373,29 @@ void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 				achievements_unlock(state, ACH_PUZZLE_FAST_TEN);
 			}
 		}
-
+		
 		if (no_hint) {
+
 			if (state->puzzle_no_hint_solves < UINT16_MAX) {
 				++state->puzzle_no_hint_solves;
 			}
-			state->progress_count[ACH_PUZZLE_NO_HINT_THIRTY_FIVE] = clamp_u16(
+			
+			state->progress_count[ACH_PUZZLE_FIRST_SOLVE] = clamp_u16(state->puzzle_no_hint_solves, 1u);
+			achievements_unlock(state, ACH_PUZZLE_FIRST_SOLVE);
+
+			state->progress_count[ACH_PUZZLE_NO_HINT_TWENTY_FIVE] = clamp_u16(
 				state->puzzle_no_hint_solves,
-				35u
+				25u
 			);
-			if (state->puzzle_no_hint_solves >= 35u) {
-				achievements_unlock(state, ACH_PUZZLE_NO_HINT_THIRTY_FIVE);
+			if (state->puzzle_no_hint_solves >= 25u) {
+				achievements_unlock(state, ACH_PUZZLE_NO_HINT_TWENTY_FIVE);
 			}
 
 			if (puzzle) {
-				if (puzzle->solution_length <= 3u) {
+				if (puzzle->difficulty == 3u) {
 					achievements_unlock(state, ACH_PUZZLE_WIN_IN_THREE);
 					state->progress_count[ACH_PUZZLE_WIN_IN_THREE] = 1u;
-				} else if (puzzle->solution_length == 4u) {
+				} else if (puzzle->difficulty == 4u) {
 					achievements_unlock(state, ACH_PUZZLE_WIN_IN_FOUR);
 					state->progress_count[ACH_PUZZLE_WIN_IN_FOUR] = 1u;
 				}
@@ -333,20 +413,20 @@ void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 			achievements_unlock(state, ACH_PUZZLE_SESSION_FIFTY);
 		}
 
-		if (newly_marked && puzzle) {
-			const swap_rule_t rule = puzzle->swap_rule;
-			if (rule < NUMBER_OF_SWAP_RULES) {
-				if (state->solved_puzzles_per_rule[rule] < UINT16_MAX) {
-					++state->solved_puzzles_per_rule[rule];
-				}
-			}
-			if (state->solved_puzzles_catalog < UINT16_MAX) {
-				++state->solved_puzzles_catalog;
-			}
 
-			achievements_update_rule_progress(state, puzzle->swap_rule);
-			achievements_update_catalog_progress(state);
+		const swap_rule_t rule = puzzle->swap_rule;
+		if (rule < NUMBER_OF_SWAP_RULES) {
+			if (state->solved_puzzles_per_rule[rule] < UINT16_MAX) {
+				++state->solved_puzzles_per_rule[rule];
+			}
 		}
+		if (state->solved_puzzles_catalog < UINT16_MAX) {
+			++state->solved_puzzles_catalog;
+		}
+
+		achievements_update_rule_progress(state, puzzle->swap_rule);
+		achievements_update_catalog_progress(state);
+
 	}
 
 	achievements_reset_puzzle_attempt(state);
@@ -504,4 +584,90 @@ bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, 
 	}
 
 	return true;
+}
+
+void display_achievements_screen(achievements_state_t *state, uint8_t page) {
+
+	uint8_t first = page == 0u ? 0u : 8u;
+	uint8_t last = page == 0u ? 8u : ACHIEVEMENT_COUNT;
+	const char* page_footer = page == 0u ? "Free Play Achievements 1/2" : "Puzzle Achievements 2/2";
+	const char* page_instruction = "Press [A] to switch pages, [SPACE] to exit";
+	// Hide All Sprites
+	spriteReset();
+
+	clear_text_matrix();
+	// Update CLUTs 1,2,3
+
+	POKE(MMU_IO_CTRL, 1);
+    for (uint16_t i = 0; i < 1024; ++i) {
+        uint8_t color_component = FAR_PEEK(SRAM_ACHIEVE_BASE_PALETTE + i);
+        POKE(0xD400 + i, color_component);
+		color_component = FAR_PEEK(SRAM_ACHIEVE_COLOR_PALETTE + i);
+		POKE(0xD800 + i, color_component);
+		color_component = FAR_PEEK(SRAM_ACHIEVE_GREY_PALETTE + i);
+		POKE(0xDC00 + i, color_component);		
+    }
+    POKE(MMU_IO_CTRL, 0);
+	// Reusing board bitmap page/layer 2 for achievements screen
+	graphicsSetLayerBitmap(VIDEO_ACHIEVEMENT_PAGE, 2);
+	bitmapSetActive(VIDEO_ACHIEVEMENT_PAGE);
+	bitmapSetCLUT(VIDEO_ACHIEVEMENT_BASE_CLUT);
+	bitmapSetAddress(VIDEO_ACHIEVEMENT_PAGE, SRAM_ACHIEVEMENT_BASE);
+	bitmapSetVisible(VIDEO_ACHIEVEMENT_PAGE, true);
+
+
+
+	for (uint8_t i=first, j=0; i < last; ++i, ++j) {
+		uint16_t icon_x = s_achievement_char_x[i] * 4 + icon_offset_x_px;
+		uint8_t sprite_id = (VIDEO_SPRITE_PIECE_BASE + i);
+		uint16_t icon_y = s_achievement_char_y[i] * 4 + icon_offset_y_px;
+		bool is_unlocked = achievements_is_unlocked(state, (achievement_id_t) i );
+		spriteDefine(sprite_id, s_video_achievement_vram_addrs[i], VIDEO_ACHIEVEMENT_SPRITE_SIZE, is_unlocked ? VIDEO_ACHIEVEMENT_CLUT_COLOR : VIDEO_ACHIEVEMENT_CLUT_GREY, VIDEO_SPRITE_PIECE_LAYER);
+		spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + icon_x, VIDEO_SPRITE_OFFSET + icon_y);
+		spriteSetVisible(sprite_id, 1);	
+		
+		const char* title = s_achievement_names[i];
+		const char* description = s_achievement_descriptions[i];
+		uint8_t title_x = s_achievement_char_x[i] + center_offset_x;
+		uint8_t title_y = s_achievement_char_y[i] + title_offset_y;
+		uint8_t desc_x = s_achievement_char_x[i] + center_offset_x;
+		uint8_t desc_y = s_achievement_char_y[i] + desc_offset_y;
+		char desc_buffer[32];
+		if(is_unlocked) {
+			textSetColor(4,1); // blue text for unlocked
+		} else {
+			textSetColor(1,1); // normal text for locked
+		}
+		print_formatted_text(title_x-strlen(title)/2, title_y, title);
+		// parse description for '|' line breaks
+		strcpy(desc_buffer, description);
+		char* line = strtok(desc_buffer, "|");
+		if(is_unlocked) {
+			textSetColor(5,1); // purple text for unlocked
+		} else {
+			textSetColor(1,1); // normal text for locked
+		}
+		while (line != NULL) {
+			const uint8_t len = strlen(line);
+			const uint8_t even = len % 2 == 0 ? 1 : 0;
+			print_formatted_text(desc_x - len / 2 + even, desc_y, line);
+			desc_y += 1; // move down for next line
+			line = strtok(NULL, "|");
+		}
+
+		// Progress display for certain achievements
+
+	}
+
+	print_formatted_text(3, 57, page_footer);
+	print_formatted_text(3, 58, page_instruction);
+
+}
+
+void hide_achievements_screen(void) {
+	// Hide All Sprites
+	spriteReset();
+	clear_text_matrix();
+	// Hide bitmap layer
+	bitmapSetVisible(VIDEO_ACHIEVEMENT_PAGE, false);
 }

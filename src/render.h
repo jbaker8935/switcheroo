@@ -34,6 +34,8 @@ void render_update_highlights(const selection_state_t *selection);
 
 // Update winning path highlights
 void render_update_win_path(const win_path_t *path);
+// Refresh winning path highlights (force reapplication)
+void refresh_win_path(const win_path_t *path);
 
 // Update session score display
 void render_update_score(const session_stats_t *stats);
