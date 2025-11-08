@@ -89,10 +89,37 @@ void display_show_help_screen(void) {
 }
 
 void print_formatted_text(uint8_t x, uint8_t y, const char *text) {
-    
-    textGotoXY(x, y);
-    textPrint((char *) text);
+    char buf[] = {' ','\0'};
+    char current_x = x;
+    size_t len = strlen(text);
+    for (uint8_t i = 0; i < len; ++i) {
+        // test for ^ followed by a digit
+        // for digits 1,2,3,4,5,6 convert to foreground color change
+        // if ^ is followed by % then print a single %
+        if (text[i] == '^' && (i + 1) < len) {
+            char next_char = text[i + 1];
+            if (next_char >= '1' && next_char <= '6') {
+                uint8_t color_index = (uint8_t)(next_char - '0');
+                textSetColor(color_index, 1);
+                i++; // Skip next char
+                continue;
+            } else if (next_char == '%') {
+                // Print a single ^
+                buf[0] = '^';
+                textGotoXY(current_x, y);
+                textPrint(buf);
+                current_x++;
+                i++; // Skip next char
+                continue;
+            }
+        }
+        buf[0] = text[i];
+        textGotoXY(current_x, y);
+        textPrint(buf);
+        current_x++;
+    }
 }
+
 
 void text_display_init(void) {
     // Clear the entire text area
@@ -106,13 +133,13 @@ void text_display_init(void) {
     textDefineForegroundColor(3,0xff,0x6b,0x6b);  // #ff6b6b Loss Text
     textDefineForegroundColor(4,0x7a,0xba,0xed);  // #7abaed - Blue for Logo
     textDefineForegroundColor(5,0xc8,0x9d,0xdf);     // #c89ddf - Light Purple for Logo
-    textDefineForegroundColor(6,0xcc,0xcc,0xcc);     // #cccccc - Lighter Text    
+    textDefineForegroundColor(6,0xee,0xee,0xee);     // #eeeeee - Lighter Text    
     textDefineBackgroundColor(1, 40,40,40);    
     textSetColor(1,1);   // Default to normal text color
 }
 
 void print_win_loss(uint16_t win_count, uint16_t loss_count) {
-    const char * win_loss_str = "Win      Loss";
+    const char * win_loss_str = "^6Win      Loss^1";
 
     print_formatted_text(4, 3, win_loss_str);
     textGotoXY(5, 5);
@@ -125,7 +152,7 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count) {
 }
 
 void print_game_winner(player_t winner) {
-    const char *win_str = (winner == PLAYER_WHITE) ? "Player Wins!         " : "Engine Wins!         ";
+    const char *win_str = (winner == PLAYER_WHITE) ? "^2Player Wins!^1         " : "^3Engine Wins!^1         ";
     print_formatted_text(3, 10, win_str);
     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     // Clear blunder message when game ends
@@ -138,7 +165,7 @@ void print_current_player(player_t player) {
         return;
     }
     
-    const char *player_str = (player == PLAYER_WHITE) ? "Player's Move        " : "Thinking ...         ";
+    const char *player_str = (player == PLAYER_WHITE) ? "^6Player's Move^1        " : "^6Thinking ...^1         ";
     if (player == PLAYER_WHITE) {
         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     } else {
@@ -153,7 +180,7 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
     }
 
     char buffer[22];
-    const char base[] = "Thinking";
+    const char base[] = "^6Thinking";
     size_t idx = 0;
 
     while (base[idx] != '\0' && idx < sizeof(buffer) - 1u) {
@@ -175,33 +202,34 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
 
     buffer[sizeof(buffer) - 1u] = '\0';
     print_formatted_text(3, 10, buffer);
+    textSetColor(1,1);
 }
 
 void print_game_mode(bool is_puzzle_mode) {
-    const char *mode_str = is_puzzle_mode ? "Mode: Puzzle   " : "Mode: Free Play";
+    const char *mode_str = is_puzzle_mode ? "^6Mode: ^1Puzzle   " : "^6Mode: ^1Free Play";
     print_formatted_text(3, 15, mode_str);
 
     // sneak F1 for Help message
-    print_formatted_text(3, 58, "Press F1 for Help");
+    print_formatted_text(2, 58, "Press [^6F1^1] for Help");
 }
 
 void print_swap_rule(swap_rule_t rule) {
     const char *rule_str = "";
     switch (rule) {
         case SWAP_RULE_CLASSIC:
-            rule_str = "Rule: Any - All ";
+            rule_str = "^6Rule: ^1Any - All ";
             break;
         case SWAP_RULE_CLEARS_OWN:
-            rule_str = "Rule: Any - Own ";
+            rule_str = "^6Rule: ^1Any - Own ";
             break;
         case SWAP_RULE_SWAPPED_CLEARS:
-            rule_str = "Rule: Swap - All";
+            rule_str = "^6Rule: ^1Swap - All";
             break;
         case SWAP_RULE_SWAPPED_CLEARS_OWN:
-            rule_str = "Rule: Swap - Own";
+            rule_str = "^6Rule: ^1Swap - Own";
             break;
         default:
-            rule_str = "Rule: Unknown   ";
+            rule_str = "^6Rule: ^1Unknown   ";
             break;
     }
     print_formatted_text(3,19, rule_str);
@@ -211,19 +239,19 @@ void print_ai_difficulty(ai_difficulty_t difficulty) {
     const char *diff_str;
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
-            diff_str = "Engine: Learn   ";
+            diff_str = "^6Engine: ^1Learn   ";
             break;
         case AI_DIFFICULTY_EASY:
-            diff_str = "Engine: Easy    ";
+            diff_str = "^6Engine: ^1Easy    ";
             break;
         case AI_DIFFICULTY_STANDARD:
-            diff_str = "Engine: Standard";
+            diff_str = "^6Engine: ^1Standard";
             break;
         case AI_DIFFICULTY_EXPERT:
-            diff_str = "Engine: Expert  ";
+            diff_str = "^6Engine: ^1Expert  ";
             break;
         default:
-            diff_str = "Engine: Unknown ";
+            diff_str = "^6Engine: ^1Unknown ";
             break;
     }
     print_formatted_text(3, 17, diff_str);
@@ -250,7 +278,7 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
     char checked[] = { 222, '\0'};
     const uint8_t start_row = 24;
     // Puzzle Number
-    buf = "Puzzle:               ";
+    buf = "^6Puzzle:^1               ";
     print_formatted_text(3, start_row, buf);
     uint8_t index_digits = countDigits(puzzle_index + 1);
     textGotoXY(11, start_row);
@@ -267,15 +295,15 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
     }
 
     // Win In
-    buf = "Win In: ";
+    buf = "^6Win In:^1 ";
     print_formatted_text(3, start_row + 2, buf);
     textGotoXY(11, start_row + 2);
     textPrintUInt(puzzle_difficulty);
 }
 
 void print_swap_unavailable(void) {
-    print_formatted_text(3, 55, "Rule cannot be  ");
-    print_formatted_text(3, 56, "changed mid-game");
+    print_formatted_text(3, 55, "^3Rule cannot be  ");
+    print_formatted_text(3, 56, "changed mid-game^1");
 }
 
 void clear_swap_unavailable(void) {
@@ -284,7 +312,7 @@ void clear_swap_unavailable(void) {
 }
 
 void print_made_blunder(void) {
-    print_formatted_text(3, 10, "Blunder!             ");
+    print_formatted_text(3, 10, "^3Blunder!^1             ");
     blunder_message_active = true;
     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
 }  
@@ -294,7 +322,7 @@ void clear_made_blunder(void) {
 }
 
 void print_AI_hint(const char *hint) {
-    char *buf = "Hint:                ";
+    char *buf = "^6Hint:^1                ";
     char * hint_str = hint ? (char *)hint : (char *)"N/A";
     print_formatted_text(3,10, buf);
     textGotoXY(9,10);
@@ -405,19 +433,19 @@ void print_move_history(const move_t *history, uint8_t move_count) {
     const uint8_t start_row = 31;
 
 
-    print_formatted_text(5, start_row, "Move History");
+    print_formatted_text(5, start_row, "^6Move History^1");
     for (uint8_t i = 0; i < 8; ++i) {
         if (i < move_count) {
             const move_t *move = &history[i];
             char movestr[9] = "F1->T1 S";
-            print_formatted_text(3, start_row + 3 + i*2, move->player == PLAYER_WHITE ? "White: " : "Black: ");
+            print_formatted_text(3, start_row + 3 + i*2, move->player == PLAYER_WHITE ? "^4Player: ^1" : "^5Engine: ^1");
             movestr[0] = (char) ( 'A' + move->from_col);
             movestr[1] = (char) ('0' + (8 - move->from_row));
             movestr[4] = (char) ('A' + move->to_col);
             movestr[5] = (char) ('0' + (8 - move->to_row));
             movestr[7] = (char) ((move->type == MOVE_TYPE_SWAP) ? 'S' : ' ');
             movestr[8] = '\0';
-            textGotoXY(10, start_row + 3 + i*2);
+            textGotoXY(11, start_row + 3 + i*2);
             textPrint(movestr);
 
         } else {
