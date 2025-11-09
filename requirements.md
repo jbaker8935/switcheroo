@@ -292,6 +292,16 @@ in a dedicated discrepancies section.
   once every puzzle in that rule is solved, and unlock "Solve all puzzles in the
   collection" once the aggregate solved count equals the catalog total.
 
+### File I/O
+- WHEN the application starts, THE SYSTEM SHALL check for the existence of "f256_switch.dat" in the local directory.
+- WHEN "f256_switch.dat" exists at startup, THE SYSTEM SHALL load puzzle solve status using puzzle_catalog_deserialize_solved.
+- WHEN "f256_switch.dat" exists at startup, THE SYSTEM SHALL load achievement status using achievements_deserialize.
+- WHEN the application exits, THE SYSTEM SHALL write puzzle solve status to "f256_switch.dat" using puzzle_catalog_serialize_solved.
+- WHEN the application exits, THE SYSTEM SHALL write achievement status to "f256_switch.dat" using achievements_serialize.
+- WHEN writing to "f256_switch.dat", THE SYSTEM SHALL overwrite any existing file.
+- IF file operations fail during load, THEN THE SYSTEM SHALL continue execution with default state.
+- IF file operations fail during save, THEN THE SYSTEM SHALL continue execution without saving.
+
 ## Non-Functional Requirements
 - THE SYSTEM SHALL wait for the raster to reach the VBLANK window before
   calling `render_update` to avoid tearing on VICKY hardware.

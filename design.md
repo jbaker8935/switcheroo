@@ -164,6 +164,15 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   into a byte buffer for persistence and repopulate the state on load without
   heap allocation.
 
+### File I/O (`file_io.c/.h`)
+- Provides load and save functionality for persistent game state using the local file "f256_switch.dat".
+- On application startup, checks for file existence and loads puzzle solve status and achievement progress if present.
+- On application exit, serializes current puzzle solve status and achievement progress to the file, overwriting any existing data.
+- Uses binary format with puzzle data followed by achievement data for compact storage.
+- Implements platform-specific I/O: stdio for host testing, no-op stubs for F256 hardware.
+- Handles I/O errors gracefully, continuing execution with default state on load failures and skipping save on write failures.
+- Integrates with main application lifecycle through init and shutdown hooks.
+
 ### Artificial Intelligence (`ai_agent.c/.h`)
 - Provides deterministic heuristic move ranking that evaluates goal-row
   progress, swap pressure, blocking coverage, and mobility while tracking

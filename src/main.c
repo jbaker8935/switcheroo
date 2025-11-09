@@ -16,8 +16,10 @@
 #include "../src/video.h"
 #include "../src/mouse_pointer.h"
 #include "../src/achievements.h"
+#include "../src/file_io.h"
 #include "f256lib.h"
 #include "stddef.h"
+
 
 screen_state_t g_screen_state = SCREEN_SPLASH;
 
@@ -28,7 +30,7 @@ extern void video_reset(void);
 extern void display_test(void);
 
 // Global game state
-static game_state_t g_game_state;
+game_state_t g_game_state;
 
 void init_main_screen(void) {
     // Initialize subsystems
@@ -88,6 +90,8 @@ int main(int argc, char *argv[]) {
     game_state_init(&g_game_state);
 
     achievements_init(&g_game_state.achievements);
+
+    //file_io_init();
 
 
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
@@ -229,8 +233,11 @@ int main(int argc, char *argv[]) {
         platform_idle();
     }
 
+    //file_io_save();
+    // TODO: display exit screen
     textClear();
     // getchar();
+
 
     // soft reset
     POKE(0xD6A2, 0xDE);

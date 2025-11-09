@@ -586,7 +586,21 @@ bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, 
 	return true;
 }
 
+
+void FAR8_display_achievements_screen(achievements_state_t *state, uint8_t page);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void display_achievements_screen(achievements_state_t *state, uint8_t page) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 8;
+    FAR8_display_achievements_screen(state, page);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+void FAR8_display_achievements_screen(achievements_state_t *state, uint8_t page){
 
 	uint8_t first = page == 0u ? 0u : 8u;
 	uint8_t last = page == 0u ? 8u : ACHIEVEMENT_COUNT;
