@@ -1,5 +1,9 @@
 #include "../src/platform_f256.h"
-#include "../include/f256lib.h"
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
+#include "f256lib.h"
+#endif
 #include <stdint.h>
 #include <stddef.h>
 #include "../src/board.h"

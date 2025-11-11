@@ -148,9 +148,15 @@ in a dedicated discrepancies section.
   every puzzle remains accessible.
 - WHEN the player switches from free play to puzzle mode, THE SYSTEM SHALL
   display the first unsolved puzzle for the active swap-rule filter.
-- WHEN `mark_puzzle_solved` is invoked, THE SYSTEM SHALL write a value of one
-  into the puzzle record's solved flag at `0x30000 + offset` and update the
-  in-memory cache.
+- WHEN a puzzle record is requested through `get_puzzle_by_index`, THE SYSTEM
+  SHALL derive the `is_solved` flag from the runtime bitset rather than the
+  serialized catalog byte.
+- WHEN `mark_puzzle_solved` is invoked, THE SYSTEM SHALL set the corresponding
+  runtime bitset entry to one and best-effort mirror the value into the catalog
+  byte at `0x30000 + offset` before updating the in-memory cache.
+- THE SYSTEM SHALL treat the 600-bit runtime puzzle bitset as the
+  authoritative source of solve state while the catalog bytes remain a
+  best-effort mirror for tooling compatibility.
 - IF a puzzle index exceeds the stored count, THEN THE SYSTEM SHALL return
   `NULL` and leave previously cached puzzle data unchanged.
 - WHEN `display_puzzle_solution` is called, THE SYSTEM SHALL format the first
@@ -294,9 +300,11 @@ in a dedicated discrepancies section.
 
 ### File I/O
 - WHEN the application starts, THE SYSTEM SHALL check for the existence of "f256_switch.dat" in the local directory.
-- WHEN "f256_switch.dat" exists at startup, THE SYSTEM SHALL load puzzle solve status using puzzle_catalog_deserialize_solved.
+- WHEN "f256_switch.dat" exists at startup, THE SYSTEM SHALL restore the
+  600-bit puzzle solved bitset using `puzzle_catalog_deserialize_solved`.
 - WHEN "f256_switch.dat" exists at startup, THE SYSTEM SHALL load achievement status using achievements_deserialize.
-- WHEN the application exits, THE SYSTEM SHALL write puzzle solve status to "f256_switch.dat" using puzzle_catalog_serialize_solved.
+- WHEN the application exits, THE SYSTEM SHALL persist the 600-bit puzzle
+  solved bitset to "f256_switch.dat" using `puzzle_catalog_serialize_solved`.
 - WHEN the application exits, THE SYSTEM SHALL write achievement status to "f256_switch.dat" using achievements_serialize.
 - WHEN writing to "f256_switch.dat", THE SYSTEM SHALL overwrite any existing file.
 - IF file operations fail during load, THEN THE SYSTEM SHALL continue execution with default state.

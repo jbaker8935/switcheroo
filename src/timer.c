@@ -1,4 +1,8 @@
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
 #include "f256lib.h"
+#endif
 #include "../src/timer.h"
 
 static uint16_t alarm_ticks = 0;
@@ -8,7 +12,7 @@ void setTimer0()
 {
 	resetTimer0();
 	POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR); //when the target is reached, bring it back to value 0x000000
-	POKE(T0_CMP_L,0x37);POKE(T0_CMP_M,0xAD);POKE(T0_CMP_H,0x0C); //inject the compare value as max value
+	POKE(T0_CMP_L,0xFE);POKE(T0_CMP_M,0xCD);POKE(T0_CMP_H,0x0C); //inject the compare value as max value
 }
 
 void resetTimer0()

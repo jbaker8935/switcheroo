@@ -78,6 +78,7 @@ backlog.
 | T52 | Achievement Tracking Core | Implement struct-of-arrays achievement state, persistence helpers, and freeplay/puzzle event integration. | `src/achievements.c/.h`, `src/game_state.c`, docs sync. | T5, T7 | In Progress |
 | T53 | Timed Puzzle Achievement Timer | Start and poll the 900-tick puzzle timer through the achievements subsystem and integrate hint/no-hint tracking. | `src/achievements.c`, `src/main.c`, `src/game_state.c`, docs sync. | T5, T7, T52 | In Progress |
 | T54 | File I/O Module | Implement load/save functionality for puzzle solve status and achievements using "f256_switch.dat". | `src/file_io.c/.h`, integration in `src/main.c`, host testing. | T5, T7, T52 | Done |
+| T55 | Puzzle Solved Bitset Authority | Replace SRAM-dependent solved tracking with an in-memory bitset and align persistence/documentation. | Updated `src/puzzle_data.c`, `src/file_io.c`, and docs. | T7, T54 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

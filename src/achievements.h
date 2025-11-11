@@ -107,6 +107,7 @@ static inline const uint8_t *achievements_detail_bits(const achievements_state_t
 
 void display_achievements_screen(achievements_state_t *state, uint8_t page);
 void hide_achievements_screen(void);
+void numbytestohex(uint8_t byte_count, const uint8_t *data, char *out_hex);
 
 #endif // ACHIEVEMENTS_H
 

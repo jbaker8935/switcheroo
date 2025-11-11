@@ -67,6 +67,11 @@ static bool s_header_loaded = false;
 static bool s_puzzle_cache_valid = false;
 static uint16_t s_puzzle_cache_index = 0u;
 
+static uint8_t s_solved_bitset[PUZZLE_SOLVED_BYTES] = {0u};
+static uint16_t s_solved_bit_count = 0u;
+static size_t s_solved_bitset_bytes = 0u;
+static bool s_solved_bitset_ready = false;
+
 #if defined(AI_AGENT_HOST_TEST)
 static uint8_t *s_host_catalog_data = NULL;
 static size_t s_host_catalog_size = 0u;
@@ -123,6 +128,54 @@ static void puzzle_catalog_host_load(void) {
 }
 #endif
 
+static void puzzle_catalog_init_solved_bits(uint16_t count) {
+    s_solved_bit_count = (count <= PUZZLE_SOLVED_CAPACITY) ? count : PUZZLE_SOLVED_CAPACITY;
+    s_solved_bitset_bytes = (size_t)((s_solved_bit_count + 7u) / 8u);
+    if (s_solved_bitset_bytes > sizeof(s_solved_bitset)) {
+        s_solved_bitset_bytes = sizeof(s_solved_bitset);
+    }
+    memset(s_solved_bitset, 0, sizeof(s_solved_bitset));
+    s_solved_bitset_ready = true;
+#if defined(__llvm_mos__)
+    if (count > PUZZLE_SOLVED_CAPACITY) {
+        print_puzzle_debug("PUZ BITSET TRUNC", "INCREASE CAPACITY");
+    }
+#else
+    (void)count;
+#endif
+}
+
+static inline bool puzzle_catalog_solved_bit_get(uint16_t index) {
+    if (!s_solved_bitset_ready || index >= s_solved_bit_count || s_solved_bitset_bytes == 0u) {
+        return false;
+    }
+    const uint16_t byte_index = index >> 3;
+    if (byte_index >= s_solved_bitset_bytes) {
+        return false;
+    }
+    const uint8_t mask = (uint8_t)(1u << (index & 7u));
+    return (s_solved_bitset[byte_index] & mask) != 0u;
+}
+
+static inline void puzzle_catalog_solved_bit_set(uint16_t index, bool solved) {
+    if (!s_solved_bitset_ready || index >= s_solved_bit_count || s_solved_bitset_bytes == 0u) {
+        return;
+    }
+    const uint16_t byte_index = index >> 3;
+    if (byte_index >= s_solved_bitset_bytes) {
+        return;
+    }
+    const uint8_t mask = (uint8_t)(1u << (index & 7u));
+    if (solved) {
+        s_solved_bitset[byte_index] |= mask;
+    } else {
+        s_solved_bitset[byte_index] &= (uint8_t)~mask;
+    }
+    if (s_puzzle_cache_valid && s_puzzle_cache_index == index) {
+        s_puzzle_cache.is_solved = solved;
+    }
+}
+
 static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
     #if defined(__llvm_mos__)
     return platform_far_read_byte(SRAM_PUZZLE_CATALOG + offset);
@@ -175,6 +228,10 @@ static void puzzle_catalog_ensure_header(void) {
         ((uint16_t)puzzle_catalog_read_byte(1u) << 8);
     s_puzzle_collection.count = count;
     s_puzzle_collection.puzzles = NULL;
+
+    if (!s_solved_bitset_ready) {
+        puzzle_catalog_init_solved_bits(count);
+    }
 
     memset(s_rule_counts, 0, sizeof(s_rule_counts));
     for (uint16_t i = 0u; i < count; ++i) {
@@ -261,9 +318,6 @@ static bool puzzle_catalog_load_record(uint16_t index) {
     s_puzzle_cache.difficulty = puzzle_catalog_read_byte(
         record_offset + PUZZLE_ID_BYTES + 2u
     );
-    s_puzzle_cache.is_solved = puzzle_catalog_read_byte(
-        record_offset + PUZZLE_ID_BYTES + 3u
-    ) != 0u;
     
     uint8_t piece_count = puzzle_catalog_read_byte(
         record_offset + PUZZLE_ID_BYTES + 4u
@@ -295,6 +349,8 @@ static bool puzzle_catalog_load_record(uint16_t index) {
         );
     }
     
+    s_puzzle_cache.is_solved = puzzle_catalog_solved_bit_get(index);
+
     s_puzzle_cache_valid = true;
     s_puzzle_cache_index = index;
     
@@ -309,23 +365,19 @@ void mark_puzzle_solved(uint16_t filtered_index) {
     }
 
     // Load the puzzle record for the given actual index
-    if (!puzzle_catalog_load_record(actual_index)) {
-        return;
-    }
-    // Calculate the address of the is_solved byte in the catalog
-    uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)actual_index * PUZZLE_RECORD_BYTES;
-    uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
-#if defined(__llvm_mos__)
-    platform_far_write_byte(SRAM_PUZZLE_CATALOG + is_solved_offset, 1u);
-#endif
+    // if (!puzzle_catalog_load_record(actual_index)) {
+    //     return;
+    // }
+    
+    puzzle_catalog_solved_bit_set(actual_index, true);
+
+
 #if defined(AI_AGENT_HOST_TEST)
     puzzle_catalog_host_load();
     if (s_host_catalog_data != NULL && is_solved_offset < s_host_catalog_size) {
         s_host_catalog_data[is_solved_offset] = 1u;
     }
 #endif
-    // Update the in-memory cache
-    s_puzzle_cache.is_solved = 1u;
 }
 
 const puzzle_collection_t *get_puzzle_collection(void) {
@@ -346,6 +398,7 @@ const puzzle_t *get_puzzle_by_index(uint16_t filtered_index) {
     }
     
     if (s_puzzle_cache_valid && s_puzzle_cache_index == actual_index) {
+        s_puzzle_cache.is_solved = puzzle_catalog_solved_bit_get(actual_index);
         return &s_puzzle_cache;
     }
     
@@ -426,49 +479,39 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
 // Serialize the solved state of all puzzles (1 bit per puzzle, packed into bytes)
 size_t puzzle_catalog_serialize_solved(uint8_t *buffer, size_t max_bytes) {
     puzzle_catalog_ensure_header();
-    uint16_t count = s_puzzle_collection.count;
-    size_t needed_bytes = (count + 7) / 8;
-    if (!buffer || max_bytes < needed_bytes) {
-        return 0;
+    if (!buffer || !s_solved_bitset_ready) {
+        return 0u;
     }
-    memset(buffer, 0, needed_bytes);
-    for (uint16_t i = 0; i < count; ++i) {
-        if (!puzzle_catalog_load_record(i)) continue;
-        if (s_puzzle_cache.is_solved) {
-            buffer[i / 8] |= (1u << (i % 8));
-        }
+
+    const size_t needed_bytes = s_solved_bitset_bytes;
+    if (needed_bytes == 0u || max_bytes < needed_bytes) {
+        return 0u;
     }
+
+    memcpy(buffer, s_solved_bitset, needed_bytes);
     return needed_bytes;
 }
 
 // Deserialize the solved state of all puzzles from a buffer (1 bit per puzzle, packed into bytes)
 uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length) {
     puzzle_catalog_ensure_header();
-    uint16_t count = s_puzzle_collection.count;
-    size_t needed_bytes = (count + 7) / 8;
-    if (!buffer || length < needed_bytes) {
+    if (!buffer || !s_solved_bitset_ready) {
         return 0u;
     }
-    for (uint16_t i = 0; i < count; ++i) {
-        if (!puzzle_catalog_load_record(i)) continue;
-        uint8_t solved = (buffer[i / 8] >> (i % 8)) & 1u;
-        s_puzzle_cache.is_solved = solved;
-#if defined(__llvm_mos__)
-        // Write back to hardware/ROM if needed
-        const uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)i * PUZZLE_RECORD_BYTES;
-        const uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
-        platform_far_write_byte(SRAM_PUZZLE_CATALOG + is_solved_offset, solved);
-#endif
-#if defined(AI_AGENT_HOST_TEST)
-        if (s_host_catalog_data != NULL) {
-            const uint32_t record_offset = PUZZLE_HEADER_BYTES + (uint32_t)i * PUZZLE_RECORD_BYTES;
-            const uint32_t is_solved_offset = record_offset + PUZZLE_ID_BYTES + 3u;
-            if (is_solved_offset < s_host_catalog_size) {
-                s_host_catalog_data[is_solved_offset] = solved;
-            }
-        }
-#endif
+
+    if (s_solved_bitset_bytes == 0u) {
+        return 1u;
     }
+
+    if (length < s_solved_bitset_bytes) {
+        return 0u;
+    }
+
+    memcpy(s_solved_bitset, buffer, s_solved_bitset_bytes);
+    if (s_solved_bitset_bytes < sizeof(s_solved_bitset)) {
+        memset(s_solved_bitset + s_solved_bitset_bytes, 0, sizeof(s_solved_bitset) - s_solved_bitset_bytes);
+    }
+
     return 1u;
 }
 

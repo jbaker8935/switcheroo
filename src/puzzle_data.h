@@ -15,6 +15,11 @@
 #include "../src/board.h"
 #include <stdint.h>
 
+// Solved-bit persistence constants (increase if the catalog expands beyond 600 entries)
+#define PUZZLE_SOLVED_CAPACITY 600u
+#define PUZZLE_SOLVED_BYTES 75u
+
+
 // Compact piece representation (4 bits total)
 // Bits: [swapped:1][player:1][col:2]
 #define PIECE_PACK(player, col, swapped) (((swapped) << 3) | ((player) << 2) | (col))

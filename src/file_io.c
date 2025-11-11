@@ -4,8 +4,13 @@
 #include "../src/game_state.h"
 #include <stdint.h>
 #include <stdbool.h>
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
+#include "f256lib.h"
+#endif
 
-#define PUZZLE_DATA_SIZE (600+1)/8 // 600 puzzles, 1 bit each + padding
+#define PUZZLE_DATA_SIZE PUZZLE_SOLVED_BYTES // 600 puzzles, 1 bit each + padding
 #define ACHIEVEMENT_DATA_SIZE 89  // Calculated from achievements_state_t structure size
 #define DATA_FILE_SIZE (PUZZLE_DATA_SIZE + ACHIEVEMENT_DATA_SIZE)
 
@@ -21,36 +26,76 @@ void file_io_save(void) {
 #else
 // F256 target system - 
 #include <stdlib.h>
+#include <string.h>
+#include "../src/platform_f256.h"
+#include "../src/text_display.h"
 
 extern game_state_t g_game_state;
 
-#define SAVE_FILE_NAME "f256_switch.dat"
+const char SAVE_FILE_NAME[] = "f256swdata";
+char * save_file_name = (char *) SAVE_FILE_NAME;
 
-// void FAR9_ai_compute_connection_metrics(const board_t *board, player_t player, ai_connection_metrics_t *out);
+#if defined(__llvm_mos__)
+static int16_t kernelWrite(uint8_t fd, void *buf, uint16_t nbytes) {
+    kernelArgs->file.write.stream = fd;
+    kernelArgs->common.buf = buf;
+    kernelArgs->common.buflen = nbytes;
+    kernelCall(File.Write);
+    if (kernelError) return -1;
 
-// #if defined(AI_AGENT_HOST_TEST)
+    for (;;) {
+        kernelNextEvent();
+        if (kernelEventData.type == kernelEvent(file.WROTE)) return kernelEventData.file.data.delivered;
+        if (kernelEventData.type == kernelEvent(file.ERROR)) return -1;
+    }
+}
 
-// void ai_compute_connection_metrics(const board_t *board, player_t player, ai_connection_metrics_t *out) {
-//     FAR9_ai_compute_connection_metrics(board, player, out);
-// }
+#pragma push_macro("EOF")
+#undef EOF
+static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
 
-// #else
+	kernelArgs->file.read.stream = fd;
+	kernelArgs->file.read.buflen = nbytes;
+	kernelCall(File.Read);
+	if (kernelError) return -1;
 
-// #pragma clang optimize off
-// __attribute__((noinline))
+	for(;;) {
+		kernelNextEvent();
+		switch (kernelEventData.type) {
+			case kernelEvent(file.DATA):
+				kernelArgs->common.buf = buf;
+				kernelArgs->common.buflen = kernelEventData.file.data.delivered;
+				kernelCall(ReadData);
+				if (!kernelEventData.file.data.delivered) return 256;
+				return kernelEventData.file.data.delivered;
+			case kernelEvent(file.EOF):
+				return 0;
+			case kernelEvent(file.ERROR):
+				return -1;
+			default:
+				continue;
+		}
+	}
+}
+#pragma pop_macro("EOF")
 
-// void ai_compute_connection_metrics(const board_t *board, player_t player, ai_connection_metrics_t *out) {
-//     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-//     *(volatile unsigned char *)0x000d = 9;
-//     FAR9_ai_compute_connection_metrics(board, player, out);
-//     *(volatile unsigned char *)0x000d = ___mmu;
-// }
-// #pragma clang optimize on
 
-// #endif
+#else
+static int16_t kernelWrite(uint8_t fd, void *buf, uint16_t nbytes) {
+    (void)fd;
+    (void)buf;
+    (void)nbytes;
+    return -1;
+}
+static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
+    (void)fd;
+    (void)buf;
+    (void)nbytes;
+    return -1;
+}
+#endif
 
-// __attribute__((noinline, section(".block9"))) void FAR9_ai_compute_connection_metrics(const board_t *board,
-
+static uint8_t s_buffer[DATA_FILE_SIZE];
 
 void FAR8_file_io_init(void);
 
@@ -66,24 +111,26 @@ void file_io_init(void) {
 __attribute__((noinline, section(".block8")))
 
 void FAR8_file_io_init(void) {
-    uint8_t *fd = fileOpen(SAVE_FILE_NAME, "r");
+
+
+    uint8_t *fd = fileOpen(save_file_name, "r");
     if (fd) {
-        uint8_t buffer[DATA_FILE_SIZE];
-        int16_t file_size = fileRead(buffer, 1, DATA_FILE_SIZE, fd);
+
+        int16_t file_size = kernelRead(*fd, s_buffer, DATA_FILE_SIZE);
+        
         if (file_size == DATA_FILE_SIZE) {
 
-
             // Deserialize puzzle data first
-            uint8_t puzzle_result = puzzle_catalog_deserialize_solved(buffer, PUZZLE_DATA_SIZE);
+            uint8_t puzzle_result = puzzle_catalog_deserialize_solved(s_buffer, PUZZLE_DATA_SIZE);
+
             if (puzzle_result != 0) {
                 // Deserialize achievement data
-                bool achievement_result = achievements_deserialize(&g_game_state.achievements, buffer + PUZZLE_DATA_SIZE, ACHIEVEMENT_DATA_SIZE);
+                bool achievement_result = achievements_deserialize(&g_game_state.achievements, s_buffer + PUZZLE_DATA_SIZE, ACHIEVEMENT_DATA_SIZE);
                 (void)achievement_result; // Ignore for now
-            }
-
-        }
+            } 
+        } 
         fileClose(fd);
-    }
+    } 
 }
 
 void FAR8_file_io_save(void);
@@ -100,20 +147,27 @@ void file_io_save(void) {
 __attribute__((noinline, section(".block8")))
 
 void FAR8_file_io_save(void) {
-    uint8_t buffer[DATA_FILE_SIZE];
+
 
     // Serialize puzzle data
-    size_t actual_puzzle_size = puzzle_catalog_serialize_solved(buffer, PUZZLE_DATA_SIZE);
+    size_t actual_puzzle_size = puzzle_catalog_serialize_solved(s_buffer, PUZZLE_DATA_SIZE);
     if (actual_puzzle_size == PUZZLE_DATA_SIZE) {
         // Serialize achievement data
-        uint16_t actual_achievement_size = achievements_serialize(&g_game_state.achievements, buffer + PUZZLE_DATA_SIZE, ACHIEVEMENT_DATA_SIZE);
+        uint16_t actual_achievement_size = achievements_serialize(&g_game_state.achievements, s_buffer + PUZZLE_DATA_SIZE, ACHIEVEMENT_DATA_SIZE);
         if (actual_achievement_size == ACHIEVEMENT_DATA_SIZE) {
             // Write to file
-            uint8_t *fd = fileOpen(SAVE_FILE_NAME, "w");
+            uint8_t *fd = fileOpen(save_file_name, "w");
             if (fd) {
-                fileWrite(buffer, 1, DATA_FILE_SIZE, fd);
+                int16_t bytes_written = kernelWrite(*fd, s_buffer, DATA_FILE_SIZE);
                 fileClose(fd);
+                // Check if all bytes were written
+                if (bytes_written != DATA_FILE_SIZE) {
+                    // Save failed - could retry or handle error
+                    // For now, just continue
+                }
             }
+            // fileUnlink(save_file_name);
+            // fileRename("f256_tmp_dat", save_file_name);
         }
 
     }

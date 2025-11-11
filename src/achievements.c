@@ -4,7 +4,11 @@
 #include "../src/video.h"
 #include "../src/mouse_pointer.h"
 #include "../src/text_display.h"
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
 #include "f256lib.h"
+#endif
 #include <string.h>
 
 enum {
@@ -91,9 +95,7 @@ static uint16_t clamp_u16(uint16_t value, uint16_t limit) {
 	return (value > limit) ? limit : value;
 }
 
-static uint8_t clamp_u8(uint16_t value) {
-	return (value > 0xFFu) ? 0xFFu : (uint8_t)value;
-}
+
 
 static uint8_t count_bits8(uint8_t value) {
 	uint8_t count = 0u;
@@ -103,6 +105,17 @@ static uint8_t count_bits8(uint8_t value) {
 	}
 	return count;
 }
+
+
+// void numbytestohex(uint8_t byte_count, const uint8_t *data, char *out_hex) {
+// 	const char hex_chars[] = "0123456789ABCDEF";
+// 	for (uint8_t i = 0u; i < byte_count; ++i) {
+// 		const uint8_t byte = data[i];
+// 		out_hex[i * 2u] = hex_chars[(byte >> 4u) & 0x0Fu];
+// 		out_hex[i * 2u + 1u] = hex_chars[byte & 0x0Fu];
+// 	}
+// 	out_hex[byte_count * 2u] = '\0';
+// }
 
 static void achievements_unlock(achievements_state_t *state, achievement_id_t achievement) {
 	if (!state) {
@@ -250,7 +263,30 @@ void achievements_on_game_mode_changed(achievements_state_t *state, bool was_puz
 	}
 }
 
+
+void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
+								  uint8_t layout_id,
+								  swap_rule_t rule,
+								  ai_difficulty_t difficulty,
+								  uint8_t move_count);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void achievements_on_freeplay_win(achievements_state_t *state,
+								  uint8_t layout_id,
+								  swap_rule_t rule,
+								  ai_difficulty_t difficulty,
+								  uint8_t move_count) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 8;
+    FAR8_achievements_on_freeplay_win(state, layout_id, rule, difficulty, move_count);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
 								  uint8_t layout_id,
 								  swap_rule_t rule,
 								  ai_difficulty_t difficulty,
@@ -349,7 +385,26 @@ void achievements_on_puzzle_hint(achievements_state_t *state) {
 	state->puzzle_hint_used = 1u;
 }
 
+
+void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
+											  const struct puzzle_t *puzzle,
+											  bool qualifies_for_mark);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
+											  const struct puzzle_t *puzzle,
+											  bool qualifies_for_mark) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 8;
+    FAR8_achievements_on_puzzle_attempt_completed(state, puzzle, qualifies_for_mark);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 											  const struct puzzle_t *puzzle,
 											  bool qualifies_for_mark) {
 	if (!state) {
@@ -471,6 +526,8 @@ uint16_t achievements_storage_size(void) {
 					  1u + 1u + 1u + 1u + 1u + 1u + 1u);
 }
 
+
+
 uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
 	if (!state || !buffer) {
 		return 0u;
@@ -524,11 +581,12 @@ uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buff
 	return required;
 }
 
+
+
 bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
 	if (!state || !data) {
 		return false;
 	}
-
 	const uint16_t required = achievements_storage_size();
 	if (length < required) {
 		return false;

@@ -17,9 +17,12 @@
 #include "../src/mouse_pointer.h"
 #include "../src/achievements.h"
 #include "../src/file_io.h"
+#ifdef AI_AGENT_HOST_TEST
+#include "../tests/include/f256lib_host.h"
+#else
 #include "f256lib.h"
+#endif
 #include "stddef.h"
-
 
 screen_state_t g_screen_state = SCREEN_SPLASH;
 
@@ -40,20 +43,10 @@ void init_main_screen(void) {
     text_display_init();
 }
 
-void display_main_screen(void) {
-    video_hide_splash();
-    init_main_screen();
-    render_update_score(&g_game_state.stats);
-    game_state_start_new_game(&g_game_state);
-    print_ai_difficulty(g_game_state.ai_config.difficulty);
-    print_game_mode(g_game_state.is_puzzle_mode);
-    print_swap_rule(g_game_state.ai_config.swap_rule);
-    print_current_player(g_game_state.context.current_player);
-
-}
 
 void restore_main_screen(void) {
-    init_main_screen();    
+    init_main_screen(); 
+
     render_update_score(&g_game_state.stats);
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     print_game_mode(g_game_state.is_puzzle_mode);
@@ -65,16 +58,33 @@ void restore_main_screen(void) {
     const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
     if (puzzle) {
         print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
-                        puzzle->difficulty, puzzle->is_solved);
+            puzzle->difficulty, puzzle->is_solved);
+        }
     }
-}
-
-int main(int argc, char *argv[]) {
-    (void)argc;
-    (void)argv;
-    uint16_t old_move_count = 0;
-
-    // Initialize f256lib (includes kernelReset and all subsystems)
+    
+void display_main_screen(void) {
+    video_hide_splash();
+    init_main_screen();
+    render_update_score(&g_game_state.stats);
+    game_state_start_new_game(&g_game_state);
+    print_ai_difficulty(g_game_state.ai_config.difficulty);
+    print_game_mode(g_game_state.is_puzzle_mode);
+    print_swap_rule(g_game_state.ai_config.swap_rule);
+    print_current_player(g_game_state.context.current_player);
+    if (g_game_state.is_puzzle_mode) {
+        const puzzle_collection_t *collection = get_puzzle_collection();
+        const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
+        if (puzzle) {
+            print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
+                            puzzle->difficulty, puzzle->is_solved);
+        }
+    }
+}    int main(int argc, char *argv[]) {
+        (void)argc;
+        (void)argv;
+        uint16_t old_move_count = 0;
+        
+        // Initialize f256lib (includes kernelReset and all subsystems)
     f256Init();
 
     input_init();
@@ -85,13 +95,13 @@ int main(int argc, char *argv[]) {
     // Initialize screen state - start in splash
     g_screen_state = SCREEN_SPLASH;
     video_show_splash();
-    setAlarm(120); // Set alarm for 120 ticks (4 seconds at 30Hz)
+    setAlarm(60); // Set alarm for 60 ticks 
     // Initialize game state
     game_state_init(&g_game_state);
 
     achievements_init(&g_game_state.achievements);
 
-    //file_io_init();
+    file_io_init();
 
 
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
@@ -146,6 +156,7 @@ int main(int argc, char *argv[]) {
                 // Time to exit splash screen
                 g_screen_state = SCREEN_MAIN;
                 display_main_screen();
+
             }   
 
             achievements_update_timer(&g_game_state.achievements, alarm_elapsed);
@@ -233,7 +244,7 @@ int main(int argc, char *argv[]) {
         platform_idle();
     }
 
-    //file_io_save();
+    file_io_save();
     // TODO: display exit screen
     textClear();
     // getchar();
