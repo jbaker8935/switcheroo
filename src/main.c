@@ -31,6 +31,7 @@ extern void platform_bootstrap(void);
 extern void platform_idle(void);
 extern void video_reset(void);
 extern void display_test(void);
+extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 
 // Global game state
 game_state_t g_game_state;
@@ -50,6 +51,7 @@ void restore_main_screen(void) {
     render_update_score(&g_game_state.stats);
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     print_game_mode(g_game_state.is_puzzle_mode);
+    video_set_game_mode_icon_bitmap(g_game_state.is_puzzle_mode);
     print_swap_rule(g_game_state.ai_config.swap_rule);
     print_current_player(g_game_state.context.current_player);
     print_move_history(g_game_state.context.history, g_game_state.context.history_count);
@@ -79,31 +81,26 @@ void display_main_screen(void) {
                             puzzle->difficulty, puzzle->is_solved);
         }
     }
-}    int main(int argc, char *argv[]) {
-        (void)argc;
-        (void)argv;
-        uint16_t old_move_count = 0;
-        
-        // Initialize f256lib (includes kernelReset and all subsystems)
-    f256Init();
+}
 
-    input_init();
-    input_handler_init();
+void FAR11_main_loop(void);
 
-    setTimer0();  // Initialize timer for UI updates and other periodic tasks
+#pragma clang optimize off
+__attribute__((noinline))
 
-    // Initialize screen state - start in splash
-    g_screen_state = SCREEN_SPLASH;
-    video_show_splash();
-    setAlarm(60); // Set alarm for 60 ticks 
-    // Initialize game state
-    game_state_init(&g_game_state);
+void main_loop(void) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 11;
+    FAR11_main_loop();
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
 
-    achievements_init(&g_game_state.achievements);
+__attribute__((noinline, section(".block11"))) 
+void FAR11_main_loop(void) {
 
-    file_io_init();
-
-
+    uint16_t old_move_count = 0;
+    
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
         // print_game_mode(g_game_state.is_puzzle_mode);
         // print_swap_rule(g_game_state.ai_config.swap_rule);
@@ -158,8 +155,11 @@ void display_main_screen(void) {
                 display_main_screen();
 
             }   
-
-            achievements_update_timer(&g_game_state.achievements, alarm_elapsed);
+            if(g_screen_state == SCREEN_MAIN && g_game_state.is_puzzle_mode &&
+                g_game_state.phase != GAME_PHASE_GAME_OVER) {
+                print_puzzle_clock(getAlarmTicks());
+                achievements_update_timer(&g_game_state.achievements, alarm_elapsed);
+            }
 
             // Get next kernel event (always call, like the example)
             kernelNextEvent();
@@ -244,9 +244,38 @@ void display_main_screen(void) {
         platform_idle();
     }
 
+}
+
+int main(int argc, char *argv[]) {
+        (void)argc;
+        (void)argv;
+
+        
+        // Initialize f256lib (includes kernelReset and all subsystems)
+    f256Init();
+
+    input_init();
+    input_handler_init();
+
+    setTimer0();  // Initialize timer for UI updates and other periodic tasks
+
+    // Initialize screen state - start in splash
+    g_screen_state = SCREEN_SPLASH;
+    video_show_splash();
+    setAlarm(60); // Set alarm for 60 ticks 
+    // Initialize game state
+    game_state_init(&g_game_state);
+
+    achievements_init(&g_game_state.achievements);
+
+    file_io_init();
+
+    main_loop();
+    
+    print_game_exit();
+
     file_io_save();
-    // TODO: display exit screen
-    textClear();
+    // textClear();
     // getchar();
 
 

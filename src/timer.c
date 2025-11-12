@@ -7,12 +7,13 @@
 
 static uint16_t alarm_ticks = 0;
 
-// 0x0CAD37 for 30 Hz
+
+
 void setTimer0()
 {
 	resetTimer0();
 	POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR); //when the target is reached, bring it back to value 0x000000
-	POKE(T0_CMP_L,0xFE);POKE(T0_CMP_M,0xCD);POKE(T0_CMP_H,0x0C); //inject the compare value as max value
+	POKE(T0_CMP_L,T0_TICK_CMP_L);POKE(T0_CMP_M,T0_TICK_CMP_M);POKE(T0_CMP_H,T0_TICK_CMP_H); //inject the compare value as max value
 }
 
 void resetTimer0()
@@ -31,6 +32,9 @@ bool isTimerDone()
 	return (PEEK(T0_PEND) & 0x10) != 0;
 }
 
+uint16_t getAlarmTicks() {
+	return alarm_ticks;
+}
 	
 void setAlarm(uint16_t ticks) {
 	setTimer0();

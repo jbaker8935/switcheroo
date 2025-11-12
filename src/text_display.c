@@ -5,6 +5,7 @@
 #include "../src/mouse_pointer.h"
 #include "../src/help_text.h"
 #include "../src/video.h"
+#include "../src/timer.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -151,6 +152,21 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count) {
     textSetColor(1,0);     // Reset to normal text color
 }
 
+void print_game_exit(void) {
+        print_formatted_text(3, 10, "^1Game Exit ...        ");
+}
+
+void print_puzzle_clock(uint16_t elapsed_ticks) {
+    // Convert ticks to seconds
+    uint16_t total_seconds = elapsed_ticks / T0_TICK_FREQ; // Assuming 30 ticks per second
+
+    print_formatted_text(3, 28, "^6Timer: ^1");
+    textGotoXY(10, 28);
+    textPrintUInt(total_seconds);
+    uint8_t index_digits = countDigits(total_seconds);
+    print_formatted_text(10 + index_digits, 28, " sec       ");
+}
+
 void print_game_winner(player_t winner) {
     const char *win_str = (winner == PLAYER_WHITE) ? "^2Player Wins!^1         " : "^3Engine Wins!^1         ";
     print_formatted_text(3, 10, win_str);
@@ -259,6 +275,7 @@ void print_ai_difficulty(ai_difficulty_t difficulty) {
 void clear_puzzle_info() {
     print_formatted_text(3, 24, "                         ");
     print_formatted_text(3, 26, "                         ");
+    print_formatted_text(3, 28, "                         ");    
 }
 
 void print_puzzle_debug(const char *line1, const char *line2) {

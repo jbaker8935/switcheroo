@@ -24,9 +24,16 @@
 #define T0_CMP_CTR_RECLEAR 0x01
 #define T0_CMP_CTR_RELOAD  0x02
 
+#define T0_TICK_FREQ 30 //30 Hz
+#define VIDEO_DOT_CLOCK_HZ 25175000u
+#define T0_TICK_CMP_L ((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)&0xFF)
+#define T0_TICK_CMP_M (((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)>>8)&0xFF)
+#define T0_TICK_CMP_H (((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)>>16)&0xFF)
+
 void setTimer0(void);
 void resetTimer0(void);
 uint32_t readTimer0(void);
 uint8_t isTimerDone(void);
 void setAlarm(uint16_t ticks);
 bool checkAlarm(void);
+uint16_t getAlarmTicks(void);

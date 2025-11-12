@@ -32,11 +32,10 @@ void file_io_save(void) {
 
 extern game_state_t g_game_state;
 
-const char SAVE_FILE_NAME[] = "f256swdata";
-char * save_file_name = (char *) SAVE_FILE_NAME;
+char * SAVE_FILE_NAME =  "f256_switch.dat";
 
 #if defined(__llvm_mos__)
-static int16_t kernelWrite(uint8_t fd, void *buf, uint16_t nbytes) {
+static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
     kernelArgs->file.write.stream = fd;
     kernelArgs->common.buf = buf;
     kernelArgs->common.buflen = nbytes;
@@ -52,7 +51,7 @@ static int16_t kernelWrite(uint8_t fd, void *buf, uint16_t nbytes) {
 
 #pragma push_macro("EOF")
 #undef EOF
-static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
+static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
 
 	kernelArgs->file.read.stream = fd;
 	kernelArgs->file.read.buflen = nbytes;
@@ -66,7 +65,6 @@ static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
 				kernelArgs->common.buf = buf;
 				kernelArgs->common.buflen = kernelEventData.file.data.delivered;
 				kernelCall(ReadData);
-				if (!kernelEventData.file.data.delivered) return 256;
 				return kernelEventData.file.data.delivered;
 			case kernelEvent(file.EOF):
 				return 0;
@@ -81,13 +79,13 @@ static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
 
 
 #else
-static int16_t kernelWrite(uint8_t fd, void *buf, uint16_t nbytes) {
+static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
     (void)fd;
     (void)buf;
     (void)nbytes;
     return -1;
 }
-static int16_t kernelRead(uint8_t fd, void *buf, uint16_t nbytes) {
+static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
     (void)fd;
     (void)buf;
     (void)nbytes;
@@ -113,10 +111,10 @@ __attribute__((noinline, section(".block8")))
 void FAR8_file_io_init(void) {
 
 
-    uint8_t *fd = fileOpen(save_file_name, "r");
+    uint8_t *fd = fileOpen(SAVE_FILE_NAME, "r");
     if (fd) {
 
-        int16_t file_size = kernelRead(*fd, s_buffer, DATA_FILE_SIZE);
+        int16_t file_size = kernelReadC(*fd, s_buffer, DATA_FILE_SIZE);
         
         if (file_size == DATA_FILE_SIZE) {
 
@@ -156,9 +154,9 @@ void FAR8_file_io_save(void) {
         uint16_t actual_achievement_size = achievements_serialize(&g_game_state.achievements, s_buffer + PUZZLE_DATA_SIZE, ACHIEVEMENT_DATA_SIZE);
         if (actual_achievement_size == ACHIEVEMENT_DATA_SIZE) {
             // Write to file
-            uint8_t *fd = fileOpen(save_file_name, "w");
+            uint8_t *fd = fileOpen(SAVE_FILE_NAME, "w");
             if (fd) {
-                int16_t bytes_written = kernelWrite(*fd, s_buffer, DATA_FILE_SIZE);
+                int16_t bytes_written = kernelWriteC(*fd, s_buffer, DATA_FILE_SIZE);
                 fileClose(fd);
                 // Check if all bytes were written
                 if (bytes_written != DATA_FILE_SIZE) {
@@ -166,10 +164,7 @@ void FAR8_file_io_save(void) {
                     // For now, just continue
                 }
             }
-            // fileUnlink(save_file_name);
-            // fileRename("f256_tmp_dat", save_file_name);
         }
-
     }
 }
 #endif
