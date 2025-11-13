@@ -86,7 +86,8 @@ const uint8_t s_achievement_char_y[ACHIEVEMENT_COUNT] = {
 };
 const uint8_t center_offset_x = 7;
 const uint8_t title_offset_y = 10;
-const uint8_t desc_offset_y = 13;
+const uint8_t desc_offset_y = 14;
+const uint8_t progress_offset_y = 19;
 const uint8_t icon_offset_x_px = 20;
 const uint8_t icon_offset_y_px = 8;
 
@@ -105,6 +106,40 @@ static uint8_t count_bits8(uint8_t value) {
 	}
 	return count;
 }
+
+__attribute__((noinline, section(".block8")))
+char* uint16_to_str(uint16_t value, char* buffer) {
+    char temp[6]; // enough for 16-bit unsigned int (max 5 digits + '\0')
+    uint8_t i = 0;
+    if (value == 0) {
+        buffer[0] = '0';
+        buffer[1] = '\0';
+        return buffer;
+    }
+    while (value > 0) {
+        temp[i++] = (value % 10) + '0';
+        value /= 10;
+    }
+    for (uint8_t j = 0; j < i; j++) {
+        buffer[j] = temp[i - j - 1];
+    }
+    buffer[i] = '\0';
+
+    return buffer;
+}
+__attribute__((noinline, section(".block8")))
+char * progress_str(uint16_t progress, uint16_t total) {
+	static char progress_buffer[10]; // enough for "XXX / XXX"
+	
+	uint8_t p_length = count_digits(progress);
+	uint16_to_str(progress, progress_buffer);
+	progress_buffer[p_length] = ' ';
+	progress_buffer[p_length + 1] = '/';
+	progress_buffer[p_length + 2] = ' ';
+	uint16_to_str(total, &progress_buffer[p_length + 3]);
+	return progress_buffer;
+}
+
 
 
 // void numbytestohex(uint8_t byte_count, const uint8_t *data, char *out_hex) {
@@ -132,27 +167,41 @@ static bool achievements_is_unlocked(const achievements_state_t *state, achievem
 	return (state->unlocked_mask & (uint16_t)(1u << achievement)) != 0u;
 }
 
+// ACH_PUZZLE_RULE_COMPLETE counts progress per swap rule, display logic assumes
+// ALL rules have the same number of puzzles
+// CODE would need to be changed to handle differing counts per rule
+
 static void achievements_update_rule_progress(achievements_state_t *state, swap_rule_t rule) {
 	if (!state || rule >= NUMBER_OF_SWAP_RULES) {
 		return;
 	}
 
-	const uint16_t total = state->total_puzzles_per_rule[rule];
-	const uint16_t solved = state->solved_puzzles_per_rule[rule];
-
-	if (total > 0u && solved >= total) {
-		state->detail_bits[ACH_PUZZLE_RULE_COMPLETE] |= (uint8_t)(1u << rule);
-		achievements_unlock(state, ACH_PUZZLE_RULE_COMPLETE);
-	} else {
-		state->detail_bits[ACH_PUZZLE_RULE_COMPLETE] &=
-			(uint8_t)~(1u << rule);
+	if (achievements_is_unlocked(state, ACH_PUZZLE_RULE_COMPLETE)) {
+		return;
 	}
 
-	state->progress_count[ACH_PUZZLE_RULE_COMPLETE] =
-		count_bits8(state->detail_bits[ACH_PUZZLE_RULE_COMPLETE]);
+	uint16_t max_solved = 0u;
+	bool any_rule_complete = false;
 
-	if (state->progress_count[ACH_PUZZLE_RULE_COMPLETE] >= NUMBER_OF_SWAP_RULES &&
-		NUMBER_OF_SWAP_RULES > 0u) {
+	for (uint8_t r = 0u; r < NUMBER_OF_SWAP_RULES; ++r) {
+		const uint16_t solved = state->solved_puzzles_per_rule[r];
+		const uint16_t total = state->total_puzzles_per_rule[r];
+
+		if (solved > max_solved) {
+			max_solved = solved;
+		}
+
+		if (total > 0u && solved >= total) {
+			state->detail_bits[ACH_PUZZLE_RULE_COMPLETE] |= (uint8_t)(1u << r);
+			any_rule_complete = true;
+		} else {
+			state->detail_bits[ACH_PUZZLE_RULE_COMPLETE] &= (uint8_t)~(1u << r);
+		}
+	}
+
+	state->progress_count[ACH_PUZZLE_RULE_COMPLETE] = max_solved;
+
+	if (any_rule_complete) {
 		achievements_unlock(state, ACH_PUZZLE_RULE_COMPLETE);
 	}
 }
@@ -174,6 +223,49 @@ static void achievements_update_catalog_progress(achievements_state_t *state) {
 
 	if (state->solved_puzzles_catalog >= state->total_puzzles_catalog) {
 		achievements_unlock(state, ACH_PUZZLE_CATALOG_COMPLETE);
+	}
+}
+
+static void achievements_backfill_totals_if_missing(achievements_state_t *state) {
+	if (!state) {
+		return;
+	}
+
+	bool any_rule_missing = false;
+	for (uint8_t r = 0u; r < NUMBER_OF_SWAP_RULES; ++r) {
+		if (state->total_puzzles_per_rule[r] == 0u) {
+			any_rule_missing = true;
+			break;
+		}
+	}
+
+	bool catalog_missing = (state->total_puzzles_catalog == 0u);
+	if (!catalog_missing && !any_rule_missing) {
+		return;
+	}
+
+	const swap_rule_t original_rule = get_current_puzzle_swap_rule();
+	state->total_puzzles_catalog = 0u;
+
+	for (uint8_t rule = 0u; rule < NUMBER_OF_SWAP_RULES; ++rule) {
+		const swap_rule_t loop_rule = (swap_rule_t)rule;
+		set_current_puzzle_swap_rule(loop_rule);
+
+		uint16_t count = 0u;
+		const puzzle_collection_t *collection = get_puzzle_collection();
+		if (collection && collection->count <= UINT16_MAX) {
+			count = (uint16_t)collection->count;
+		}
+
+		state->total_puzzles_per_rule[rule] = count;
+		state->total_puzzles_catalog = (uint16_t)(state->total_puzzles_catalog + count);
+	}
+
+	set_current_puzzle_swap_rule(original_rule);
+
+	achievements_update_catalog_progress(state);
+	for (uint8_t rule = 0u; rule < NUMBER_OF_SWAP_RULES; ++rule) {
+		achievements_update_rule_progress(state, (swap_rule_t)rule);
 	}
 }
 
@@ -636,6 +728,8 @@ bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, 
 	state->puzzle_solution_length = cursor[5];
 	state->puzzle_rule = cursor[6];
 
+	achievements_backfill_totals_if_missing(state);
+
 	achievements_update_catalog_progress(state);
 	for (uint8_t i = 0u; i < NUMBER_OF_SWAP_RULES; ++i) {
 		achievements_update_rule_progress(state, (swap_rule_t)i);
@@ -704,6 +798,7 @@ void FAR8_display_achievements_screen(achievements_state_t *state, uint8_t page)
 		uint8_t title_y = s_achievement_char_y[i] + title_offset_y;
 		uint8_t desc_x = s_achievement_char_x[i] + center_offset_x;
 		uint8_t desc_y = s_achievement_char_y[i] + desc_offset_y;
+		uint8_t progress_y = s_achievement_char_y[i] + progress_offset_y;
 		char desc_buffer[32];
 		if(is_unlocked) {
 			textSetColor(4,1); // blue text for unlocked
@@ -728,6 +823,110 @@ void FAR8_display_achievements_screen(achievements_state_t *state, uint8_t page)
 		}
 
 		// Progress display for certain achievements
+		switch(i) {
+			case ACH_FREEPLAY_TEN_WINS:
+			case ACH_FREEPLAY_EXPERT_TEN_WINS:
+			case ACH_PUZZLE_FAST_TEN:			
+			{
+				char progress_text[]=" 0 / 10";
+				uint16_t progress = state->progress_count[i];
+
+				if (progress >= 10u) {
+					progress_text[0] = (char)('0' + (progress / 10u));
+					progress_text[1] = (char)('0' + (progress % 10u));
+				} else {
+					progress_text[0] = ' ';
+					progress_text[1] = (char)('0' + (progress));
+				}
+				print_formatted_text(desc_x - strlen(progress_text)/2, progress_y, progress_text);
+				break;
+			}
+			case ACH_FREEPLAY_HUNDRED_WINS:
+			{
+				char progress_text[]="  0 / 100";
+				uint16_t progress = state->progress_count[i];
+				if (progress >= 100u) {
+					progress_text[0] = (char)('0' + (progress / 100u));
+					progress_text[1] = (char)('0' + ((progress / 10u) % 10u));
+					progress_text[2] = (char)('0' + (progress % 10u));
+				} else if (progress >= 10u) {
+					progress_text[0] = ' ';
+					progress_text[1] = (char)('0' + (progress / 10u));
+					progress_text[2] = (char)('0' + (progress % 10u));
+				} else {
+					progress_text[0] = ' ';
+					progress_text[1] = ' ';
+					progress_text[2] = (char)('0' + (progress));
+				}
+				print_formatted_text(desc_x - strlen(progress_text)/2, progress_y, progress_text);
+				break;
+			}
+
+			case ACH_FREEPLAY_ALL_LAYOUTS:
+			case ACH_FREEPLAY_ALL_SWAP_RULES:
+			{
+				char progress_text[]="0 / 0";
+				uint8_t progress = state->progress_count[i];
+				uint8_t total = (i == ACH_FREEPLAY_ALL_LAYOUTS) ? NUM_STARTING_LAYOUTS : NUMBER_OF_SWAP_RULES;
+				progress_text[0] = (char)('0' + (progress));
+				progress_text[4] = (char)('0' + (total));
+				print_formatted_text(desc_x - strlen(progress_text)/2, progress_y, progress_text);
+				break;
+			}
+
+			case ACH_PUZZLE_NO_HINT_TWENTY_FIVE:
+			{
+				char progress_text[]="00 / 25";
+				uint8_t progress = (uint8_t)state->progress_count[i];
+				if (progress >= 10u) {
+					progress_text[0] = (char)('0' + (progress / 10u));
+					progress_text[1] = (char)('0' + (progress % 10u));
+				} else {
+					progress_text[0] = ' ';
+					progress_text[1] = (char)('0' + (progress));
+				}
+				print_formatted_text(desc_x - strlen(progress_text)/2, progress_y, progress_text);
+				break;
+			}
+
+			case ACH_PUZZLE_SESSION_FIFTY:
+			{
+				char progress_text[]="00 / 50";
+				uint8_t progress = (uint8_t)state->progress_count[i];
+				if (progress >= 10u) {
+					progress_text[0] = (char)('0' + (progress / 10u));
+					progress_text[1] = (char)('0' + (progress % 10u));
+				} else {
+					progress_text[0] = ' ';
+					progress_text[1] = (char)('0' + (progress));
+				}
+				print_formatted_text(desc_x - strlen(progress_text)/2, progress_y, progress_text);
+				break;
+			}
+
+			case ACH_PUZZLE_RULE_COMPLETE:
+			{
+				uint16_t progress = state->progress_count[i];
+				uint16_t total = state->total_puzzles_per_rule[0]; // all rules assumed to have same total
+				char *progress_text = progress_str(progress, total);
+				uint8_t pt_len = strlen(progress_text);
+				
+				print_formatted_text(desc_x - pt_len/2 + ((pt_len & 0x01) == 0 ? 0 : 1), progress_y, progress_text);
+				break;
+			}
+			case ACH_PUZZLE_CATALOG_COMPLETE:
+			{
+				uint16_t progress = state->progress_count[i];
+				uint16_t total = state->total_puzzles_catalog;
+				char *progress_text = progress_str(progress, total);
+				uint8_t pt_len = strlen(progress_text);		
+				print_formatted_text(desc_x - pt_len/2 + ((pt_len & 0x01) == 0 ? 0 : 1), progress_y, progress_text);
+				break;
+			}
+			default:
+				// no progress display
+				break;
+		}
 
 	}
 

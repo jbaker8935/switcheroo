@@ -1470,9 +1470,6 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
 
         uint8_t move_flags = ordered->flags[move_slot];
         bool opponent_immediate = (move_flags & AI_ORDER_FLAG_OPPONENT_IMMEDIATE) != 0u;
-        if (opponent_immediate) {
-            continue;
-        }
 
         bool self_immediate = (move_flags & AI_ORDER_FLAG_SELF_IMMEDIATE) != 0u;
 
@@ -1487,7 +1484,7 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
         evaluated->moves.to_cols[target_index] = move.to_col;
         evaluated->moves.types[target_index] = move.type;
         evaluated->moves.players[target_index] = move.player;
-        evaluated->immediate_wins_opponent[target_index] = false;
+        evaluated->immediate_wins_opponent[target_index] = opponent_immediate;
 
         if (self_immediate) {
             evaluated->immediate_wins_self[target_index] = true;
@@ -1508,7 +1505,7 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
         board_switch_turn(&next_context);
         player_t defender = next_context.current_player;
 
-    bool opponent_win_next = ai_immediate_win_available(&child, opponent, config->swap_rule);
+        bool opponent_win_next = opponent_immediate ? true : ai_immediate_win_available(&child, opponent, config->swap_rule);
         evaluated->opponent_wins_next_move[target_index] = opponent_win_next;
 
         bool forced_self = false;
@@ -1684,10 +1681,6 @@ __attribute__((noinline, section(".block10"))) static bool FAR10_ai_choose_move_
 
     for (uint8_t i = 0u; i < count; ++i) {
         if (forced_win_blunder && forced_win_mask[i]) {
-            continue;
-        }
-
-        if (evaluated->immediate_wins_opponent[i]) {
             continue;
         }
 

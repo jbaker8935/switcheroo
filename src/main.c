@@ -17,6 +17,7 @@
 #include "../src/mouse_pointer.h"
 #include "../src/achievements.h"
 #include "../src/file_io.h"
+#include "../src/sound.h"
 #ifdef AI_AGENT_HOST_TEST
 #include "../tests/include/f256lib_host.h"
 #else
@@ -56,12 +57,14 @@ void restore_main_screen(void) {
     print_current_player(g_game_state.context.current_player);
     print_move_history(g_game_state.context.history, g_game_state.context.history_count);
     refresh_win_path(&g_game_state.win_path);
-    const puzzle_collection_t *collection = get_puzzle_collection();
-    const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-    if (puzzle) {
-        print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
-            puzzle->difficulty, puzzle->is_solved);
+    if (g_game_state.is_puzzle_mode) {
+        const puzzle_collection_t *collection = get_puzzle_collection();
+        const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
+        if (puzzle) {
+            print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
+                puzzle->difficulty, puzzle->is_solved);
         }
+    }
     }
     
 void display_main_screen(void) {
@@ -152,6 +155,7 @@ void FAR11_main_loop(void) {
             if(alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
                 // Time to exit splash screen
                 g_screen_state = SCREEN_MAIN;
+                play_sound(SOUND_ID_RESET_BOARD);
                 display_main_screen();
 
             }   
@@ -174,6 +178,7 @@ void FAR11_main_loop(void) {
                         if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
                             (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             g_screen_state = SCREEN_MAIN;
+                            play_sound(SOUND_ID_RESET_BOARD);
                             display_main_screen();
                         }
                         break;
@@ -265,8 +270,6 @@ int main(int argc, char *argv[]) {
     setAlarm(60); // Set alarm for 60 ticks 
     // Initialize game state
     game_state_init(&g_game_state);
-
-    achievements_init(&g_game_state.achievements);
 
     file_io_init();
 

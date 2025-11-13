@@ -32,8 +32,8 @@ static bool blunder_message_active = false;
  */
 
 // Helper function to count digits in a number
- uint16_t countDigits(uint16_t n) {
-    uint16_t count = 0;
+ uint8_t count_digits(uint16_t n) {
+    uint8_t count = 0;
     do {
         count++;
         n /= 10;
@@ -160,11 +160,11 @@ void print_puzzle_clock(uint16_t elapsed_ticks) {
     // Convert ticks to seconds
     uint16_t total_seconds = elapsed_ticks / T0_TICK_FREQ; // Assuming 30 ticks per second
 
-    print_formatted_text(3, 28, "^6Timer: ^1");
-    textGotoXY(10, 28);
+    print_formatted_text(3, 26, "^6Timer: ^1");
+    textGotoXY(10, 26);
     textPrintUInt(total_seconds);
-    uint8_t index_digits = countDigits(total_seconds);
-    print_formatted_text(10 + index_digits, 28, " sec       ");
+    uint8_t index_digits = count_digits(total_seconds);
+    print_formatted_text(10 + index_digits, 26, " sec       ");
 }
 
 void print_game_winner(player_t winner) {
@@ -223,7 +223,7 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
 
 void print_game_mode(bool is_puzzle_mode) {
     const char *mode_str = is_puzzle_mode ? "^6Mode: ^1Puzzle   " : "^6Mode: ^1Free Play";
-    print_formatted_text(3, 15, mode_str);
+    print_formatted_text(3, 14, mode_str);
 
     // sneak F1 for Help message
     print_formatted_text(2, 58, "Press [^6F1^1] for Help");
@@ -248,7 +248,7 @@ void print_swap_rule(swap_rule_t rule) {
             rule_str = "^6Rule: ^1Unknown   ";
             break;
     }
-    print_formatted_text(3,19, rule_str);
+    print_formatted_text(3,18, rule_str);
 }
 
 void print_ai_difficulty(ai_difficulty_t difficulty) {
@@ -270,12 +270,12 @@ void print_ai_difficulty(ai_difficulty_t difficulty) {
             diff_str = "^6Engine: ^1Unknown ";
             break;
     }
-    print_formatted_text(3, 17, diff_str);
+    print_formatted_text(3, 16, diff_str);
 }
 void clear_puzzle_info() {
+    print_formatted_text(3, 22, "                         ");
     print_formatted_text(3, 24, "                         ");
-    print_formatted_text(3, 26, "                         ");
-    print_formatted_text(3, 28, "                         ");    
+    print_formatted_text(3, 26, "                         ");    
 }
 
 void print_puzzle_debug(const char *line1, const char *line2) {
@@ -293,11 +293,11 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
                        uint8_t puzzle_difficulty, bool is_solved) {
     char *buf = "";
     char checked[] = { 222, '\0'};
-    const uint8_t start_row = 24;
+    const uint8_t start_row = 22;
     // Puzzle Number
     buf = "^6Puzzle:^1               ";
     print_formatted_text(3, start_row, buf);
-    uint8_t index_digits = countDigits(puzzle_index + 1);
+    uint8_t index_digits = count_digits(puzzle_index + 1);
     textGotoXY(11, start_row);
     textPrintUInt(puzzle_index + 1);
     textGotoXY(11 + index_digits, start_row);

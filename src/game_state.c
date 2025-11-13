@@ -12,6 +12,7 @@
 #include "../src/text_display.h"
 #include "../src/mouse_pointer.h"
 #include "../src/board.h"
+#include "../src/sound.h"
 
 extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
@@ -43,6 +44,33 @@ static void game_state_configure_ai(game_state_t *state, swap_rule_t swap_rule, 
 
     ai_agent_init(&state->ai_config, swap_rule, difficulty, ai_player);
     ui_progress_register(&state->ai_config, &state->ui_progress);
+}
+
+static void game_state_play_sound(game_state_t *state, sound_id_t id)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    if (!state->prefs.audio_enabled)
+    {
+        return;
+    }
+
+    play_sound(id);
+}
+
+static void game_state_reset_move_history(game_state_t *state)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    memset(state->context.history, 0, sizeof(state->context.history));
+    state->context.history_count = 0;
+    state->context.last_moving_player = PLAYER_NONE;
 }
 
 static void game_state_focus_first_unsolved_puzzle(game_state_t *state)
@@ -101,8 +129,8 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     }
 
     apply_puzzle_position(&state->board, puzzle);
+    game_state_reset_move_history(state);
     state->context.current_player = PLAYER_WHITE;
-    state->context.history_count = 0;
 
     ai_difficulty_t difficulty;
     if (state->difficulty_manually_set) {
@@ -129,6 +157,7 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     }
 
     achievements_on_puzzle_loaded(&state->achievements, puzzle);
+
 
     return true;
 }
@@ -170,10 +199,9 @@ void game_state_init(game_state_t *state)
 
     // Initialize board
     board_init(&state->board);
+    game_state_reset_move_history(state);
     state->context.layout_id = 0;
     state->context.current_player = PLAYER_WHITE;
-    state->context.history_count = 0;
-    state->context.last_moving_player = PLAYER_NONE;
 
     // Set default preferences
     state->prefs.difficulty_level = AI_DIFFICULTY_EASY; // Easy Default
@@ -242,7 +270,6 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
         // PUZZLE mode: initialize board to current puzzle
 
         if (!game_state_apply_current_puzzle(state, true))
-
         {
             // If no puzzles, fallback to freeplay
             board_set_starting_layout(&state->board, state->context.layout_id);
@@ -251,10 +278,11 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             clear_puzzle_hint();
             game_state_clear_win_path(state);
             set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+
         }
 
         // Clear move history when switching to puzzle mode
-        state->context.history_count = 0;
+        game_state_reset_move_history(state);
         state->context.current_player = PLAYER_WHITE;
     }
     else
@@ -282,7 +310,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
 
         // Clear move history when switching to freeplay mode
-        state->context.history_count = 0;
+        game_state_reset_move_history(state);
         state->context.current_player = PLAYER_WHITE;
     }
 
@@ -361,6 +389,7 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
     if (board_execute_move(&state->board, &state->context, move, state->prefs.swap_rule))
     {
         game_state_deselect_piece(state);
+        game_state_play_sound(state, SOUND_ID_MOVE);
 
         // Check for win
         if (game_state_check_win_condition(state))
@@ -432,6 +461,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     clear_puzzle_hint();
                     game_state_clear_win_path(state);
                     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+                    game_state_reset_move_history(state);
                     state->context.current_player = PLAYER_WHITE;
                 }
                 game_state_deselect_piece(state);
@@ -444,6 +474,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 clear_swap_unavailable();
             }
             print_current_player(state->context.current_player);
+            print_move_history(state->context.history, state->context.history_count);
             print_swap_rule(state->prefs.swap_rule);
             state->phase = GAME_PHASE_PLAYING;
         break;
@@ -486,6 +517,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 board_set_starting_layout(&state->board, state->context.layout_id);
                 board_clear_all_swapped(&state->board);
                 game_state_clear_win_path(state);
+                game_state_reset_move_history(state);
                 game_state_deselect_piece(state);
                 game_state_update_menu_enables(state);
                 state->phase = GAME_PHASE_PLAYING;
@@ -494,6 +526,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 set_mouse_cursor(MOUSE_CURSOR_NORMAL);
             }
             print_current_player(state->context.current_player);
+            print_move_history(state->context.history, state->context.history_count);
             break;
             
         case MENU_ICON_SWAP:
@@ -595,6 +628,7 @@ bool game_state_check_win_condition(game_state_t *state)
                                           state->ai_config.difficulty,
                                           state->board.move_count);
         }
+        game_state_play_sound(state, SOUND_ID_WIN);
         render_invalidate_cache();
         return true;
     }
@@ -610,6 +644,7 @@ bool game_state_check_win_condition(game_state_t *state)
         }
         state->stats.black_wins++;
         state->win_path = black_path;
+        game_state_play_sound(state, SOUND_ID_LOSS);
         render_invalidate_cache();
         return true;
     }
@@ -649,7 +684,7 @@ void game_state_update(game_state_t *state, float delta_time)
                 if (board_execute_move(&state->board, &state->context, &ai_move, state->ai_config.swap_rule))
                 {
                     ai_moved = true;
-                    print_formatted_text(0, 21, "                    ");
+                    game_state_play_sound(state, SOUND_ID_MOVE);
 
                     if (game_state_check_win_condition(state))
                     {
@@ -670,7 +705,6 @@ void game_state_update(game_state_t *state, float delta_time)
 
             if (!ai_moved)
             {
-                print_formatted_text(0, 21, "AI HAS NO MOVES     ");
                 board_switch_turn(&state->context);
                 state->phase = GAME_PHASE_PLAYING;
             }

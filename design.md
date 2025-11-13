@@ -91,6 +91,12 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - Preserves any manually selected puzzle difficulty across resets and puzzle
   navigation so subsequent AI turns reuse the lightweight or advanced profile
   the player chose without reinitialisation churn.
+- Provides a `game_state_reset_move_history` helper so puzzle loads, free play
+  resets, and layout navigation clear move history buffers and last-move
+  metadata before HUD updates run.
+- Routes audio cues through a `game_state_play_sound` helper so board resets,
+  move execution, and win/loss outcomes trigger the appropriate `sound_id_t`
+  when audio is enabled.
 
 ### Board and Move Validation (`board.c/.h`)
 - Encapsulates the 8x4 board grid, piece states, and swap flags.
@@ -154,6 +160,12 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - Snapshots puzzle catalog totals per swap rule at startup by iterating the
   far-memory catalog, caching solved counts so rule-wide and catalog-wide
   completion can be detected without rescanning.
+- Performs the catalog refresh during `game_state_init` and preserves the
+  cached totals throughout the session so presentation layers can rely on the
+  denominators without guarding against mid-session resets.
+- Backfills per-rule and catalog totals during deserialisation when legacy save
+  data lacks those values, recomputing counts from the active catalog without
+  discarding recorded solve progress.
 - Exposes update hooks for freeplay wins, puzzle hints, puzzle loads, and
   puzzle completions; each hook updates the SoA counters and conditionally sets
   unlock bits when thresholds are met.
@@ -216,6 +228,9 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   host-callable getters for debugging.
 - Exposes helpers for inevitability analysis so host tests can flag positions
   where every reply grants the opponent an immediate win.
+- Tags immediate-loss candidates during evaluation so the normal selector
+  refuses them while the blunder pipeline can still purposefully choose them
+  when the configured probability hits.
 - Supports optional blunder behaviour controlled by configuration: Learning
   and Easy difficulties can intentionally allow an opponent immediate win,
   while Standard can allow an opponent forcing line. A per-turn percentage

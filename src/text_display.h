@@ -52,5 +52,6 @@ void display_show_help_screen(void);
 void display_hide_help_screen(void);
 void print_game_exit(void);
 void print_puzzle_clock(uint16_t elapsed_ticks);
+uint8_t count_digits(uint16_t value);
 
 

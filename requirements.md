@@ -104,12 +104,14 @@ in a dedicated discrepancies section.
   highlights, refresh puzzle text, set AI difficulty to STANDARD when entering
   puzzle mode, and set phase to `GAME_PHASE_PLAYING`.
 - WHEN the Reset icon or R key is activated, THE SYSTEM SHALL reload the
-  current mode's layout or puzzle, clear hints, and resume
-  `GAME_PHASE_PLAYING` without toggling modes.
+  current mode's layout or puzzle, clear hints, reset move history and the
+  last-moving-player indicator, and resume `GAME_PHASE_PLAYING` without
+  toggling modes.
 - WHEN the Next or Previous icon (or N/P keys) is activated in puzzle mode, THE
   SYSTEM SHALL wrap `current_puzzle_index` within the catalog count, apply the
   puzzle, and refresh puzzle metadata; in free play the same actions cycle
-  `board.layout_id` through the four predefined layouts.
+  `board.layout_id` through the four predefined layouts and reset move history
+  before play resumes.
 - WHEN the Swap icon or S key is activated, THE SYSTEM SHALL rotate
   `user_preferences.swap_rule`, reinitialise the AI configuration, and clear the
   swap lockout message only if free play is active and `move_count` is zero;
@@ -138,6 +140,16 @@ in a dedicated discrepancies section.
   `print_game_winner` and `print_win_loss` to update scoreboard text and
   session totals.
 - WHEN the help screen is displayed, THE SYSTEM SHALL render the embedded help text from the `help_text` constant in `src/help.c`.
+
+### Audio Feedback
+- WHEN the game board is reset, THE SYSTEM SHALL play `SOUND_ID_RESET_BOARD`
+  if audio is enabled.
+- WHEN any legal move is executed, THE SYSTEM SHALL play `SOUND_ID_MOVE` if
+  audio is enabled.
+- WHEN the player wins, THE SYSTEM SHALL play `SOUND_ID_WIN` if audio is
+  enabled.
+- WHEN the player loses, THE SYSTEM SHALL play `SOUND_ID_LOSS` if audio is
+  enabled.
 
 ### Puzzle Tracking
 - WHEN `get_puzzle_collection` runs on hardware, THE SYSTEM SHALL lazy-load the
@@ -170,9 +182,9 @@ in a dedicated discrepancies section.
 - WHEN the AI evaluates a turn, THE SYSTEM SHALL score every legal move using
   the heuristic evaluator and annotate each candidate with immediate-win,
   opponent-win-next, and forced-win flags.
-- WHEN the AI generates candidate moves, THE SYSTEM SHALL discard any move that
-  results in the opponent having an immediate win state once the move is
-  applied.
+- WHEN the AI generates candidate moves, THE SYSTEM SHALL flag every move
+  that concedes an immediate opponent win and exclude those flags from the
+  standard selector while leaving them available to the blunder chooser.
 - WHEN the AI detects that applying a move hands the opponent an immediate win
   on their reply, THE SYSTEM SHALL cache that flag on the candidate so later
   evaluation passes can skip redundant win searches.
@@ -258,6 +270,12 @@ in a dedicated discrepancies section.
 - WHEN the achievements subsystem initialises, THE SYSTEM SHALL load persistent
   progress into a struct-of-arrays state with bit-packed unlock flags and per-
   achievement counters sized for the 6502 memory budget.
+- WHEN `achievements_refresh_catalog` populates the puzzle totals, THE SYSTEM
+  SHALL retain the computed per-rule and catalog totals until a subsequent
+  catalog refresh so HUD progress denominators remain stable.
+- WHEN legacy achievement data omits puzzle totals, THE SYSTEM SHALL
+  reconstruct per-rule and catalog puzzle counts from the active catalog
+  during load before updating progress displays.
 - WHEN achievements are enumerated for presentation, THE SYSTEM SHALL emit them
   in the order specified in the Freeplay and Puzzle lists of this revision so
   screen layouts can display progress without re-sorting.

@@ -919,6 +919,41 @@ static bool moves_equal(const move_t *a, const move_t *b) {
            (a->to_col == b->to_col) && (a->type == b->type);
 }
 
+static void test_learning_blunder_selects_immediate_loss(void) {
+    printf("\n=== Testing learning blunder selects immediate loss ===\n");
+
+    board_t board;
+    board_context_t context;
+    setup_blunder_immediate_win_scenario_new(&board, &context);
+
+    ai_config_t config;
+    ai_agent_init(&config, SWAP_RULE_CLASSIC, AI_DIFFICULTY_LEARNING, PLAYER_BLACK);
+    ai_agent_config_set_randomization(&config, 1u, 0u);
+    ai_agent_config_set_blunder(&config, true, AI_BLUNDER_ALLOW_IMMEDIATE_WIN, 100u);
+
+    move_t ai_move = {0};
+    bool found = ai_agent_find_best_move(&board, &context, &config, &ai_move);
+    printf("Learning AI move selection result: %s\n", found ? "TRUE" : "FALSE");
+    if (!found) {
+        printf("ERROR: Learning AI did not find a move in blunder test.\n");
+        return;
+    }
+
+    char move_str[64];
+    format_test_move_string(move_str, sizeof(move_str), &ai_move);
+    printf("Learning AI selected move: %s\n", move_str);
+
+    bool allows_opponent_win = ai_agent_move_allows_opponent_immediate_win(&board,
+                                                                           context.current_player,
+                                                                           &ai_move,
+                                                                           &config,
+                                                                           config.ai_player);
+    printf("Move allows opponent immediate win: %s\n", allows_opponent_win ? "YES" : "no");
+    if (!allows_opponent_win) {
+        printf("ERROR: Expected the forced blunder to concede an immediate win.\n");
+    }
+}
+
 static piece_type_t parse_piece_token(const char *piece_str) {
     return PIECE_NONE;
 }
@@ -1561,6 +1596,7 @@ int main(void) {
     test_all_win_in_2_puzzles();
     test_puzzle_3_a5_b6_issue();
     test_puzzle_21_c7_c6_issue();
+    test_learning_blunder_selects_immediate_loss();
     test_puzzle_45_c6_b5_not_forcing();
     return 0;
 }

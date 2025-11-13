@@ -33,7 +33,7 @@ backlog.
 | T8 | AI Heuristic Engine | Provide immediate-win aware heuristic ranking with forced-win checks, top-k tuning, and diagnostics. | `ai_agent.c`, host regression harness. | T4, T5 | Done |
 | T9 | Diagnostics & Host Harnesses | Maintain hint traces, AI breakdown reporting, and desktop test shims. | `tests/ai_agent_tests.c`, `tests/hint_trace_host.c`, docs. | T8 | Done |
 | T10 | Menu & UX Polish | Implement disabled-icon visuals, hover feedback, and puzzle-aware enables. | Updated sprites, `game_state_update_menu_enables`. | T5, T6 | Not Started |
-| T11 | Audio Layer | Add cue playback, volume/mute controls, and align input bindings. | Audio driver module, assets, HUD indicators. | T1, T5 | Not Started |
+| T11 | Audio Layer | Integrate cue playback for resets, moves, and win/loss while adding volume/mute controls and aligning input bindings. | Audio driver module, cue wiring in `game_state.c`, HUD indicators. | T1, T5 | In Progress |
 | T12 | Undo & Accessibility | Provide undo stack, keyboard-only UX fixes, and colourblind themes. | Board history snapshots, palette swaps, tests. | T4, T5, T6 | Not Started |
 | T13 | Error Handling Hardening | Centralise error reporting and graceful recovery beyond HUD text. | Error manager, recovery flows, tests. | T5, T7 | Not Started |
 | T14 | Documentation Sync | Keep `requirements.md`, `design.md`, and `tasks.md` aligned with code. | Updated docs, traceability notes. | T1-T9, T16 | In Progress |
@@ -75,10 +75,12 @@ backlog.
 | T49 | Puzzle Filter Scaling | Replace fixed-size swap-rule index caches with on-demand catalog scans so large puzzle sets stay addressable. | `src/puzzle_data.c`, docs sync. | T7 | Done |
 | T50 | Puzzle Mode First Unsolved | Show the first unsolved puzzle whenever puzzle mode is entered from free play. | `src/game_state.c`, docs sync. | T7 | Done |
 | T51 | Help Text Embedding | Embed the help text from `assets/mockup/help_text.txt` as a C string constant in `src/help.c` for in-game display. | `src/help.c`, build validation. | None | Done |
-| T52 | Achievement Tracking Core | Implement struct-of-arrays achievement state, persistence helpers, and freeplay/puzzle event integration. | `src/achievements.c/.h`, `src/game_state.c`, docs sync. | T5, T7 | In Progress |
+| T52 | Achievement Tracking Core | Implement struct-of-arrays achievement state, persistence helpers, freeplay/puzzle event integration, and ensure catalog totals persist after initial refresh while backfilling legacy saves lacking totals. | `src/achievements.c/.h`, `src/game_state.c`, docs sync. | T5, T7 | In Progress |
 | T53 | Timed Puzzle Achievement Timer | Start and poll the 900-tick puzzle timer through the achievements subsystem and integrate hint/no-hint tracking. | `src/achievements.c`, `src/main.c`, `src/game_state.c`, docs sync. | T5, T7, T52 | In Progress |
 | T54 | File I/O Module | Implement load/save functionality for puzzle solve status and achievements using "f256_switch.dat". | `src/file_io.c/.h`, integration in `src/main.c`, host testing. | T5, T7, T52 | Done |
 | T55 | Puzzle Solved Bitset Authority | Replace SRAM-dependent solved tracking with an in-memory bitset and align persistence/documentation. | Updated `src/puzzle_data.c`, `src/file_io.c`, and docs. | T7, T54 | Done |
+| T56 | Freeplay History Reset Fix | Ensure free play resets and layout navigation clear move history via a shared helper before HUD refresh. | `src/game_state.c`, documentation updates. | T5, T32 | Done |
+| T57 | Blunder Candidate Retention | Keep opponent immediate-win moves flagged for blunder selection and cover the behaviour with host regression output. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs. | T8, T21, T24 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done
