@@ -74,6 +74,20 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - `system.c` currently provides lightweight stubs that call into `f256lib`
   primitives; future ports can extend this layer.
 
+### Timer and Alarm Services (`timer.c`, `timer.h`)
+- Backs Timer0 configuration and exposes helper APIs so high-level modules can
+  start, stop, and query alarm channels without touching hardware registers.
+- Manages a fixed set of alarm channels that share the 30 Hz Timer0 tick while
+  preserving independent countdown values for splash, puzzle, audio, and other
+  subsystems.
+- Services Timer0 pending interrupts once per tick, decrementing each active
+  channel and leaving completed channels at zero until the caller re-arms the
+  slot.
+- Clears expiration state when a channel is configured to avoid stale alarm
+  signals while maintaining the remaining time on other active channels.
+- Relies on the main loop to call `timer_service` every frame so alarms advance
+  even when no caller polls them explicitly.
+
 ### Game State Orchestration (`game_state.c/.h`)
 - Maintains the composite `game_state_t` containing board, menu, selection,
   AI, and puzzle context.

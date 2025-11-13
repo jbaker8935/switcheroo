@@ -141,11 +141,22 @@ in a dedicated discrepancies section.
   session totals.
 - WHEN the help screen is displayed, THE SYSTEM SHALL render the embedded help text from the `help_text` constant in `src/help.c`.
 
+### Timing and Alarms
+- WHEN subsystems schedule independent countdowns, THE SYSTEM SHALL provide
+  separate Timer0-backed alarm channels so each countdown completes without
+  interfering with the others.
+- WHEN Timer0 signals a tick, THE SYSTEM SHALL decrement every active alarm
+  channel exactly once per tick and leave completed channels at zero until the
+  channel is rearmed.
+- WHEN an alarm channel is configured, THE SYSTEM SHALL apply the requested
+  tick budget to that channel while preserving the remaining time on all other
+  active channels.
+
 ### Audio Feedback
 - WHEN the game board is reset, THE SYSTEM SHALL play `SOUND_ID_RESET_BOARD`
   if audio is enabled.
-- WHEN any legal move is executed, THE SYSTEM SHALL play `SOUND_ID_MOVE` if
-  audio is enabled.
+- WHEN a legal move is executed and no immediate win or loss is detected, THE
+  SYSTEM SHALL play `SOUND_ID_MOVE` if audio is enabled.
 - WHEN the player wins, THE SYSTEM SHALL play `SOUND_ID_WIN` if audio is
   enabled.
 - WHEN the player loses, THE SYSTEM SHALL play `SOUND_ID_LOSS` if audio is

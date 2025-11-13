@@ -281,8 +281,8 @@ void clear_puzzle_info() {
 void print_puzzle_debug(const char *line1, const char *line2) {
     const char *first = line1 ? line1 : "                         ";
     const char *second = line2 ? line2 : "                         ";
-    print_formatted_text(0, 40, first);
-    print_formatted_text(0, 41, second);
+    print_formatted_text(3, 55, first);
+    print_formatted_text(3, 56, second);
 }
 
 void clear_puzzle_debug(void) {

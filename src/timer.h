@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdint.h>
 
 #define T0_PEND     0xD660
@@ -30,10 +31,22 @@
 #define T0_TICK_CMP_M (((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)>>8)&0xFF)
 #define T0_TICK_CMP_H (((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)>>16)&0xFF)
 
+typedef uint8_t timer_alarm_id_t;
+
+enum {
+	TIMER_ALARM_SPLASH = 0u,
+	TIMER_ALARM_PUZZLE = 1u,
+	TIMER_ALARM_SOUND = 2u,
+	TIMER_ALARM_GENERAL0 = 3u,
+	TIMER_ALARM_COUNT = 4u
+};
+
 void setTimer0(void);
 void resetTimer0(void);
 uint32_t readTimer0(void);
-uint8_t isTimerDone(void);
-void setAlarm(uint16_t ticks);
-bool checkAlarm(void);
-uint16_t getAlarmTicks(void);
+bool isTimerDone(void);
+void timer_service(void);
+void setAlarm(timer_alarm_id_t alarm, uint16_t ticks);
+void clearAlarm(timer_alarm_id_t alarm);
+bool checkAlarm(timer_alarm_id_t alarm);
+uint16_t getAlarmTicks(timer_alarm_id_t alarm);

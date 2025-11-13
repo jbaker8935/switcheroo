@@ -81,6 +81,7 @@ backlog.
 | T55 | Puzzle Solved Bitset Authority | Replace SRAM-dependent solved tracking with an in-memory bitset and align persistence/documentation. | Updated `src/puzzle_data.c`, `src/file_io.c`, and docs. | T7, T54 | Done |
 | T56 | Freeplay History Reset Fix | Ensure free play resets and layout navigation clear move history via a shared helper before HUD refresh. | `src/game_state.c`, documentation updates. | T5, T32 | Done |
 | T57 | Blunder Candidate Retention | Keep opponent immediate-win moves flagged for blunder selection and cover the behaviour with host regression output. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs. | T8, T21, T24 | Done |
+| T58 | Timer0 Multi-Alarm Support | Extend the timer module to manage multiple alarm channels and update call sites plus documentation. | Updated `src/timer.c`, `src/timer.h`, dependent modules, docs. | T5, T53 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

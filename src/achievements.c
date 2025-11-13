@@ -279,6 +279,7 @@ static void achievements_reset_puzzle_attempt(achievements_state_t *state) {
 	state->puzzle_hint_used = 0u;
 	state->puzzle_attempt_active = 0u;
 	state->puzzle_solution_length = 0u;
+	clearAlarm(TIMER_ALARM_PUZZLE);
 }
 
 void achievements_init(achievements_state_t *state) {
@@ -466,7 +467,7 @@ void achievements_on_puzzle_loaded(achievements_state_t *state, const struct puz
 	state->puzzle_timer_expired = 0u;
 	state->puzzle_hint_used = 0u;
 
-	setAlarm(ACHIEVEMENT_PUZZLE_TIMER_TICKS);
+	setAlarm(TIMER_ALARM_PUZZLE, ACHIEVEMENT_PUZZLE_TIMER_TICKS);
 }
 
 void achievements_on_puzzle_hint(achievements_state_t *state) {

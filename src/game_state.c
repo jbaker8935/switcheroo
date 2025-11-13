@@ -389,16 +389,25 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
     if (board_execute_move(&state->board, &state->context, move, state->prefs.swap_rule))
     {
         game_state_deselect_piece(state);
-        game_state_play_sound(state, SOUND_ID_MOVE);
 
         // Check for win
-        if (game_state_check_win_condition(state))
+        bool player_won = game_state_check_win_condition(state);
+        if (player_won)
         {
+            if (state->win_path.winner == PLAYER_WHITE)
+            {
+                game_state_play_sound(state, SOUND_ID_WIN);
+            }
+            else if (state->win_path.winner == PLAYER_BLACK)
+            {
+                game_state_play_sound(state, SOUND_ID_LOSS);
+            }
             clear_made_blunder();
             state->phase = GAME_PHASE_GAME_OVER;
         }
         else
         {
+            game_state_play_sound(state, SOUND_ID_MOVE);
             // Switch turns
             board_switch_turn(&state->context);
 
@@ -518,6 +527,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 board_clear_all_swapped(&state->board);
                 game_state_clear_win_path(state);
                 game_state_reset_move_history(state);
+                state->context.current_player = PLAYER_WHITE;
                 game_state_deselect_piece(state);
                 game_state_update_menu_enables(state);
                 state->phase = GAME_PHASE_PLAYING;
@@ -628,7 +638,6 @@ bool game_state_check_win_condition(game_state_t *state)
                                           state->ai_config.difficulty,
                                           state->board.move_count);
         }
-        game_state_play_sound(state, SOUND_ID_WIN);
         render_invalidate_cache();
         return true;
     }
@@ -644,7 +653,6 @@ bool game_state_check_win_condition(game_state_t *state)
         }
         state->stats.black_wins++;
         state->win_path = black_path;
-        game_state_play_sound(state, SOUND_ID_LOSS);
         render_invalidate_cache();
         return true;
     }
@@ -684,10 +692,18 @@ void game_state_update(game_state_t *state, float delta_time)
                 if (board_execute_move(&state->board, &state->context, &ai_move, state->ai_config.swap_rule))
                 {
                     ai_moved = true;
-                    game_state_play_sound(state, SOUND_ID_MOVE);
-
-                    if (game_state_check_win_condition(state))
+                    
+                    bool ai_won = game_state_check_win_condition(state);
+                    if (ai_won)
                     {
+                        if (state->win_path.winner == PLAYER_BLACK)
+                        {
+                            game_state_play_sound(state, SOUND_ID_LOSS);
+                        }
+                        else if (state->win_path.winner == PLAYER_WHITE)
+                        {
+                            game_state_play_sound(state, SOUND_ID_WIN);
+                        }
                         clear_made_blunder();
                         state->phase = GAME_PHASE_GAME_OVER;
                         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
@@ -697,6 +713,7 @@ void game_state_update(game_state_t *state, float delta_time)
                     }
                     else
                     {
+                        game_state_play_sound(state, SOUND_ID_MOVE);
                         board_switch_turn(&state->context);
                         state->phase = GAME_PHASE_PLAYING;
                     }

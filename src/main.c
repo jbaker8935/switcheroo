@@ -150,19 +150,23 @@ void FAR11_main_loop(void) {
 
         // Process input events - drain all pending events like sprites example
         do {
+            timer_service();
 
-            bool alarm_elapsed = checkAlarm();
-            if(alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
+            bool splash_alarm_elapsed = checkAlarm(TIMER_ALARM_SPLASH);
+            if (splash_alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
                 // Time to exit splash screen
                 g_screen_state = SCREEN_MAIN;
+                clearAlarm(TIMER_ALARM_SPLASH);
                 play_sound(SOUND_ID_RESET_BOARD);
                 display_main_screen();
 
-            }   
-            if(g_screen_state == SCREEN_MAIN && g_game_state.is_puzzle_mode &&
+            }
+
+            bool puzzle_alarm_elapsed = checkAlarm(TIMER_ALARM_PUZZLE);
+            if (g_screen_state == SCREEN_MAIN && g_game_state.is_puzzle_mode &&
                 g_game_state.phase != GAME_PHASE_GAME_OVER) {
-                print_puzzle_clock(getAlarmTicks());
-                achievements_update_timer(&g_game_state.achievements, alarm_elapsed);
+                print_puzzle_clock(getAlarmTicks(TIMER_ALARM_PUZZLE));
+                achievements_update_timer(&g_game_state.achievements, puzzle_alarm_elapsed);
             }
 
             // Get next kernel event (always call, like the example)
@@ -178,6 +182,7 @@ void FAR11_main_loop(void) {
                         if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
                             (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             g_screen_state = SCREEN_MAIN;
+                            clearAlarm(TIMER_ALARM_SPLASH);
                             play_sound(SOUND_ID_RESET_BOARD);
                             display_main_screen();
                         }
@@ -267,7 +272,7 @@ int main(int argc, char *argv[]) {
     // Initialize screen state - start in splash
     g_screen_state = SCREEN_SPLASH;
     video_show_splash();
-    setAlarm(60); // Set alarm for 60 ticks 
+    setAlarm(TIMER_ALARM_SPLASH, 60); // Set alarm for 60 ticks
     // Initialize game state
     game_state_init(&g_game_state);
 
