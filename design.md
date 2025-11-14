@@ -139,6 +139,11 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   transitions.
 - Records the viewed index so `text_display` can highlight the active entry
   without re-deriving it from `board_context.history` order.
+- Uses the viewed board's move count to map the HUD caret to the move that
+  produced the snapshot, falling back to the Start entry when the baseline
+  state is active.
+- Reapplies recorded winning-path highlights when navigation returns to a
+  victory snapshot, invoking `refresh_win_path` without replaying audio cues.
 
 ### Board and Move Validation (`board.c/.h`)
 - Encapsulates the 8x4 board grid, piece states, and swap flags.

@@ -83,6 +83,7 @@ backlog.
 | T57 | Blunder Candidate Retention | Keep opponent immediate-win moves flagged for blunder selection and cover the behaviour with host regression output. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs. | T8, T21, T24 | Done |
 | T58 | Timer0 Multi-Alarm Support | Extend the timer module to manage multiple alarm channels and update call sites plus documentation. | Updated `src/timer.c`, `src/timer.h`, dependent modules, docs. | T5, T53 | Done |
 | T59 | Free Play History Navigation | Implement a four-state free play history buffer with branching, Back/Forward input bindings, HUD indicators, and achievement disqualification handling. | `src/freeplay_history.c/.h`, `src/game_state.c`, `src/input.c`, `src/input_handler.c`, `src/text_display.c`, `src/achievements.c`, updated docs. | T5, T6, T52 | Not Started |
+| T60 | Freeplay History Navigation Polish | Align the move history indicator with the viewed snapshot and restore win-path highlights during navigation without replaying audio cues. | Updated `src/text_display.c`, `src/game_state.c`, `src/main.c`, documentation. | T59 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

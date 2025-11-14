@@ -173,6 +173,12 @@ in a dedicated discrepancies section.
   omit the "Start" entry from the move history render.
 - WHEN Back or Forward is pressed without an available snapshot, THE SYSTEM
   SHALL leave the board unchanged and may play an optional error chime.
+- WHEN the player navigates backward or forward to a stored free play snapshot,
+  THE SYSTEM SHALL highlight in the move history the move that produced the
+  viewed position, or the Start entry when the base snapshot is selected.
+- WHEN free play navigation advances to a snapshot whose board already
+  contains a winning path, THE SYSTEM SHALL restore the winning-path highlight
+  without replaying the associated audio cue.
 
 ### Timing and Alarms
 - WHEN subsystems schedule independent countdowns, THE SYSTEM SHALL provide

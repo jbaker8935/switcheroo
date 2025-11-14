@@ -38,7 +38,8 @@ void print_puzzle_hint(const char *hint);
 void clear_puzzle_hint(void);
 void print_move_history(const move_t *history,
                         uint8_t move_count,
-                        uint8_t view_index,
+                        uint16_t board_move_count,
+                        uint16_t live_move_count,
                         bool is_free_play,
                         bool has_start_entry);
 void clear_puzzle_info(void);

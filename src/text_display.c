@@ -433,32 +433,6 @@ void display_puzzle_solution(const puzzle_t *puzzle) {
     print_puzzle_hint(buf);
 }
 
-static uint8_t history_find_engine_entry(const move_t *history,
-                                         uint8_t move_count,
-                                         uint8_t engine_rank)
-{
-    if (!history)
-    {
-        return move_count;
-    }
-
-    uint8_t engines_seen = 0u;
-    for (uint8_t idx = 0u; idx < move_count; ++idx)
-    {
-        if (history[idx].player != PLAYER_WHITE)
-        {
-            if (engines_seen == engine_rank)
-            {
-                return idx;
-            }
-
-            ++engines_seen;
-        }
-    }
-
-    return move_count;
-}
-
 void clear_puzzle_hint() {
     print_formatted_text(3,10, "                         ");
 } 
@@ -475,7 +449,8 @@ uint8_t format_move_string(char *buf, size_t buf_size, const move_t *move) {
 
 void print_move_history(const move_t *history,
                         uint8_t move_count,
-                        uint8_t view_index,
+                        uint16_t board_move_count,
+                        uint16_t live_move_count,
                         bool is_free_play,
                         bool has_start_entry) {
     const uint8_t start_row = 31;
@@ -488,14 +463,39 @@ void print_move_history(const move_t *history,
 
     if (is_free_play)
     {
-        if (move_count == 0u)
+        if (board_move_count == 0u)
         {
             show_start_position = true;
         }
         else
         {
-            indicator_index = history_find_engine_entry(history, move_count, view_index);
-            show_start_position = (indicator_index >= move_count);
+            const uint16_t stored_capacity = (uint16_t)move_count;
+            uint16_t trimmed = 0u;
+
+            if (live_move_count > stored_capacity)
+            {
+                trimmed = (uint16_t)(live_move_count - stored_capacity);
+            }
+
+            if (board_move_count <= trimmed)
+            {
+                if (move_count > 0u)
+                {
+                    indicator_index = (uint8_t)(move_count - 1u);
+                }
+            }
+            else
+            {
+                const uint16_t stored_ordinal = (uint16_t)(board_move_count - trimmed);
+                if (stored_ordinal > 0u && stored_ordinal <= stored_capacity)
+                {
+                    indicator_index = (uint8_t)(stored_capacity - stored_ordinal);
+                }
+                else if (move_count > 0u)
+                {
+                    indicator_index = (uint8_t)(move_count - 1u);
+                }
+            }
         }
     }
 
@@ -510,7 +510,7 @@ void print_move_history(const move_t *history,
         if (i < move_count) {
             const move_t *move = &history[i];
             char movestr[9] = "F1->T1 S";
-            const bool highlight = is_free_play && !show_start_position && (i == indicator_index);
+            const bool highlight = is_free_play && !show_start_position && (indicator_index < move_count) && (i == indicator_index);
             const char *indicator = highlight ? "^2>^1" : " ";
             const char *role = (move->player == PLAYER_WHITE) ? "^4Player:^1 " : "^5Engine:^1 ";
             print_formatted_text(2, row, indicator);

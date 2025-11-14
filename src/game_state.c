@@ -17,8 +17,11 @@
 extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
 extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
+extern void refresh_win_path(const win_path_t *path);
 
 static void game_state_clear_win_path(game_state_t *state);
+static bool game_state_restore_win_path(game_state_t *state);
+static void game_state_record_freeplay_snapshot(game_state_t *state, bool allow_ai_turn);
 
 static void game_state_history_refresh_ui(game_state_t *state)
 {
@@ -28,26 +31,33 @@ static void game_state_history_refresh_ui(game_state_t *state)
     }
 
     const bool is_free_play = !state->is_puzzle_mode;
-    const uint8_t view_index = is_free_play
-                                    ? freeplay_history_view_index(&state->history_state)
-                                    : 0u;
     const bool has_start_entry = is_free_play && freeplay_history_has_start_entry(&state->history_state);
+    uint16_t board_move_count = state->board.move_count;
+    uint16_t live_move_count = board_move_count;
+
+    if (is_free_play && state->history_state.count > 0u)
+    {
+        live_move_count = state->history_state.entries[0].board.move_count;
+    }
+
     print_current_player(state->context.current_player);
     print_move_history(state->context.history,
                        state->context.history_count,
-                       view_index,
+                       board_move_count,
+                       live_move_count,
                        is_free_play,
                        has_start_entry);
 }
 
-static void game_state_record_freeplay_snapshot(game_state_t *state)
+static void game_state_record_freeplay_snapshot(game_state_t *state, bool allow_ai_turn)
 {
     if (!state || state->is_puzzle_mode)
     {
         return;
     }
 
-    if (state->ai_config.ai_player != PLAYER_NONE &&
+    if (!allow_ai_turn &&
+        state->ai_config.ai_player != PLAYER_NONE &&
         state->context.current_player == state->ai_config.ai_player)
     {
         return;
@@ -132,6 +142,12 @@ static void game_state_after_history_navigation(game_state_t *state)
     game_state_clear_win_path(state);
     game_state_update_menu_enables(state);
     game_state_history_refresh_ui(state);
+
+    if (game_state_restore_win_path(state))
+    {
+        state->phase = GAME_PHASE_GAME_OVER;
+        print_game_winner(state->win_path.winner);
+    }
 }
 
 static void game_state_clear_win_path(game_state_t *state)
@@ -148,6 +164,31 @@ static void game_state_clear_win_path(game_state_t *state)
 
     video_reset_all_board_cell_colors();
     render_invalidate_cache();
+}
+
+static bool game_state_restore_win_path(game_state_t *state)
+{
+    if (!state)
+    {
+        return false;
+    }
+
+    win_path_t path;
+    if (board_check_win_with_path(&state->board, PLAYER_WHITE, &path))
+    {
+        state->win_path = path;
+        refresh_win_path(&state->win_path);
+        return true;
+    }
+
+    if (board_check_win_with_path(&state->board, PLAYER_BLACK, &path))
+    {
+        state->win_path = path;
+        refresh_win_path(&state->win_path);
+        return true;
+    }
+
+    return false;
 }
 
 static void game_state_configure_ai(game_state_t *state, swap_rule_t swap_rule, ai_difficulty_t difficulty,
@@ -567,7 +608,7 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
 
         if (!state->is_puzzle_mode)
         {
-            game_state_record_freeplay_snapshot(state);
+            game_state_record_freeplay_snapshot(state, false);
         }
 
         // Update menu enables
@@ -857,7 +898,7 @@ void game_state_update(game_state_t *state, float delta_time)
                         }
                         if (!state->is_puzzle_mode)
                         {
-                            game_state_record_freeplay_snapshot(state);
+                            game_state_record_freeplay_snapshot(state, true);
                         }
                         game_state_history_refresh_ui(state);
                         clear_made_blunder();
@@ -874,7 +915,7 @@ void game_state_update(game_state_t *state, float delta_time)
                         state->phase = GAME_PHASE_PLAYING;
                         if (!state->is_puzzle_mode)
                         {
-                            game_state_record_freeplay_snapshot(state);
+                            game_state_record_freeplay_snapshot(state, false);
                         }
                         game_state_history_refresh_ui(state);
                     }

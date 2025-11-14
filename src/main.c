@@ -41,9 +41,18 @@ static void ui_refresh_move_history(void)
 {
     const bool is_free_play = !g_game_state.is_puzzle_mode;
     const bool has_start_entry = is_free_play && freeplay_history_has_start_entry(&g_game_state.history_state);
+    uint16_t board_move_count = g_game_state.board.move_count;
+    uint16_t live_move_count = board_move_count;
+
+    if (is_free_play && g_game_state.history_state.count > 0u)
+    {
+        live_move_count = g_game_state.history_state.entries[0].board.move_count;
+    }
+
     print_move_history(g_game_state.context.history,
                        g_game_state.context.history_count,
-                       game_state_get_history_view_index(&g_game_state),
+                       board_move_count,
+                       live_move_count,
                        is_free_play,
                        has_start_entry);
 }
