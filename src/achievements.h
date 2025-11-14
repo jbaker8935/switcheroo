@@ -77,12 +77,15 @@ typedef struct {
 	uint8_t puzzle_attempt_active;
 	uint8_t puzzle_solution_length;
 	uint8_t puzzle_rule;
+	uint8_t freeplay_history_disqualified;
 } achievements_state_t;
 
 void achievements_init(achievements_state_t *state);
 void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
 void achievements_on_game_mode_changed(achievements_state_t *state, bool was_puzzle_mode, bool is_puzzle_mode);
 void achievements_on_freeplay_win(achievements_state_t *state, uint8_t layout_id, swap_rule_t rule, ai_difficulty_t difficulty, uint8_t move_count);
+void achievements_on_freeplay_history_branch(achievements_state_t *state);
+void achievements_on_freeplay_history_reset(achievements_state_t *state);
 void achievements_on_puzzle_loaded(achievements_state_t *state, const struct puzzle_t *puzzle);
 void achievements_on_puzzle_hint(achievements_state_t *state);
 void achievements_on_puzzle_attempt_completed(achievements_state_t *state, const struct puzzle_t *puzzle,  bool qualifies_for_mark);

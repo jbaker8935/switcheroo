@@ -38,6 +38,8 @@ typedef enum {
     KEY_R,      // Reset
     KEY_P,      // Previous
     KEY_N,      // Next
+    KEY_B,      // Back in history
+    KEY_F,      // Forward in history
     KEY_A,      // Achievements
     KEY_S,      // Swap Rule
     KEY_D,      // Difficulty

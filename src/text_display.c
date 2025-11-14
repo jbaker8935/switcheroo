@@ -392,46 +392,73 @@ static uint8_t pd_format_move(char *buf, size_t buf_size, player_t player,
     }
     
     
-    void display_puzzle_solution(const puzzle_t *puzzle) {
-        const uint16_t *solution = puzzle->solution;
-        uint8_t i = 0;  // Only show first move - future function to show longer hint ... maybe.
-        // for (uint8_t i = 0; i < puzzle->solution_length; i++) {
-            uint8_t player_packed = solution[i * 2];
-            uint16_t move_packed = solution[i * 2 + 1];
-            
-            player_t player = (player_t)player_packed;
-            uint8_t move_type = MOVE_UNPACK_TYPE(move_packed);
-            
-            char buf[26]; // 25 chars + null terminator
-            uint8_t len;
-            
-            uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
-            uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
-            
-            uint8_t from_row = POS_UNPACK_ROW(from_pos);
-            uint8_t from_col = POS_UNPACK_COL(from_pos);
-            uint8_t to_row = POS_UNPACK_ROW(to_pos);
-            uint8_t to_col = POS_UNPACK_COL(to_pos);
-            
-            uint8_t chess_from_row = (uint8_t)(8u - from_row);
-            uint8_t chess_to_row = (uint8_t)(8u - to_row);
-            
-            len = pd_format_move(buf, sizeof(buf), player,
-            from_col, chess_from_row,
-            to_col, chess_to_row,
-            move_type == 0);
-            
-            // Right-fill with spaces to exactly 25 characters
-            while (len < 25) {
-                buf[len++] = ' ';
-            }
-            buf[25] = '\0';
-            
-            print_puzzle_hint(buf);
-        // }
+void display_puzzle_solution(const puzzle_t *puzzle) {
+    const uint16_t *solution = puzzle->solution;
+    uint8_t i = 0;  // Only show first move - future function to show longer hint ... maybe.
+    uint8_t player_packed = solution[i * 2];
+    uint16_t move_packed = solution[i * 2 + 1];
+
+    player_t player = (player_t)player_packed;
+    uint8_t move_type = MOVE_UNPACK_TYPE(move_packed);
+
+    char buf[26]; // 25 chars + null terminator
+    uint8_t len;
+
+    uint8_t from_pos = MOVE_UNPACK_FROM_POS(move_packed);
+    uint8_t to_pos = MOVE_UNPACK_TO_POS(move_packed);
+
+    uint8_t from_row = POS_UNPACK_ROW(from_pos);
+    uint8_t from_col = POS_UNPACK_COL(from_pos);
+    uint8_t to_row = POS_UNPACK_ROW(to_pos);
+    uint8_t to_col = POS_UNPACK_COL(to_pos);
+
+    uint8_t chess_from_row = (uint8_t)(8u - from_row);
+    uint8_t chess_to_row = (uint8_t)(8u - to_row);
+
+    len = pd_format_move(buf,
+                         sizeof(buf),
+                         player,
+                         from_col,
+                         chess_from_row,
+                         to_col,
+                         chess_to_row,
+                         move_type == 0);
+
+    // Right-fill with spaces to exactly 25 characters
+    while (len < 25) {
+        buf[len++] = ' ';
     }
-    
-    
+    buf[25] = '\0';
+
+    print_puzzle_hint(buf);
+}
+
+static uint8_t history_find_engine_entry(const move_t *history,
+                                         uint8_t move_count,
+                                         uint8_t engine_rank)
+{
+    if (!history)
+    {
+        return move_count;
+    }
+
+    uint8_t engines_seen = 0u;
+    for (uint8_t idx = 0u; idx < move_count; ++idx)
+    {
+        if (history[idx].player != PLAYER_WHITE)
+        {
+            if (engines_seen == engine_rank)
+            {
+                return idx;
+            }
+
+            ++engines_seen;
+        }
+    }
+
+    return move_count;
+}
+
 void clear_puzzle_hint() {
     print_formatted_text(3,10, "                         ");
 } 
@@ -446,27 +473,67 @@ uint8_t format_move_string(char *buf, size_t buf_size, const move_t *move) {
         move->type == MOVE_TYPE_SWAP);
 }
 
-void print_move_history(const move_t *history, uint8_t move_count) {
+void print_move_history(const move_t *history,
+                        uint8_t move_count,
+                        uint8_t view_index,
+                        bool is_free_play,
+                        bool has_start_entry) {
     const uint8_t start_row = 31;
 
-
     print_formatted_text(5, start_row, "^6Move History^1");
+    print_formatted_text(3, (uint8_t)(start_row + 1u), "                         ");
+
+    uint8_t indicator_index = move_count;
+    bool show_start_position = false;
+
+    if (is_free_play)
+    {
+        if (move_count == 0u)
+        {
+            show_start_position = true;
+        }
+        else
+        {
+            indicator_index = history_find_engine_entry(history, move_count, view_index);
+            show_start_position = (indicator_index >= move_count);
+        }
+    }
+
+    const uint8_t start_entry_row = (uint8_t)(start_row + 3u);
+    const bool start_available = is_free_play && has_start_entry;
+    const bool highlight_start = start_available && show_start_position;
+
     for (uint8_t i = 0; i < 8; ++i) {
+        const uint8_t row = (uint8_t)(start_entry_row + i * 2u);
+        const bool is_start_row = start_available && (i == move_count) && (move_count < 8u);
+
         if (i < move_count) {
             const move_t *move = &history[i];
             char movestr[9] = "F1->T1 S";
-            print_formatted_text(3, start_row + 3 + i*2, move->player == PLAYER_WHITE ? "^4Player: ^1" : "^5Engine: ^1");
+            const bool highlight = is_free_play && !show_start_position && (i == indicator_index);
+            const char *indicator = highlight ? "^2>^1" : " ";
+            const char *role = (move->player == PLAYER_WHITE) ? "^4Player:^1 " : "^5Engine:^1 ";
+            print_formatted_text(2, row, indicator);
+            print_formatted_text(3, row, role);
             movestr[0] = (char) ( 'A' + move->from_col);
             movestr[1] = (char) ('0' + (8 - move->from_row));
             movestr[4] = (char) ('A' + move->to_col);
             movestr[5] = (char) ('0' + (8 - move->to_row));
             movestr[7] = (char) ((move->type == MOVE_TYPE_SWAP) ? 'S' : ' ');
             movestr[8] = '\0';
-            textGotoXY(11, start_row + 3 + i*2);
+            textGotoXY(11, row);
             textPrint(movestr);
 
+        } else if (is_start_row) {
+            const char *indicator = highlight_start ? "^2>^1" : " ";
+            print_formatted_text(2, row, indicator);
+            print_formatted_text(3, row, "^4Start^1                  ");
+            print_formatted_text(11, row, "        ");
+
         } else {
-            print_formatted_text(3, start_row + 3 + i*2, "                     ");
+            print_formatted_text(2, row, " ");
+            print_formatted_text(3, row, "                         ");
+            print_formatted_text(11, row, "        ");
         }
     }
 }

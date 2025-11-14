@@ -18,6 +18,122 @@ extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
 extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 
+static void game_state_clear_win_path(game_state_t *state);
+
+static void game_state_history_refresh_ui(game_state_t *state)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    const bool is_free_play = !state->is_puzzle_mode;
+    const uint8_t view_index = is_free_play
+                                    ? freeplay_history_view_index(&state->history_state)
+                                    : 0u;
+    const bool has_start_entry = is_free_play && freeplay_history_has_start_entry(&state->history_state);
+    print_current_player(state->context.current_player);
+    print_move_history(state->context.history,
+                       state->context.history_count,
+                       view_index,
+                       is_free_play,
+                       has_start_entry);
+}
+
+static void game_state_record_freeplay_snapshot(game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode)
+    {
+        return;
+    }
+
+    if (state->ai_config.ai_player != PLAYER_NONE &&
+        state->context.current_player == state->ai_config.ai_player)
+    {
+        return;
+    }
+
+    freeplay_history_capture_live(&state->history_state, &state->board, &state->context);
+}
+
+static void game_state_handle_history_branch(game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode)
+    {
+        return;
+    }
+
+    const uint8_t target_view = freeplay_history_view_index(&state->history_state);
+
+    if (target_view == 0u)
+    {
+        return;
+    }
+
+    uint16_t moves_to_trim = 0u;
+    if (target_view < freeplay_history_snapshot_count(&state->history_state))
+    {
+        const freeplay_history_entry_t *latest_entry = &state->history_state.entries[0];
+        const freeplay_history_entry_t *target_entry = &state->history_state.entries[target_view];
+
+        if (latest_entry->board.move_count > target_entry->board.move_count)
+        {
+            moves_to_trim = (uint16_t)(latest_entry->board.move_count - target_entry->board.move_count);
+        }
+    }
+
+    const uint8_t removed = freeplay_history_prepare_branch(&state->history_state);
+    if (removed == 0u)
+    {
+        return;
+    }
+
+    achievements_on_freeplay_history_branch(&state->achievements);
+
+    if (moves_to_trim == 0u)
+    {
+        moves_to_trim = (uint16_t)removed * 2u;
+    }
+
+    if (moves_to_trim >= state->context.history_count)
+    {
+        memset(state->context.history, 0, sizeof(state->context.history));
+        state->context.history_count = 0u;
+        state->context.last_moving_player = PLAYER_NONE;
+        return;
+    }
+
+    const uint8_t trimmed_count = (uint8_t)moves_to_trim;
+    const uint8_t remaining = (uint8_t)(state->context.history_count - trimmed_count);
+    memmove(state->context.history,
+            state->context.history + trimmed_count,
+            (size_t)remaining * sizeof(state->context.history[0]));
+    memset(state->context.history + remaining,
+           0,
+           (size_t)(MAX_MOVE_HISTORY - remaining) * sizeof(state->context.history[0]));
+    state->context.history_count = remaining;
+    state->context.last_moving_player = remaining > 0u
+                                            ? state->context.history[0].player
+                                            : PLAYER_NONE;
+}
+
+static void game_state_after_history_navigation(game_state_t *state)
+{
+    if (!state)
+    {
+        return;
+    }
+
+    state->phase = GAME_PHASE_PLAYING;
+    state->ai_think_frames = 0u;
+    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+    clear_made_blunder();
+    game_state_deselect_piece(state);
+    game_state_clear_win_path(state);
+    game_state_update_menu_enables(state);
+    game_state_history_refresh_ui(state);
+}
+
 static void game_state_clear_win_path(game_state_t *state)
 {
     if (!state)
@@ -71,6 +187,17 @@ static void game_state_reset_move_history(game_state_t *state)
     memset(state->context.history, 0, sizeof(state->context.history));
     state->context.history_count = 0;
     state->context.last_moving_player = PLAYER_NONE;
+
+    if (state->is_puzzle_mode)
+    {
+        freeplay_history_reset(&state->history_state, NULL, NULL);
+    }
+    else
+    {
+        state->context.current_player = PLAYER_WHITE;
+        freeplay_history_reset(&state->history_state, &state->board, &state->context);
+        achievements_on_freeplay_history_reset(&state->achievements);
+    }
 }
 
 static void game_state_focus_first_unsolved_puzzle(game_state_t *state)
@@ -183,6 +310,8 @@ static void game_state_toggle_swap_rule(game_state_t *state)
         game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
         print_swap_rule(state->prefs.swap_rule);
         clear_swap_unavailable();
+        game_state_reset_move_history(state);
+        game_state_history_refresh_ui(state);
     } else {
         // Cannot change swap rule in free play after moves
         print_swap_unavailable();
@@ -194,6 +323,7 @@ void game_state_init(game_state_t *state)
 {
     memset(state, 0, sizeof(game_state_t));
 
+    freeplay_history_init(&state->history_state);
     achievements_init(&state->achievements);
     ui_progress_init(&state->ui_progress);
 
@@ -247,6 +377,11 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     bool previous_mode = state->is_puzzle_mode;
     state->is_puzzle_mode = puzzle_mode;
 
+    if (mode_changed && !previous_mode && puzzle_mode)
+    {
+        achievements_on_freeplay_history_reset(&state->achievements);
+    }
+
     achievements_on_game_mode_changed(&state->achievements, previous_mode, puzzle_mode);
 
     if (state->is_puzzle_mode)
@@ -299,6 +434,12 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             state->difficulty_manually_set = false; // Reset manual flag since we're setting default
             
             print_ai_difficulty(state->prefs.difficulty_level);
+
+            // Ensure free play snapshots only capture player-to-move states by resetting the AI side.
+            game_state_configure_ai(state,
+                                    state->prefs.swap_rule,
+                                    state->prefs.difficulty_level,
+                                    PLAYER_BLACK);
         }
 
         // FREEPLAY mode: standard initial position
@@ -328,6 +469,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     // Reset board cell colors to original checkerboard pattern
     video_reset_all_board_cell_colors();
     video_set_game_mode_icon_bitmap(state->is_puzzle_mode);
+    game_state_history_refresh_ui(state);
 }
 
 void game_state_start_new_game(game_state_t *state)
@@ -386,6 +528,11 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
 
     move_t *move = &state->selection.legal_moves[move_index];
 
+    if (!state->is_puzzle_mode && freeplay_history_view_index(&state->history_state) > 0u)
+    {
+        game_state_handle_history_branch(state);
+    }
+
     if (board_execute_move(&state->board, &state->context, move, state->prefs.swap_rule))
     {
         game_state_deselect_piece(state);
@@ -418,8 +565,14 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
             }
         }
 
+        if (!state->is_puzzle_mode)
+        {
+            game_state_record_freeplay_snapshot(state);
+        }
+
         // Update menu enables
         game_state_update_menu_enables(state);
+        game_state_history_refresh_ui(state);
         return true;
     }
     
@@ -482,8 +635,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             if(!state->is_puzzle_mode) {
                 clear_swap_unavailable();
             }
-            print_current_player(state->context.current_player);
-            print_move_history(state->context.history, state->context.history_count);
+            game_state_history_refresh_ui(state);
             print_swap_rule(state->prefs.swap_rule);
             state->phase = GAME_PHASE_PLAYING;
         break;
@@ -535,8 +687,7 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 clear_puzzle_hint();
                 set_mouse_cursor(MOUSE_CURSOR_NORMAL);
             }
-            print_current_player(state->context.current_player);
-            print_move_history(state->context.history, state->context.history_count);
+            game_state_history_refresh_ui(state);
             break;
             
         case MENU_ICON_SWAP:
@@ -704,6 +855,11 @@ void game_state_update(game_state_t *state, float delta_time)
                         {
                             game_state_play_sound(state, SOUND_ID_WIN);
                         }
+                        if (!state->is_puzzle_mode)
+                        {
+                            game_state_record_freeplay_snapshot(state);
+                        }
+                        game_state_history_refresh_ui(state);
                         clear_made_blunder();
                         state->phase = GAME_PHASE_GAME_OVER;
                         set_mouse_cursor(MOUSE_CURSOR_NORMAL);
@@ -716,6 +872,11 @@ void game_state_update(game_state_t *state, float delta_time)
                         game_state_play_sound(state, SOUND_ID_MOVE);
                         board_switch_turn(&state->context);
                         state->phase = GAME_PHASE_PLAYING;
+                        if (!state->is_puzzle_mode)
+                        {
+                            game_state_record_freeplay_snapshot(state);
+                        }
+                        game_state_history_refresh_ui(state);
                     }
                 }
             }
@@ -724,6 +885,7 @@ void game_state_update(game_state_t *state, float delta_time)
             {
                 board_switch_turn(&state->context);
                 state->phase = GAME_PHASE_PLAYING;
+                game_state_history_refresh_ui(state);
             }
 
             set_mouse_cursor(MOUSE_CURSOR_NORMAL);
@@ -736,6 +898,58 @@ void game_state_update(game_state_t *state, float delta_time)
     default:
         break;
     }
+}
+
+bool game_state_step_history_back(game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode || state->phase == GAME_PHASE_AI_THINKING)
+    {
+        return false;
+    }
+
+    if (!freeplay_history_step_backward(&state->history_state, &state->board, &state->context))
+    {
+        return false;
+    }
+
+    game_state_after_history_navigation(state);
+    return true;
+}
+
+bool game_state_step_history_forward(game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode || state->phase == GAME_PHASE_AI_THINKING)
+    {
+        return false;
+    }
+
+    if (!freeplay_history_step_forward(&state->history_state, &state->board, &state->context))
+    {
+        return false;
+    }
+
+    game_state_after_history_navigation(state);
+    return true;
+}
+
+uint8_t game_state_get_history_view_index(const game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode)
+    {
+        return 0u;
+    }
+
+    return freeplay_history_view_index(&state->history_state);
+}
+
+bool game_state_is_history_live(const game_state_t *state)
+{
+    if (!state || state->is_puzzle_mode)
+    {
+        return true;
+    }
+
+    return freeplay_history_is_live(&state->history_state);
 }
 
 #ifdef AI_AGENT_HOST_TEST

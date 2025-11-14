@@ -141,6 +141,39 @@ in a dedicated discrepancies section.
   session totals.
 - WHEN the help screen is displayed, THE SYSTEM SHALL render the embedded help text from the `help_text` constant in `src/help.c`.
 
+### Free Play Move History
+- WHEN free play accepts a move while the viewed turn is the live board and the
+  resulting position leaves the human player to act, THE SYSTEM SHALL snapshot
+  the resulting `board_t` into a four-entry circular history, insert the move at
+  index zero, and clamp the history length to four states.
+- WHEN the player presses Back (`B`) in free play and an older snapshot exists, THE
+  SYSTEM SHALL step the viewed index backward by one, restore the board and
+  context from that snapshot, clear selections, and keep the AI in a manual
+  phase.
+- WHEN the player presses Forward (`F`) in free play and a newer snapshot exists,
+  THE SYSTEM SHALL step the viewed index forward by one, restore the board and
+  context from that snapshot, and refresh HUD highlights without executing new
+  logic.
+- WHEN the player performs a legal move from a historical snapshot in free
+  play, THE SYSTEM SHALL discard all snapshots that were newer than the viewed
+  index, append the new state as the latest entry, and mark the session as
+  ineligible for free play achievements until the history is cleared.
+- WHEN free play history is cleared by reset, layout change, swap rule toggle
+  before any moves, or mode transition, THE SYSTEM SHALL delete all snapshots,
+  reset the viewed index to zero, and lift the achievement ineligibility flag.
+- WHEN puzzle mode is active, THE SYSTEM SHALL ignore Back and Forward key
+  presses for board navigation and preserve the existing puzzle controls.
+- WHEN move history text is rendered in free play, THE SYSTEM SHALL identify
+  the currently viewed snapshot with a caret marker or alternate color in the
+  rendered column without altering puzzle displays.
+- WHILE the base snapshot remains in free play history, THE SYSTEM SHALL append
+  a dedicated "Start" entry after the recorded moves and highlight it when the
+  base snapshot is selected.
+- IF the base snapshot has aged out of free play history, THEN THE SYSTEM SHALL
+  omit the "Start" entry from the move history render.
+- WHEN Back or Forward is pressed without an available snapshot, THE SYSTEM
+  SHALL leave the board unchanged and may play an optional error chime.
+
 ### Timing and Alarms
 - WHEN subsystems schedule independent countdowns, THE SYSTEM SHALL provide
   separate Timer0-backed alarm channels so each countdown completes without

@@ -36,7 +36,11 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
 void print_ai_difficulty(ai_difficulty_t difficulty);
 void print_puzzle_hint(const char *hint);
 void clear_puzzle_hint(void);
-void print_move_history(const move_t *history, uint8_t move_count);
+void print_move_history(const move_t *history,
+                        uint8_t move_count,
+                        uint8_t view_index,
+                        bool is_free_play,
+                        bool has_start_entry);
 void clear_puzzle_info(void);
 void print_puzzle_debug(const char *line1, const char *line2);
 void clear_puzzle_debug(void);

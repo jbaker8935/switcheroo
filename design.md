@@ -112,6 +112,34 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   move execution, and win/loss outcomes trigger the appropriate `sound_id_t`
   when audio is enabled.
 
+### Free Play History (`freeplay_history.c/.h`)
+- Owns a four-entry ring buffer of `board_t` snapshots plus metadata capturing
+  the current length, the viewed index, and whether achievements remain
+  eligible.
+- Exposes `freeplay_history_reset`, `freeplay_history_capture_live`,
+  `freeplay_history_prepare_branch`, `freeplay_history_step_backward`, and
+  `freeplay_history_step_forward` so `game_state` can drive snapshots without
+  duplicating bookkeeping logic.
+- Serialises snapshots as raw `board_t` copies and the associated
+  `board_context_t` turn, last-move owner, and layout id to guarantee that
+  navigation restores render and AI state consistently.
+- Relies on the caller to guard puzzle mode so the module stays focused on
+  buffer management for free play sessions.
+- Depends on `game_state` to filter snapshot captures so only
+  human-to-move positions enter the ring, preventing AI-turn states from
+  appearing in navigation.
+- During branching, the `game_state` module compares snapshot move counts
+  to trim just the undone moves from `board_context.history`, keeping the
+  move list aligned without duplicate player entries.
+- Defers memory reuse until after a branch replaces future snapshots,
+  ensuring that stale states are overwritten before being considered for
+  achievements.
+- Integrates with achievements by toggling a disqualification flag on
+  branching moves and clearing the flag during resets, layout changes, or mode
+  transitions.
+- Records the viewed index so `text_display` can highlight the active entry
+  without re-deriving it from `board_context.history` order.
+
 ### Board and Move Validation (`board.c/.h`)
 - Encapsulates the 8x4 board grid, piece states, and swap flags.
 - Implements legal-move enumeration for empty moves and swaps per rule variant
@@ -152,6 +180,10 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   puzzle metadata, hints, and win banners using formatted text rows.
 - Presentation currently employs static palettes and does not yet implement the
   themed or disabled-icon art envisioned in earlier drafts.
+- `print_move_history` reads the viewed index from the history
+  module to add a caret marker to the active entry, append a "Start" row after
+  recorded moves while the baseline snapshot remains, and keep puzzle rows
+  untouched.
 
 ### Puzzle Streaming (`puzzle_data.c/.h`)
 - Streams a fixed-record catalog (`assets/generated/puzzle_data.bin`) embedded

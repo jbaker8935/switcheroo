@@ -17,6 +17,7 @@
 #include "../src/board.h"
 #include "../src/ai_agent.h"
 #include "../src/ui_progress.h"
+#include "../src/freeplay_history.h"
 #include <stdint.h>
 
 // Game phases
@@ -82,6 +83,7 @@ typedef struct {
     game_phase_t phase;
     board_t board;
     board_context_t context;
+    freeplay_history_state_t history_state;
     session_stats_t stats;
     achievements_state_t achievements;
     user_preferences_t prefs;
@@ -123,5 +125,10 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce);
 
 // Update
 void game_state_update(game_state_t *state, float delta_time);
+
+bool game_state_step_history_back(game_state_t *state);
+bool game_state_step_history_forward(game_state_t *state);
+uint8_t game_state_get_history_view_index(const game_state_t *state);
+bool game_state_is_history_live(const game_state_t *state);
 
 #endif // GAME_STATE_H

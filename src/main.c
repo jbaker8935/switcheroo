@@ -37,6 +37,17 @@ extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 // Global game state
 game_state_t g_game_state;
 
+static void ui_refresh_move_history(void)
+{
+    const bool is_free_play = !g_game_state.is_puzzle_mode;
+    const bool has_start_entry = is_free_play && freeplay_history_has_start_entry(&g_game_state.history_state);
+    print_move_history(g_game_state.context.history,
+                       g_game_state.context.history_count,
+                       game_state_get_history_view_index(&g_game_state),
+                       is_free_play,
+                       has_start_entry);
+}
+
 void init_main_screen(void) {
     // Initialize subsystems
     video_init();  // Use default config
@@ -55,7 +66,7 @@ void restore_main_screen(void) {
     video_set_game_mode_icon_bitmap(g_game_state.is_puzzle_mode);
     print_swap_rule(g_game_state.ai_config.swap_rule);
     print_current_player(g_game_state.context.current_player);
-    print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+    ui_refresh_move_history();
     refresh_win_path(&g_game_state.win_path);
     if (g_game_state.is_puzzle_mode) {
         const puzzle_collection_t *collection = get_puzzle_collection();
@@ -114,7 +125,7 @@ void FAR11_main_loop(void) {
 
         if (g_screen_state == SCREEN_MAIN && g_game_state.phase == GAME_PHASE_GAME_OVER) {
             print_game_winner(g_game_state.win_path.winner);
-            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+            ui_refresh_move_history();
             if (g_game_state.is_puzzle_mode) {
                 // In puzzle mode, mark puzzle as solved if player won
                 // in N Player A moves or less
@@ -143,7 +154,7 @@ void FAR11_main_loop(void) {
         }
 
         if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
-            print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+            ui_refresh_move_history();
             print_current_player(g_game_state.context.current_player);
             old_move_count = g_game_state.board.move_count;
         }
@@ -235,7 +246,7 @@ void FAR11_main_loop(void) {
                 }
                 if (g_game_state.board.move_count != old_move_count && 
                     g_game_state.phase != GAME_PHASE_GAME_OVER && g_screen_state == SCREEN_MAIN  ) {
-                    print_move_history(g_game_state.context.history, g_game_state.context.history_count);
+                    ui_refresh_move_history();
                     print_current_player(g_game_state.context.current_player);
                     old_move_count = g_game_state.board.move_count;
                 }
@@ -275,9 +286,14 @@ int main(int argc, char *argv[]) {
     setAlarm(TIMER_ALARM_SPLASH, 60); // Set alarm for 60 ticks
     // Initialize game state
     game_state_init(&g_game_state);
-
+    
+    init_sounds();
+    // Play start sound
+    play_sound(SOUND_ID_START);    
+    
     file_io_init();
 
+    
     main_loop();
     
     print_game_exit();

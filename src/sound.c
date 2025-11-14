@@ -38,6 +38,7 @@ EMBED(sound_loss,"../assets/sounds/loss.mp3",0x6F640u);
 EMBED(sound_move,"../assets/sounds/move.mp3",0x70E70u);
 EMBED(sound_reset_board,"../assets/sounds/reset_board.mp3",0x726A0u);
 EMBED(sound_win,"../assets/sounds/win.mp3",0x73ED0u);
+EMBED(sound_game_start,"../assets/sounds/game_start_sound.mp3",0x75700u);
 
 uint16_t vs1053_read_sci(uint8_t addr) {
     POKE(VS_SCI_ADDR, addr);

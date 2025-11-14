@@ -82,6 +82,7 @@ backlog.
 | T56 | Freeplay History Reset Fix | Ensure free play resets and layout navigation clear move history via a shared helper before HUD refresh. | `src/game_state.c`, documentation updates. | T5, T32 | Done |
 | T57 | Blunder Candidate Retention | Keep opponent immediate-win moves flagged for blunder selection and cover the behaviour with host regression output. | `src/ai_agent.c`, `tests/ai_agent_tests.c`, docs. | T8, T21, T24 | Done |
 | T58 | Timer0 Multi-Alarm Support | Extend the timer module to manage multiple alarm channels and update call sites plus documentation. | Updated `src/timer.c`, `src/timer.h`, dependent modules, docs. | T5, T53 | Done |
+| T59 | Free Play History Navigation | Implement a four-state free play history buffer with branching, Back/Forward input bindings, HUD indicators, and achievement disqualification handling. | `src/freeplay_history.c/.h`, `src/game_state.c`, `src/input.c`, `src/input_handler.c`, `src/text_display.c`, `src/achievements.c`, updated docs. | T5, T6, T52 | Not Started |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

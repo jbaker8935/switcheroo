@@ -356,6 +356,22 @@ void achievements_on_game_mode_changed(achievements_state_t *state, bool was_puz
 	}
 }
 
+void achievements_on_freeplay_history_branch(achievements_state_t *state) {
+	if (!state) {
+		return;
+	}
+
+	state->freeplay_history_disqualified = 1u;
+}
+
+void achievements_on_freeplay_history_reset(achievements_state_t *state) {
+	if (!state) {
+		return;
+	}
+
+	state->freeplay_history_disqualified = 0u;
+}
+
 
 void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
 								  uint8_t layout_id,
@@ -385,6 +401,10 @@ void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
 								  ai_difficulty_t difficulty,
 								  uint8_t move_count) {
 	if (!state) {
+		return;
+	}
+
+	if (state->freeplay_history_disqualified) {
 		return;
 	}
 
@@ -609,7 +629,7 @@ static uint16_t read_u16(const uint8_t **cursor) {
 }
 
 uint16_t achievements_storage_size(void) {
-	return (uint16_t)(2u + /* version, reserved */
+	return (uint16_t)(2u + /* version, history flag */
 					  2u + /* unlocked mask */
 					  (ACHIEVEMENT_COUNT * 2u) +
 					  ACHIEVEMENT_COUNT +
@@ -633,7 +653,7 @@ uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buff
 
 	uint8_t *cursor = buffer;
 	cursor[0] = ACHIEVEMENTS_STORAGE_VERSION;
-	cursor[1] = 0u;
+	cursor[1] = state->freeplay_history_disqualified ? 1u : 0u;
 	cursor += 2;
 
 	write_u16(&cursor, state->unlocked_mask);
@@ -689,11 +709,14 @@ bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, 
 
 	const uint8_t *cursor = data;
 	const uint8_t version = cursor[0];
+	const uint8_t history_flag = cursor[1];
 	cursor += 2; // skip version + reserved
 
 	if (version != ACHIEVEMENTS_STORAGE_VERSION) {
 		return false;
 	}
+
+	state->freeplay_history_disqualified = history_flag ? 1u : 0u;
 
 	state->unlocked_mask = read_u16(&cursor);
 

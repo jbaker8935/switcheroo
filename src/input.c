@@ -30,6 +30,8 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0x72: return KEY_R;       // R
         case 0x70: return KEY_P;       // P
         case 0x6E: return KEY_N;       // N
+        case 0x62: return KEY_B;       // B
+        case 0x66: return KEY_F;       // F
         case 0x73: return KEY_S;       // S
         case 0x64: return KEY_D;       // D
         case 0x68: return KEY_H;       // H

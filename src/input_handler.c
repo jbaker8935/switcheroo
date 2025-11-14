@@ -151,6 +151,12 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                         game_state_activate_menu_icon(state, MENU_ICON_NEXT);
                     }
                     break;
+                case KEY_B:
+                    (void)game_state_step_history_back(state);
+                    break;
+                case KEY_F:
+                    (void)game_state_step_history_forward(state);
+                    break;
                 case KEY_S:
                     if (state->menu.enabled[MENU_ICON_SWAP]) {
                         game_state_activate_menu_icon(state, MENU_ICON_SWAP);
