@@ -524,12 +524,19 @@ void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 		return;
 	}
 
+	if (state->puzzle_attempt_active == 0u) {
+		return;
+	}
+
+	const bool puzzle_already_solved = (puzzle && puzzle->is_solved);
 	uint8_t solved_fast = (state->puzzle_timer_expired == 0u) ? 1u : 0u;
 	uint8_t no_hint = (state->puzzle_hint_used == 0u) ? 1u : 0u;
 
 	if (qualifies_for_mark) {  // only if the puzzle was solved within allowed moves
-		if (state->puzzle_total_solves < UINT16_MAX) {
-			++state->puzzle_total_solves;
+		if (!puzzle_already_solved) {
+			if (state->puzzle_total_solves < UINT16_MAX) {
+				++state->puzzle_total_solves;
+			}
 		}
 		
 		if (no_hint && solved_fast) {
@@ -570,30 +577,36 @@ void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 			}
 		}
 
-		if (state->puzzle_session_solves < 0xFFu) {
-			++state->puzzle_session_solves;
-		}
-		state->progress_count[ACH_PUZZLE_SESSION_FIFTY] = clamp_u16(
-			state->puzzle_session_solves,
-			50u
-		);
-		if (state->puzzle_session_solves >= 50u) {
-			achievements_unlock(state, ACH_PUZZLE_SESSION_FIFTY);
-		}
-
-
-		const swap_rule_t rule = puzzle->swap_rule;
-		if (rule < NUMBER_OF_SWAP_RULES) {
-			if (state->solved_puzzles_per_rule[rule] < UINT16_MAX) {
-				++state->solved_puzzles_per_rule[rule];
+		if (!puzzle_already_solved) {
+			if (state->puzzle_session_solves < 0xFFu) {
+				++state->puzzle_session_solves;
+			}
+			state->progress_count[ACH_PUZZLE_SESSION_FIFTY] = clamp_u16(
+				state->puzzle_session_solves,
+				50u
+			);
+			if (state->puzzle_session_solves >= 50u) {
+				achievements_unlock(state, ACH_PUZZLE_SESSION_FIFTY);
 			}
 		}
-		if (state->solved_puzzles_catalog < UINT16_MAX) {
-			++state->solved_puzzles_catalog;
+
+
+		if (puzzle && !puzzle_already_solved) {
+			const swap_rule_t rule = puzzle->swap_rule;
+			if (rule < NUMBER_OF_SWAP_RULES) {
+				if (state->solved_puzzles_per_rule[rule] < UINT16_MAX) {
+					++state->solved_puzzles_per_rule[rule];
+				}
+			}
+			if (state->solved_puzzles_catalog < UINT16_MAX) {
+				++state->solved_puzzles_catalog;
+			}
 		}
 
-		achievements_update_rule_progress(state, puzzle->swap_rule);
-		achievements_update_catalog_progress(state);
+		if (puzzle) {
+			achievements_update_rule_progress(state, puzzle->swap_rule);
+			achievements_update_catalog_progress(state);
+		}
 
 	}
 

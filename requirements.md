@@ -358,9 +358,15 @@ in a dedicated discrepancies section.
 - WHEN the player solves a qualifying "Win in 3" or "Win in 4" puzzle without
   hints, THE SYSTEM SHALL unlock the respective achievements based on the
   puzzle's solution length metadata.
+- WHEN a previously solved puzzle is cleared again within its move budget and
+  without hints, THE SYSTEM SHALL unlock any pending Win-in-3 or Win-in-4
+  achievements while keeping solved-puzzle aggregates stable.
 - WHEN puzzles are solved without hints while puzzle mode remains active, THE
   SYSTEM SHALL increment the session counter and unlock "Solve 50 puzzles in
   one session" once the counter reaches fifty.
+- WHEN a puzzle attempt completes, THE SYSTEM SHALL process achievement updates
+  only once per attempt so repeated game-over frames do not double count
+  progress.
 - WHEN a puzzle is newly marked solved for its swap rule, THE SYSTEM SHALL
   update per-rule completion counts, unlock "Solve all puzzles for a swap rule"
   once every puzzle in that rule is solved, and unlock "Solve all puzzles in the

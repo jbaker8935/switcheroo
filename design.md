@@ -220,6 +220,12 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - Exposes update hooks for freeplay wins, puzzle hints, puzzle loads, and
   puzzle completions; each hook updates the SoA counters and conditionally sets
   unlock bits when thresholds are met.
+- Guards the puzzle completion hook with the attempt-active flag so the main
+  loop can remain in the game-over state without double counting puzzle
+  progress across frames.
+- Allows repeat puzzle clears to re-evaluate Win-in-3 and Win-in-4 achievements
+  when the player finishes within the move budget without hints while guarding
+  the unique solved counters against double counting.
 - Drives the thirty-second puzzle benchmark by starting Timer0 for 900 ticks on
   puzzle load and consuming the shared timer pulses through a per-frame tick
   handler invoked from the main loop.

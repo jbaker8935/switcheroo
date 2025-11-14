@@ -140,24 +140,28 @@ void FAR11_main_loop(void) {
                 // in N Player A moves or less
                 // retrieve current puzzle and its difficulty
                 if (g_game_state.win_path.winner == PLAYER_WHITE) {
-                    const puzzle_collection_t *collection = get_puzzle_collection();
                     const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-                    bool qualifies_for_mark = false;
-                    if (puzzle && !puzzle->is_solved) {
-                        uint8_t white_moves = (uint8_t)((g_game_state.board.move_count + 1u) / 2u);
-                        qualifies_for_mark = (white_moves <= puzzle->difficulty);
+                    if (puzzle) {
+                        const bool was_solved = puzzle->is_solved;
+                        const uint8_t white_moves = (uint8_t)((g_game_state.board.move_count + 1u) / 2u);
+                        const bool qualifies_for_mark = (white_moves <= puzzle->difficulty);
+
                         achievements_on_puzzle_attempt_completed(&g_game_state.achievements,
                                                                  puzzle,
                                                                  qualifies_for_mark);
-                        // Mark puzzle as solved in persistent storage
-                        if (qualifies_for_mark) {
+
+                        if (qualifies_for_mark && !was_solved) {
+                            const puzzle_collection_t *collection = get_puzzle_collection();
                             mark_puzzle_solved(g_game_state.prefs.current_puzzle_index);
-                            // confirm write.
                             const puzzle_t *puzzle_updated = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
-                            print_puzzle_info(g_game_state.prefs.current_puzzle_index, collection->count,
-                                            puzzle_updated->difficulty, puzzle_updated->is_solved);
+                            if (collection && puzzle_updated) {
+                                print_puzzle_info(g_game_state.prefs.current_puzzle_index,
+                                                  collection->count,
+                                                  puzzle_updated->difficulty,
+                                                  puzzle_updated->is_solved);
+                            }
                         }
-                    } 
+                    }
                 }
             }
         }
