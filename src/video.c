@@ -220,16 +220,16 @@ void FAR12_video_show_exit(void) {
     bitmapSetAddress(VIDEO_SPLASH_PAGE, SRAM_SPLASH_BASE);
     bitmapSetVisible(VIDEO_SPLASH_PAGE, true);
     
-    disable_mouse();
-    print_formatted_text(24, 40, "^4F256 ^5Switch^1 a ^6Not a Thing^1 game");
-    print_formatted_text(22, 42, "^1Various rights reserved and so forth^1");
-    print_formatted_text(36, 44, "^6Credits^1"); 
-    print_formatted_text(28, 46, "^2Addy's 'Switcheroo' Game^1");
-    print_formatted_text(28, 48, "^2Developed by jbaker8935^1");
-    print_formatted_text(16, 50, "^2Special Thanks to the Wildbits Discord Community^1");
-    print_formatted_text(26, 52, "^2Powered by LLVM-MOS F256 SDK^1");
-    print_formatted_text(31, 56, "^4Thanks ^1for ^5Playing^1");
+    print_formatted_text(24, 38, "^4F256 ^5Switch^1 a ^6Not a Thing^1 game");
+    print_formatted_text(22, 40, "^1Various rights reserved and so forth^1");
+    print_formatted_text(36, 42, "^6Credits^1"); 
+    print_formatted_text(28, 44, "^2Addy's 'Switcheroo' Game^1");
+    print_formatted_text(28, 46, "^2Developed by jbaker8935^1");
+    print_formatted_text(16, 48, "^2Special Thanks to the Wildbits Discord Community^1");
+    print_formatted_text(26, 50, "^2Powered by LLVM-MOS F256 SDK^1");
+    print_formatted_text(31, 54, "^4Thanks ^1for ^5Playing^1");
     
+    disable_mouse();
 }
 
 void video_init(void) {
