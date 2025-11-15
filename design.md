@@ -100,6 +100,8 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   puzzle for the active swap-rule filter before reloading puzzle state.
 - Normalises turn flow by calling `board_execute_move`, swapping turns,
   scheduling AI work, and updating menu enable flags.
+- Clears the swap-unavailable HUD notice whenever a free play move completes so
+  the message does not linger after play resumes.
 - Provides the menu activation entry point so icons and keyboard shortcuts can
   trigger resets, puzzle navigation, hints, or difficulty changes.
 - Sets AI difficulty to STANDARD by default when entering puzzle mode to provide

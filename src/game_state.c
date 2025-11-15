@@ -608,6 +608,7 @@ bool game_state_execute_selected_move(game_state_t *state, uint8_t move_index)
 
         if (!state->is_puzzle_mode)
         {
+            clear_swap_unavailable();
             game_state_record_freeplay_snapshot(state, false);
         }
 

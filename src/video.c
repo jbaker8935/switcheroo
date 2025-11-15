@@ -181,13 +181,13 @@ void FAR12_video_show_exit(void) {
     }
 
     
-    // Copy in Logo Screen Start x 113 y 10 w 100 h 104
+    // Copy in Logo Screen Start x 113 y 24 w 100 h 104
     uint16_t byte_offset = 0;
     for (uint16_t row= 0; row < 104; row++) {
         for (uint16_t col = 0; col < 100; col++) {
             uint8_t byte = FAR_PEEK(SRAM_NOT_A_THING + byte_offset);
             uint16_t screen_x = 113 + col;
-            uint16_t screen_y = 10 + row;
+            uint16_t screen_y = 24 + row;
             uint32_t addr_offset = screen_y * 320 + screen_x;
             FAR_POKE(SRAM_SPLASH_BASE + addr_offset, byte);
             byte_offset++;
@@ -226,7 +226,7 @@ void FAR12_video_show_exit(void) {
     print_formatted_text(36, 44, "^6Credits^1"); 
     print_formatted_text(28, 46, "^2Addy's 'Switcheroo' Game^1");
     print_formatted_text(28, 48, "^2Developed by jbaker8935^1");
-    print_formatted_text(17, 50, "^2Special Thanks to the Foenix Discord Community^1");
+    print_formatted_text(16, 50, "^2Special Thanks to the Wildbits Discord Community^1");
     print_formatted_text(26, 52, "^2Powered by LLVM-MOS F256 SDK^1");
     print_formatted_text(31, 56, "^4Thanks ^1for ^5Playing^1");
     

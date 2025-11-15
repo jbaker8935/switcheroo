@@ -13,6 +13,7 @@
 
 // Static flag to track if blunder message is currently displayed
 static bool blunder_message_active = false;
+static bool swap_unavailable_active = false;
 
 /*
  * @file text_display.c
@@ -356,14 +357,20 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
 }
 
 void print_swap_unavailable(void) {
-    print_formatted_text(3, 55, "^3Rule cannot be  ");
-    print_formatted_text(3, 56, "changed mid-game^1");
+    print_formatted_text(2, 55, "^3Rule cannot be  ");
+    print_formatted_text(2, 56, "changed mid-game^1");
+    swap_unavailable_active = true;
 }
 
 void clear_swap_unavailable(void) {
-    print_formatted_text(3, 55, "                         ");
-    print_formatted_text(3, 56, "                         ");
+    if(!swap_unavailable_active) {
+        return;
+    }
+    print_formatted_text(2, 55, "                         ");
+    print_formatted_text(2, 56, "                         ");
+    swap_unavailable_active = false;
 }
+
 
 void print_made_blunder(void) {
     print_formatted_text(3, 10, "^3Blunder!^1             ");
