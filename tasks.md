@@ -87,6 +87,7 @@ backlog.
 | T61 | Repeat Puzzle Achievement Unlocks | Ensure Win-in-3/4 achievements unlock on repeat no-hint clears without inflating solved counts. | `src/main.c`, `src/achievements.c`, docs sync. | T52, T53 | Done |
 | T62 | Puzzle Attempt Single Count | Guard the puzzle completion hook with the attempt-active flag so a single solve cannot double increment counters across frames. | `src/achievements.c`, docs sync. | T52, T53 | Done |
 | T63 | Exit Screen Pause | Display the exit screen, wait three seconds before saving (skippable on key press), and proceed to reset. | `src/main.c`, documentation updates. | T5, T58 | Done |
+| T64 | Freeplay Swap Notice Reset | Clear the swap-unavailable HUD message whenever a free play move is recorded. | `src/game_state.c`, documentation sync. | T5, T6 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

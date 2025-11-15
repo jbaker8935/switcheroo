@@ -314,6 +314,8 @@ in a dedicated discrepancies section.
 - WHEN the player attempts to toggle the swap rule in puzzle mode or after
   moving, THE SYSTEM SHALL call `print_swap_unavailable` and leave the swap
   configuration unchanged.
+- WHEN free play accepts a human move, THE SYSTEM SHALL call
+  `clear_swap_unavailable` so the swap warning clears automatically.
 - WHEN `ai_agent_find_best_move` fails to locate a move during AI thinking, THE
   SYSTEM SHALL call `print_formatted_text` at row 21 with "AI HAS NO MOVES"
   before handing the turn back.
