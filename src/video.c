@@ -221,7 +221,7 @@ void FAR12_video_show_exit(void) {
     bitmapSetVisible(VIDEO_SPLASH_PAGE, true);
     
     disable_mouse();
-    print_formatted_text(24, 40, "^4F256 ^5Switch^1 a ^6Not a Thing game^1");
+    print_formatted_text(24, 40, "^4F256 ^5Switch^1 a ^6Not a Thing^1 game");
     print_formatted_text(22, 42, "^1Various rights reserved and so forth^1");
     print_formatted_text(36, 44, "^6Credits^1"); 
     print_formatted_text(28, 46, "^2Addy's 'Switcheroo' Game^1");

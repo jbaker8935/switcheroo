@@ -77,6 +77,12 @@ in a dedicated discrepancies section.
   MOVES" and toggles turn.
 - WHEN the Exit icon is activated, THE SYSTEM SHALL set phase to
   `GAME_PHASE_EXIT` so `main.c` can drive the Foenix soft reset sequence.
+- WHEN the system enters the exit phase, THE SYSTEM SHALL display the exit
+  screen and wait three seconds before continuing with persistence and the
+  Foenix soft reset sequence unless a key press occurs.
+- WHEN a key is pressed during the exit screen delay, THE SYSTEM SHALL skip
+  the remaining wait and proceed directly to persistence and the Foenix
+  soft reset sequence.
 
 ### Input and Selection
 - WHEN `input_translate_event` receives mouse delta data, THE SYSTEM SHALL
