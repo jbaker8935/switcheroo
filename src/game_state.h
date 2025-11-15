@@ -44,6 +44,7 @@ typedef enum {
     MENU_ICON_COUNT = 8
 } menu_icon_t;
 
+
 // Session statistics
 typedef struct {
     uint8_t white_wins;

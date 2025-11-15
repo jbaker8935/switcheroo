@@ -6,6 +6,7 @@
 #include "../src/game_state.h"
 
 
+
 /*
  * @file text_display.h
  * @brief Text display utilities for F256 Switcharoo
@@ -23,6 +24,7 @@
  * Row: 10-17 Move History (8 moves, 1 per row)
  * 
  */
+
 
 void print_formatted_text(uint8_t x, uint8_t y, const char *text);
 void print_win_loss(uint16_t win_count, uint16_t loss_count);
@@ -55,8 +57,10 @@ void print_made_blunder(void);
 void clear_made_blunder(void); 
 void display_show_help_screen(void);
 void display_hide_help_screen(void);
+void print_press_f1_for_help(void);
 void print_game_exit(void);
 void print_puzzle_clock(uint16_t elapsed_ticks);
+void print_icon_tooltip(menu_icon_t icon);
 uint8_t count_digits(uint16_t value);
 
 

@@ -61,8 +61,10 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 5. Rendering runs every tick through `render_update`, projecting board state to
    sprite attributes, highlight overlays, and win-path colours while text rows
    are refreshed via `text_display` helpers.
-6. Exit conditions transition the phase to `GAME_PHASE_EXIT`, prompting the
-   Foenix soft-reset sequence and releasing hardware resources.
+6. Exit conditions transition the phase to `GAME_PHASE_EXIT`, display the exit
+  screen via `video_show_exit`, arm a three-second Timer0 alarm, poll kernel
+  events to allow a key press to skip the delay, and after the pause (or key)
+  persist state before running the Foenix soft-reset sequence.
 
 ## Module Design
 

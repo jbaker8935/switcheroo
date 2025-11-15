@@ -112,7 +112,43 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
             break;
         case INPUT_EVENT_MOUSE_MOVE:
             // Update hover state for highlights
-            // TODO: Set hovered_move or hovered_icon based on mouse position
+            {
+            hit_result_t hit = input_handler_hit_test(event->data.mouse.x, event->data.mouse.y);
+            static uint16_t last_hovered_row = 0xFFFF;
+            static uint16_t last_hovered_col = 0xFFFF;
+            switch(hit.type) {
+                case HIT_BOARD_CELL:
+                // use mouse over color for cell indexed by hit.data.cell.row, hit.data.cell.col
+                // track index of highlighted cell
+                // if hovered cell not = to tracked index then remove highlight from tracked index
+                // add highlight to new cell and update the tracked index
+                    if (!state->win_path.has_path &&last_hovered_row != 0xFFFF && last_hovered_col != 0xFFFF &&
+                        (last_hovered_row != hit.data.cell.row || last_hovered_col != hit.data.cell.col)) {
+                        // Clear previous highlight
+                        video_reset_board_cell_color(last_hovered_row, last_hovered_col);
+                    }
+                    last_hovered_row = hit.data.cell.row;
+                    last_hovered_col = hit.data.cell.col;
+                    if (!state->win_path.has_path) {
+                        video_set_board_cell_hover_color(hit.data.cell.row, hit.data.cell.col);
+                    }
+                    break;
+                case HIT_MENU_ICON:
+                
+                // output a text string describing the icon function
+                    print_icon_tooltip(hit.data.icon);
+                    break;
+                default:
+                    // clear any highlighted cell or icon
+                    if (last_hovered_row != 0xFFFF && last_hovered_col != 0xFFFF) {
+                        video_reset_board_cell_color(last_hovered_row, last_hovered_col);
+                        last_hovered_row = 0xFFFF;
+                        last_hovered_col = 0xFFFF;
+                    }
+                    print_press_f1_for_help();
+                    break;
+                }
+            }
             break;
         case INPUT_EVENT_KEY_DOWN:
             switch (event->data.key.code) {

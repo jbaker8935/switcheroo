@@ -310,6 +310,24 @@ int main(int argc, char *argv[]) {
     main_loop();
     
     print_game_exit();
+    video_show_exit();
+    // auto exit 5 seconds or on key press
+    setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(5u * T0_TICK_FREQ));
+    bool exit_wait = false;
+    while (!exit_wait && !checkAlarm(TIMER_ALARM_GENERAL0)) {
+        timer_service();
+        do {
+            kernelNextEvent();
+            input_event_t exit_event;
+            if (input_translate_event(&exit_event) && exit_event.type == INPUT_EVENT_KEY_DOWN) {
+                exit_wait = true;
+            }
+        } while (!exit_wait && kernelGetPending() > 0);
+        if (!exit_wait) {
+            platform_idle();
+        }
+    }
+    clearAlarm(TIMER_ALARM_GENERAL0);
 
     file_io_save();
     // textClear();

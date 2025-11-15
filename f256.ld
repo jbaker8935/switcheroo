@@ -122,6 +122,12 @@ OUTPUT_FORMAT {
   BYTE(0x00)
   TRIM(block11)
 
+  SHORT(12*0x2000)
+  BYTE(12/8)
+  SHORT(end_block12 - __block12_lma)
+  BYTE(0x00)
+  TRIM(block12)
+
   /* Launch the program, at _start */
   SHORT(_start)
   LONG(0)

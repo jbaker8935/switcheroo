@@ -634,7 +634,22 @@ void game_state_update_menu_enables(game_state_t *state)
 
 }
 
-void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
+void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon);
+
+#pragma clang optimize off
+__attribute__((noinline))
+void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 12;
+    FAR12_game_state_activate_menu_icon(state, icon);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block12")))
+
+
+void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 {
     bool new_mode=state->is_puzzle_mode;
 

@@ -99,6 +99,8 @@
 #define SRAM_HIGHLIGHT_OCCUPIED 0x6F1C0
 #define SRAM_FOCUS_PIECE 0x6F400
 
+#define SRAM_NOT_A_THING 0x760D0
+
 // Sprite ID assignments
 #define VIDEO_SPRITE_FOCUS_PIECE 0u
 #define VIDEO_SPRITE_RESERVED 1u
@@ -154,5 +156,12 @@ void clear_text_matrix(void);
 void video_show_splash(void);
 void video_hide_splash();
 void video_wait_vblank(void);
+
+void video_set_board_cell_hover_color(uint8_t row, uint8_t col);
+void video_reset_board_cell_color(uint8_t row, uint8_t col);
+
+void video_show_exit();
+
+
 
 #endif // VIDEO_H

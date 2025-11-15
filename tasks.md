@@ -86,6 +86,7 @@ backlog.
 | T60 | Freeplay History Navigation Polish | Align the move history indicator with the viewed snapshot and restore win-path highlights during navigation without replaying audio cues. | Updated `src/text_display.c`, `src/game_state.c`, `src/main.c`, documentation. | T59 | Done |
 | T61 | Repeat Puzzle Achievement Unlocks | Ensure Win-in-3/4 achievements unlock on repeat no-hint clears without inflating solved counts. | `src/main.c`, `src/achievements.c`, docs sync. | T52, T53 | Done |
 | T62 | Puzzle Attempt Single Count | Guard the puzzle completion hook with the attempt-active flag so a single solve cannot double increment counters across frames. | `src/achievements.c`, docs sync. | T52, T53 | Done |
+| T63 | Exit Screen Pause | Display the exit screen, wait three seconds before saving (skippable on key press), and proceed to reset. | `src/main.c`, documentation updates. | T5, T58 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

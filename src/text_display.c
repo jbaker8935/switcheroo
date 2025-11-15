@@ -4,8 +4,9 @@
 #include "../src/puzzle_data.h"
 #include "../src/mouse_pointer.h"
 #include "../src/help_text.h"
-#include "../src/video.h"
+#include "../src/game_state.h"
 #include "../src/timer.h"
+#include "../src/video.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -31,6 +32,19 @@ static bool blunder_message_active = false;
  * 
  */
 
+ 
+static const char * icon_tooltip[] = {
+    "Puzzle / Free Play ",
+    "Reset Board        ",
+    "Prev Puzzle/Board  ",
+    "Next Puzzle/Board  ",
+    "Game Swap Rule     ",
+    "Difficulty Level   ",
+    "Show Move Hint     ",
+    "Exit Game          "
+};
+
+
 // Helper function to count digits in a number
  uint8_t count_digits(uint16_t n) {
     uint8_t count = 0;
@@ -40,6 +54,8 @@ static bool blunder_message_active = false;
     } while (n > 0);
     return count;
 }
+
+
 
 
 void display_hide_help_screen(void) {
@@ -221,12 +237,33 @@ void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
     textSetColor(1,1);
 }
 
+void print_press_f1_for_help(void) {
+    print_formatted_text(2, 58, "Press [^6F1^1] for Help");
+}
+
+const char * get_icon_tooltip_text(menu_icon_t icon){
+    if (icon < MENU_ICON_COUNT) { 
+        return icon_tooltip[icon];
+    }
+    return NULL;    
+}
+
+void print_icon_tooltip(menu_icon_t icon) {
+    const char *tooltip = get_icon_tooltip_text(icon);
+    if (tooltip) {
+        print_formatted_text(2, 58, tooltip);
+    } else {
+        print_formatted_text(2, 58, "                         ");
+    }
+}
+
+
 void print_game_mode(bool is_puzzle_mode) {
     const char *mode_str = is_puzzle_mode ? "^6Mode: ^1Puzzle   " : "^6Mode: ^1Free Play";
     print_formatted_text(3, 14, mode_str);
 
     // sneak F1 for Help message
-    print_formatted_text(2, 58, "Press [^6F1^1] for Help");
+    print_press_f1_for_help();
 }
 
 void print_swap_rule(swap_rule_t rule) {

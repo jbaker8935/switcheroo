@@ -57,6 +57,7 @@ EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x6ED40);
 EMBED(highlight_empty, "../assets/ui/highlight_empty.bin", 0x6EF80);
 EMBED(highlight_occupied, "../assets/ui/highlight_occupied.bin", 0x6F1C0);
 EMBED(focus_piece, "../assets/ui/cell_focus.bin", 0x6F400);
+EMBED(not_a_thing, "../assets/ui/not_a_thing.bin", 0x760D0);
 
 
 // Function declarations 
@@ -76,7 +77,6 @@ const uint32_t s_video_icon_vram_addrs[VIDEO_ICON_COUNT] = {
     SRAM_ICON_HINT,
     SRAM_ICON_EXIT
 };
-
 
 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col) {
@@ -161,6 +161,77 @@ void video_hide_splash() {
 
 }
 
+void FAR12_video_show_exit(void);
+
+#pragma clang optimize off
+__attribute__((noinline))
+void video_show_exit(void) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 12;
+    FAR12_video_show_exit();
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block12")))
+void FAR12_video_show_exit(void) {
+    
+    for(uint32_t i = 0; i < 76800u; ++i) {
+        FAR_POKE(SRAM_SPLASH_BASE + i, 11);
+    }
+
+    
+    // Copy in Logo Screen Start x 113 y 10 w 100 h 104
+    uint16_t byte_offset = 0;
+    for (uint16_t row= 0; row < 104; row++) {
+        for (uint16_t col = 0; col < 100; col++) {
+            uint8_t byte = FAR_PEEK(SRAM_NOT_A_THING + byte_offset);
+            uint16_t screen_x = 113 + col;
+            uint16_t screen_y = 10 + row;
+            uint32_t addr_offset = screen_y * 320 + screen_x;
+            FAR_POKE(SRAM_SPLASH_BASE + addr_offset, byte);
+            byte_offset++;
+        }
+    } 
+    
+    // Set bitmap address to splash data
+
+    spriteReset();
+
+    clear_text_matrix();
+
+    // exit occurs when User is on Main screen and Menu is in Palette CLUT 2
+    // setup clut 0xDC00
+
+    // XXX GAMMA  SPRITE   TILE  | BITMAP  GRAPH  OVRLY  TEXT
+    POKE(VKY_MSTR_CTRL_0, 0b00001111); // bitmap, graph, overlay, text enabled 
+    // XXX XXX  FON_SET FON_OVLY | MON_SLP DBL_Y  DBL_X  CLK_70
+    POKE(VKY_MSTR_CTRL_1, 0b00000000); // 320x240 at 60 Hz with font overlay
+    
+    graphicsSetLayerBitmap(VIDEO_SPLASH_PAGE, 0);
+
+    bitmapSetActive(VIDEO_SPLASH_PAGE);
+    
+    bitmapSetCLUT(VIDEO_MENU_CLUT);
+    
+    bitmapSetVisible(1, false);
+    bitmapSetVisible(2, false);
+    
+    bitmapSetAddress(VIDEO_SPLASH_PAGE, SRAM_SPLASH_BASE);
+    bitmapSetVisible(VIDEO_SPLASH_PAGE, true);
+    
+    disable_mouse();
+    print_formatted_text(24, 40, "^4F256 ^5Switch^1 a ^6Not a Thing game^1");
+    print_formatted_text(22, 42, "^1Various rights reserved and so forth^1");
+    print_formatted_text(36, 44, "^6Credits^1"); 
+    print_formatted_text(28, 46, "^2Addy's 'Switcheroo' Game^1");
+    print_formatted_text(28, 48, "^2Developed by jbaker8935^1");
+    print_formatted_text(17, 50, "^2Special Thanks to the Foenix Discord Community^1");
+    print_formatted_text(26, 52, "^2Powered by LLVM-MOS F256 SDK^1");
+    print_formatted_text(31, 56, "^4Thanks ^1for ^5Playing^1");
+    
+}
+
 void video_init(void) {
     // Set up configuration
     
@@ -209,10 +280,10 @@ void video_init(void) {
 
     }
 
-    // White graphics background
-    POKE(0xD00D, 0xFF);
-    POKE(0xD00E, 0xFF);
-    POKE(0xD00F, 0xFF);
+    // grey graphics background
+    POKE(0xD00D, 0x33);
+    POKE(0xD00E, 0x33);
+    POKE(0xD00F, 0x33);
 
     // Initialize PS/2 mouse hardware
     // Mouse coordinate system is always 640x480 regardless of video mode
@@ -279,6 +350,16 @@ void video_reset_board_cell_color(uint8_t row, uint8_t col) {
     graphicsDefineColor(VIDEO_BOARD_CLUT, clut_index, r,g,b);
 }
 
+// Set board cell CLUT to hover highlight color
+void video_set_board_cell_hover_color(uint8_t row, uint8_t col) {
+    uint8_t clut_index = video_board_palette_index(row, col);
+    if ((row+col) % 2 == 0) {
+        graphicsDefineColor(VIDEO_BOARD_CLUT, clut_index, 196,223,243);        
+    } else {
+        graphicsDefineColor(VIDEO_BOARD_CLUT, clut_index, 102,124,142);        
+    }
+}
+
 // Set board cell CLUT to win highlight color for a player
 void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player) {
     uint8_t clut_index = video_board_palette_index(row, col);
@@ -287,8 +368,6 @@ void video_set_board_cell_win_color(uint8_t row, uint8_t col, player_t player) {
     } else {
         graphicsDefineColor(VIDEO_BOARD_CLUT, clut_index, 0xF0,0x7C,0x40);        
     }
-    
-
 }
 
 // Reset all board cell CLUTs to original checkerboard colors
