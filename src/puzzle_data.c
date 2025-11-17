@@ -16,13 +16,15 @@
 #endif
 
 enum {
+    PUZZLE_SIGNATURE_BYTES = PUZZLE_CATALOG_SIGNATURE_BYTES,
+    PUZZLE_COUNT_BYTES = 2u,
     PUZZLE_ID_BYTES = 32u,
     PUZZLE_MAX_PIECES = 16u,
     PUZZLE_PIECE_BYTES = PUZZLE_MAX_PIECES * 2u,
     PUZZLE_MAX_SOLUTION_MOVES = 9u,
     PUZZLE_SOLUTION_WORDS = PUZZLE_MAX_SOLUTION_MOVES * 2u,
     PUZZLE_SOLUTION_BYTES = PUZZLE_SOLUTION_WORDS * 2u,
-    PUZZLE_HEADER_BYTES = 2u,
+    PUZZLE_HEADER_BYTES = PUZZLE_SIGNATURE_BYTES + PUZZLE_COUNT_BYTES,
     PUZZLE_RECORD_BYTES = PUZZLE_ID_BYTES + 2u + 1u + 1u + 1u +
     PUZZLE_PIECE_BYTES + 1u + PUZZLE_SOLUTION_BYTES
 };
@@ -64,6 +66,7 @@ static puzzle_collection_t s_puzzle_collection = {
 };
 
 static bool s_header_loaded = false;
+static uint64_t s_puzzle_catalog_signature_value = 0u;
 static bool s_puzzle_cache_valid = false;
 static uint16_t s_puzzle_cache_index = 0u;
 
@@ -240,8 +243,14 @@ static void FAR12_puzzle_catalog_ensure_header(void) {
         return;
     }
 
-    const uint16_t count = (uint16_t)puzzle_catalog_read_byte(0u) |
-        ((uint16_t)puzzle_catalog_read_byte(1u) << 8);
+    uint64_t signature = 0u;
+    for (uint8_t i = 0u; i < PUZZLE_SIGNATURE_BYTES; ++i) {
+        signature |= ((uint64_t)puzzle_catalog_read_byte(i) << (uint8_t)(i * 8u));
+    }
+    s_puzzle_catalog_signature_value = signature;
+
+    const uint16_t count = (uint16_t)puzzle_catalog_read_byte(PUZZLE_SIGNATURE_BYTES) |
+        ((uint16_t)puzzle_catalog_read_byte(PUZZLE_SIGNATURE_BYTES + 1u) << 8);
     s_puzzle_collection.count = count;
     s_puzzle_collection.puzzles = NULL;
 
@@ -545,6 +554,37 @@ uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length) 
     }
 
     return 1u;
+}
+
+uint64_t puzzle_catalog_signature(void) {
+    puzzle_catalog_ensure_header();
+    return s_puzzle_catalog_signature_value;
+}
+
+void puzzle_catalog_clear_solved_state(void) {
+    if (!s_solved_bitset_ready) {
+        return;
+    }
+
+    const size_t bytes = (s_solved_bitset_bytes <= sizeof(s_solved_bitset)) ? s_solved_bitset_bytes : sizeof(s_solved_bitset);
+    if (bytes > 0u) {
+        memset(s_solved_bitset, 0, bytes);
+    }
+
+    if (s_puzzle_cache_valid) {
+        s_puzzle_cache.is_solved = false;
+    }
+}
+
+void puzzle_catalog_invalidate_cache(void) {
+    s_header_loaded = false;
+    s_puzzle_cache_valid = false;
+    s_puzzle_cache_index = 0u;
+    s_puzzle_catalog_signature_value = 0u;
+    s_solved_bitset_ready = false;
+    s_solved_bit_count = 0u;
+    s_solved_bitset_bytes = 0u;
+    puzzle_catalog_reset_index_cache();
 }
 
 

@@ -18,6 +18,7 @@
 // Solved-bit persistence constants (increase if the catalog expands beyond 600 entries)
 #define PUZZLE_SOLVED_CAPACITY 600u
 #define PUZZLE_SOLVED_BYTES 75u
+#define PUZZLE_CATALOG_SIGNATURE_BYTES 8u
 
 
 // Compact piece representation (4 bits total)
@@ -96,5 +97,14 @@ size_t puzzle_catalog_serialize_solved(uint8_t *buffer, size_t max_bytes);
 
 // Deserialize the solved state of all puzzles from a buffer (1 bit per puzzle, packed into bytes)
 uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length);
+
+// Retrieve the current puzzle catalog signature (little-endian 64-bit value).
+uint64_t puzzle_catalog_signature(void);
+
+// Clear the in-memory solved bitset.
+void puzzle_catalog_clear_solved_state(void);
+
+// Invalidate cached catalog metadata to force a reload on next access.
+void puzzle_catalog_invalidate_cache(void);
 
 #endif // PUZZLE_DATA_H

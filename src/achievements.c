@@ -282,6 +282,45 @@ static void achievements_reset_puzzle_attempt(achievements_state_t *state) {
 	clearAlarm(TIMER_ALARM_PUZZLE);
 }
 
+
+void FAR8_achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
+
+#pragma clang optimize off
+__attribute__((noinline))
+void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 8;
+    FAR8_achievements_reset_puzzle_progress(state, active_rule, active_index);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+void FAR8_achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+	if (!state) {
+		return;
+	}
+
+	for (uint8_t id = ACH_PUZZLE_FIRST_SOLVE; id <= ACH_PUZZLE_CATALOG_COMPLETE; ++id) {
+		state->unlocked_mask &= (uint16_t)~(1u << id);
+		state->progress_count[id] = 0u;
+		state->detail_bits[id] = 0u;
+	}
+
+	state->puzzle_total_solves = 0u;
+	state->puzzle_fast_solves = 0u;
+	state->puzzle_no_hint_solves = 0u;
+	state->solved_puzzles_catalog = 0u;
+	memset(state->solved_puzzles_per_rule, 0, sizeof(state->solved_puzzles_per_rule));
+
+	state->puzzle_session_solves = 0u;
+	state->puzzle_rule = (uint8_t)active_rule;
+	achievements_reset_puzzle_attempt(state);
+
+	achievements_refresh_catalog(state, active_rule, active_index);
+}
+
 void achievements_init(achievements_state_t *state) {
 	if (!state) {
 		return;
@@ -290,7 +329,21 @@ void achievements_init(achievements_state_t *state) {
 	memset(state, 0, sizeof(achievements_state_t));
 }
 
+void FAR8_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 8;
+    FAR8_achievements_refresh_catalog(state, active_rule, active_index);
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block8")))
+
+void FAR8_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
 	if (!state) {
 		return;
 	}

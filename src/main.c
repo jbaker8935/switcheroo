@@ -299,12 +299,14 @@ int main(int argc, char *argv[]) {
     setAlarm(TIMER_ALARM_SPLASH, 60); // Set alarm for 60 ticks
     // Initialize game state
     game_state_init(&g_game_state);
+    file_io_init();
     
+    video_splash_continue();
+
     init_sounds();
     // Play start sound
     play_sound(SOUND_ID_START);    
     
-    file_io_init();
 
     
     main_loop();

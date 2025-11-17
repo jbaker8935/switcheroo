@@ -12,53 +12,55 @@
 #include "../src/text_display.h"
 
 // EMBED statements for assets at specific memory addresses
-EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x20000);
-EMBED(board_bitmap, "../assets/ui/ui_board.bin", 0x2FA00);
-EMBED(splash_bitmap, "../assets/ui/ui_splash.bin", 0x42600);
-EMBED(achievement_bitmap, "../assets/ui/ui_achievements.bin", 0x55200);
-EMBED(board_palette, "../assets/ui/ui_board_palette.bin", 0x67E00);
-EMBED(pieces_palette, "../assets/ui/ui_pieces_palette.bin", 0x68200);
-EMBED(menu_icon_palette, "../assets/ui/ui_menu_palette.bin", 0x68600);
-EMBED(splash_palette, "../assets/ui/ui_splash_palette.bin", 0x68A00);
-EMBED(achieve_base_palette, "../assets/ui/ui_achieve_base_palette.bin", 0x68E00);
-EMBED(achieve_color_palette, "../assets/ui/ui_achieve_color_palette.bin", 0x69200);
-EMBED(achieve_grey_palette, "../assets/ui/ui_achieve_grey_palette.bin", 0x69600);
-EMBED(icon_game_mode_ai, "../assets/ui/ui_menu_robot_32x32.bin", 0x69A00);
-EMBED(icon_game_mode_puzzle, "../assets/ui/ui_menu_puzzle_32x32.bin", 0x69E00);
-EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", 0x6A200);
-EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", 0x6A600);
-EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", 0x6AA00);
-EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", 0x6AE00);
-EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", 0x6B200);
-EMBED(icon_hint, "../assets/ui/ui_menu_hint_32x32.bin", 0x6B600);
-EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", 0x6BA00);
-EMBED(achieve_award, "../assets/ui/award.bin", 0x6BE00);
-EMBED(achieve_100, "../assets/ui/achieve_100.bin", 0x6C040);
-EMBED(achieve_runner, "../assets/ui/runner.bin", 0x6C280);
-EMBED(achieve_brain, "../assets/ui/brain.bin", 0x6C4C0);
-EMBED(achieve_puzzle, "../assets/ui/achieve_puzzle.bin", 0x6C700);
-EMBED(achieve_thinker, "../assets/ui/thinker.bin", 0x6C940);
-EMBED(achieve_lightning, "../assets/ui/lightning.bin", 0x6CB80);
-EMBED(achieve_bullseye, "../assets/ui/bullseye.bin", 0x6CDC0);
-EMBED(achieve_sword, "../assets/ui/sword.bin", 0x6D000);
-EMBED(achieve_arm_flex, "../assets/ui/arm_flex.bin", 0x6D240);
-EMBED(achieve_dice, "../assets/ui/dice.bin", 0x6D480);
-EMBED(achieve_flame, "../assets/ui/flame.bin", 0x6D6C0);
-EMBED(achieve_medal, "../assets/ui/medal.bin", 0x6D900);
-EMBED(achieve_crown, "../assets/ui/crown.bin", 0x6DB40);
-EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", 0x6DD80);
-EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", 0x6DFC0);
-EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", 0x6E200);
-EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", 0x6E440);
-EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", 0x6E680);
-EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", 0x6E8C0);
-EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", 0x6EB00);
-EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x6ED40);
-EMBED(highlight_empty, "../assets/ui/highlight_empty.bin", 0x6EF80);
-EMBED(highlight_occupied, "../assets/ui/highlight_occupied.bin", 0x6F1C0);
-EMBED(focus_piece, "../assets/ui/cell_focus.bin", 0x6F400);
-EMBED(not_a_thing, "../assets/ui/not_a_thing.bin", 0x760D0);
+EMBED(board_bitmap, "../assets/ui/ui_board.bin", 0x20000);
+EMBED(splash_bitmap, "../assets/ui/ui_splash.bin", 0x32C00);
+EMBED(achievement_bitmap, "../assets/ui/ui_achievements.bin", 0x45800);
+EMBED(board_palette, "../assets/ui/ui_board_palette.bin", 0x58400);
+EMBED(pieces_palette, "../assets/ui/ui_pieces_palette.bin", 0x58800);
+EMBED(menu_icon_palette, "../assets/ui/ui_menu_palette.bin", 0x58C00);
+EMBED(splash_palette, "../assets/ui/ui_splash_palette.bin", 0x59000);
+EMBED(achieve_base_palette, "../assets/ui/ui_achieve_base_palette.bin", 0x59400);
+EMBED(achieve_color_palette, "../assets/ui/ui_achieve_color_palette.bin", 0x59800);
+EMBED(achieve_grey_palette, "../assets/ui/ui_achieve_grey_palette.bin", 0x59C00);
+EMBED(icon_game_mode_ai, "../assets/ui/ui_menu_robot_32x32.bin", 0x5A000);
+EMBED(icon_game_mode_puzzle, "../assets/ui/ui_menu_puzzle_32x32.bin", 0x5A400);
+EMBED(icon_reset, "../assets/ui/ui_menu_retry_32x32.bin", 0x5A800);
+EMBED(icon_previous, "../assets/ui/ui_menu_left_32x32.bin", 0x5AC00);
+EMBED(icon_next, "../assets/ui/ui_menu_right_32x32.bin", 0x5B000);
+EMBED(icon_swap_mode, "../assets/ui/ui_menu_swap_mode_32x32.bin", 0x5B400);
+EMBED(icon_difficulty, "../assets/ui/ui_menu_difficulty_32x32.bin", 0x5B800);
+EMBED(icon_hint, "../assets/ui/ui_menu_hint_32x32.bin", 0x5BC00);
+EMBED(icon_exit, "../assets/ui/ui_menu_exit_32x32.bin", 0x5C000);
+EMBED(achieve_award, "../assets/ui/award.bin", 0x5C400);
+EMBED(achieve_100, "../assets/ui/achieve_100.bin", 0x5C640);
+EMBED(achieve_runner, "../assets/ui/runner.bin", 0x5C880);
+EMBED(achieve_brain, "../assets/ui/brain.bin", 0x5CAC0);
+EMBED(achieve_puzzle, "../assets/ui/achieve_puzzle.bin", 0x5CD00);
+EMBED(achieve_thinker, "../assets/ui/thinker.bin", 0x5CF40);
+EMBED(achieve_lightning, "../assets/ui/lightning.bin", 0x5D180);
+EMBED(achieve_bullseye, "../assets/ui/bullseye.bin", 0x5D3C0);
+EMBED(achieve_sword, "../assets/ui/sword.bin", 0x5D600);
+EMBED(achieve_arm_flex, "../assets/ui/arm_flex.bin", 0x5D840);
+EMBED(achieve_dice, "../assets/ui/dice.bin", 0x5DA80);
+EMBED(achieve_flame, "../assets/ui/flame.bin", 0x5DCC0);
+EMBED(achieve_medal, "../assets/ui/medal.bin", 0x5DF00);
+EMBED(achieve_crown, "../assets/ui/crown.bin", 0x5E140);
+EMBED(piece_a_normal_light, "../assets/ui/playerA_normal_light.bin", 0x5E380);
+EMBED(piece_a_swapped_light, "../assets/ui/playerA_swapped_light.bin", 0x5E5C0);
+EMBED(piece_b_normal_light, "../assets/ui/playerB_normal_light.bin", 0x5E800);
+EMBED(piece_b_swapped_light, "../assets/ui/playerB_swapped_light.bin", 0x5EA40);
+EMBED(piece_a_normal_dark, "../assets/ui/playerA_normal_dark.bin", 0x5EC80);
+EMBED(piece_a_swapped_dark, "../assets/ui/playerA_swapped_dark.bin", 0x5EEC0);
+EMBED(piece_b_normal_dark, "../assets/ui/playerB_normal_dark.bin", 0x5F100);
+EMBED(piece_b_swapped_dark, "../assets/ui/playerB_swapped_dark.bin", 0x5F340);
+EMBED(highlight_empty, "../assets/ui/highlight_empty.bin", 0x5F580);
+EMBED(highlight_occupied, "../assets/ui/highlight_occupied.bin", 0x5F7C0);
+EMBED(focus_piece, "../assets/ui/cell_focus.bin", 0x5FA00);
 
+EMBED(not_a_thing, "../assets/ui/not_a_thing.bin", 0x66890);
+EMBED(ui_splash_continue, "../assets/ui/ui_splash_continue.bin", 0x69130);
+
+EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x69700);
 
 // Function declarations 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col);
@@ -161,6 +163,21 @@ void video_hide_splash() {
 
 }
 
+void video_splash_continue(void) {
+    // copy in "Space to continue" at Start x 106 y 211 w 106 h 14
+    uint16_t byte_offset = 0;
+    for (uint16_t row= 0; row < 14; row++) {
+        for (uint16_t col = 0; col < 106; col++) {
+            uint8_t byte = FAR_PEEK(SRAM_UI_SPLASH_CONTINUE + byte_offset);
+            uint16_t screen_x = 106 + col;
+            uint16_t screen_y = 209 + row;
+            uint32_t addr_offset = mathUnsignedAddition(mathUnsignedMultiply(screen_y,320), screen_x);
+            FAR_POKE(SRAM_SPLASH_BASE + addr_offset, byte);
+            byte_offset++;
+        }
+    } 
+}
+
 void FAR12_video_show_exit(void);
 
 #pragma clang optimize off
@@ -220,7 +237,7 @@ void FAR12_video_show_exit(void) {
     bitmapSetAddress(VIDEO_SPLASH_PAGE, SRAM_SPLASH_BASE);
     bitmapSetVisible(VIDEO_SPLASH_PAGE, true);
     
-    print_formatted_text(24, 38, "^4F256 ^5Switch^1 a ^6Not a Thing^1 game");
+    print_formatted_text(24, 38, "^4Switch^5eroo^1 a ^6Not a Thing^1 game");
     print_formatted_text(22, 40, "^1Various rights reserved and so forth^1");
     print_formatted_text(36, 42, "^6Credits^1"); 
     print_formatted_text(28, 44, "^2Addy's 'Switcheroo' Game^1");

@@ -77,7 +77,8 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
 }
 
 void input_handler_process_event(game_state_t *state, const input_event_t *event) {
-
+    static uint16_t last_hovered_row = 0xFFFF;
+    static uint16_t last_hovered_col = 0xFFFF;
     switch (event->type) {
         case INPUT_EVENT_MOUSE_DOWN:
             if (event->data.mouse.button == MOUSE_BUTTON_LEFT) {
@@ -114,8 +115,7 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
             // Update hover state for highlights
             {
             hit_result_t hit = input_handler_hit_test(event->data.mouse.x, event->data.mouse.y);
-            static uint16_t last_hovered_row = 0xFFFF;
-            static uint16_t last_hovered_col = 0xFFFF;
+
             switch(hit.type) {
                 case HIT_BOARD_CELL:
                 // use mouse over color for cell indexed by hit.data.cell.row, hit.data.cell.col
@@ -157,6 +157,12 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
                 case KEY_LEFT:
                 case KEY_RIGHT:
                     input_handler_move_focus(state, event->data.key.code);
+                    // clear any highlighted cell or icon
+                    if (last_hovered_row != 0xFFFF && last_hovered_col != 0xFFFF) {
+                        video_reset_board_cell_color(last_hovered_row, last_hovered_col);
+                        last_hovered_row = 0xFFFF;
+                        last_hovered_col = 0xFFFF;
+                    }
                     break;
                 case KEY_ENTER:
                 case KEY_SPACE:

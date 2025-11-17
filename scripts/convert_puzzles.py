@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import struct
 import sys
+import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence
 import traceback
@@ -331,7 +332,10 @@ def serialise_catalog(puzzles: Iterable[PuzzleDict]) -> bytes:
     if len(puzzles_list) > 0xFFFF:
         raise ValueError("Puzzle catalog exceeds 65535 entries")
 
+    signature = int(time.time()) & 0xFFFFFFFFFFFFFFFF
+
     output = bytearray()
+    output.extend(struct.pack("<Q", signature))
     output.extend(struct.pack("<H", len(puzzles_list)))
     for puzzle in puzzles_list:
         output.extend(serialise_puzzle(puzzle))

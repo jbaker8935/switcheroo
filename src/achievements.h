@@ -95,6 +95,7 @@ void achievements_update_timer(achievements_state_t *state, bool alarm_elapsed);
 uint16_t achievements_storage_size(void);
 uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes);
 bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length);
+void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
 
 static inline uint16_t achievements_unlocked_mask(const achievements_state_t *state) {
 	return state ? state->unlocked_mask : 0u;

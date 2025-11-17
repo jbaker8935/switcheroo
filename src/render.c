@@ -345,7 +345,7 @@ static void render_update_focus(void) {
     uint8_t row, col;
     input_get_focus(&row, &col);
     if (!input_is_keyboard_mode()) {
-        // Hide both focus sprites
+        // Enable mouse and hide focus sprite
         enable_mouse();
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
 

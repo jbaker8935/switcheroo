@@ -90,7 +90,7 @@ OUTPUT_FORMAT {
   /* RAM Segment */
   SHORT(ORIGIN(ram))              /* where to load it, 24 bits */
   BYTE(0x00)
-  SHORT(__bss_start-ORIGIN(ram))  /* size to load */
+  SHORT(__data_end - ORIGIN(ram))  /* size to load */
   BYTE(0x00)
   TRIM(ram)
 

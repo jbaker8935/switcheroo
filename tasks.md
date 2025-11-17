@@ -88,6 +88,7 @@ backlog.
 | T62 | Puzzle Attempt Single Count | Guard the puzzle completion hook with the attempt-active flag so a single solve cannot double increment counters across frames. | `src/achievements.c`, docs sync. | T52, T53 | Done |
 | T63 | Exit Screen Pause | Display the exit screen, wait three seconds before saving (skippable on key press), and proceed to reset. | `src/main.c`, documentation updates. | T5, T58 | Done |
 | T64 | Freeplay Swap Notice Reset | Clear the swap-unavailable HUD message whenever a free play move is recorded. | `src/game_state.c`, documentation sync. | T5, T6 | Done |
+| T65 | Puzzle Catalog Signature Handling | Embed a generation-time signature in the puzzle catalog, load external puzzle binaries on hardware, and persist the signature so mismatches reset puzzle progress. | `scripts/convert_puzzles.py`, `src/puzzle_data.c/.h`, `src/file_io.c`, docs synced. | T7, T54, T55 | Done |
 
 ## Milestones
 - **M1: Core Bring-Up (T1-T7)** – Board, puzzle, rendering, and main loop functional on hardware. ✓ Done

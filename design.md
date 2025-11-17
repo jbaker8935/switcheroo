@@ -207,6 +207,12 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
   the available count so hardware debugging is straightforward.
 - Applies puzzle layouts through `apply_puzzle_position`, synchronising swap
   rules and AI configuration with the puzzle metadata.
+- On hardware builds, attempts to stream an external `puzzle_data.bin` into the
+  far-memory catalog during file I/O initialisation so newly authored catalogs
+  override the embedded asset without requiring a rebuild.
+- Tracks an 8-byte signature embedded at the start of the catalog header and
+  exposes it for persistence so clients can detect when the active puzzle set
+  changes.
 
 ### Achievements (`achievements.c/.h`)
 - Maintains achievement progress in a struct-of-arrays layout that packs unlock
@@ -245,6 +251,9 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 - Implements platform-specific I/O: stdio for host testing, no-op stubs for F256 hardware.
 - Handles I/O errors gracefully, continuing execution with default state on load failures and skipping save on write failures.
 - Integrates with main application lifecycle through init and shutdown hooks.
+- Persists the puzzle catalog signature alongside solve bits and achievements
+  and clears puzzle progress when the stored signature no longer matches the
+  catalog loaded at startup.
 
 ### Artificial Intelligence (`ai_agent.c/.h`)
 - Provides deterministic heuristic move ranking that evaluates goal-row

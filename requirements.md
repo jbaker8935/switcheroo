@@ -379,6 +379,15 @@ in a dedicated discrepancies section.
   update per-rule completion counts, unlock "Solve all puzzles for a swap rule"
   once every puzzle in that rule is solved, and unlock "Solve all puzzles in the
   collection" once the aggregate solved count equals the catalog total.
+- WHEN a puzzle catalog binary is available on storage at startup, THE SYSTEM
+  SHALL stream its contents into the far-memory puzzle catalog so runtime
+  lookups reflect the external data.
+- WHEN the puzzle catalog signature extracted from storage differs from the
+  persisted signature in `f256_switch.dat`, THE SYSTEM SHALL reset the puzzle
+  solved bitset and clear puzzle achievements before continuing execution.
+- WHEN the puzzle conversion pipeline emits `puzzle_data.bin`, THE SYSTEM SHALL
+  prepend a 64-bit little-endian signature derived from the generation time so
+  runtime clients can detect catalog changes.
 
 ### File I/O
 - WHEN the application starts, THE SYSTEM SHALL check for the existence of "f256_switch.dat" in the local directory.
@@ -391,6 +400,12 @@ in a dedicated discrepancies section.
 - WHEN writing to "f256_switch.dat", THE SYSTEM SHALL overwrite any existing file.
 - IF file operations fail during load, THEN THE SYSTEM SHALL continue execution with default state.
 - IF file operations fail during save, THEN THE SYSTEM SHALL continue execution without saving.
+- WHEN saving persistence data, THE SYSTEM SHALL store the active puzzle
+  catalog signature alongside puzzle solve bits and achievements so future
+  loads can detect catalog changes.
+- WHEN loading persistence data lacking a stored puzzle catalog signature, THE
+  SYSTEM SHALL treat the persisted puzzle progress as compatible with the
+  current catalog.
 
 ## Non-Functional Requirements
 - THE SYSTEM SHALL wait for the raster to reach the VBLANK window before
