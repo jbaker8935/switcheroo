@@ -88,7 +88,7 @@ void render_init(void) {
     }
 
     // Define focus sprites (piece and icon) on layer 0
-    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, SRAM_FOCUS_PIECE, VIDEO_PIECE_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
+    spriteDefine((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, SRAM_FOCUS_PIECE, VIDEO_FOCUS_SPRITE_SIZE, VIDEO_PIECES_CLUT, VIDEO_SPRITE_FOCUS_LAYER);
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
 
 
@@ -358,7 +358,7 @@ static void render_update_focus(void) {
         // Show piece focus at focused cell
         uint16_t x, y;
         render_cell_to_screen(row, col, &x, &y);
-        spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
+        spriteSetPosition((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, VIDEO_SPRITE_OFFSET + x - 2, VIDEO_SPRITE_OFFSET + y - 2);
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 1);
     } else {
         spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
