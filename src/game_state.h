@@ -127,6 +127,15 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce);
 // Update
 void game_state_update(game_state_t *state, float delta_time);
 
+// Returns true when player (WHITE) has already performed more moves than
+// the currently selected puzzle difficulty and thus should be considered
+// disqualified from puzzle completion credit.
+bool game_state_has_exceeded_puzzle_moves(const game_state_t *state);
+
+// Helper to print current player or "Too Many Moves" when in puzzle mode and
+// the player is disqualified by move count.
+void game_state_print_current_player(const game_state_t *state);
+
 bool game_state_step_history_back(game_state_t *state);
 bool game_state_step_history_forward(game_state_t *state);
 uint8_t game_state_get_history_view_index(const game_state_t *state);

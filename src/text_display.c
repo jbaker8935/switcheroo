@@ -11,6 +11,8 @@
 #include <stddef.h>
 #include <string.h>
 
+extern game_state_t g_game_state;
+
 // Static flag to track if blunder message is currently displayed
 static bool blunder_message_active = false;
 static bool swap_unavailable_active = false;
@@ -192,6 +194,15 @@ void print_game_winner(player_t winner) {
     blunder_message_active = false;
 }
 
+void print_game_over(void) {
+    // Use the same cursor behavior and clear blunder message as when a
+    // normal game winner is displayed, but print a generic 'Game Over'
+    // string specific to puzzle mode disqualification.
+    print_formatted_text(3, 10, "^1Game Over^1         ");
+    set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+    blunder_message_active = false;
+}
+
 void print_current_player(player_t player) {
     // Don't overwrite blunder message
     if (blunder_message_active) {
@@ -205,6 +216,15 @@ void print_current_player(player_t player) {
         set_mouse_cursor(MOUSE_CURSOR_BUSY);
     }
     print_formatted_text(3, 10, player_str);
+}
+
+void print_too_many_moves(void) {
+    // Don't overwrite blunder message
+    if (blunder_message_active) {
+        return;
+    }
+
+    print_formatted_text(3, 10, "^1Too Many Moves^1        ");
 }
 
 void text_display_update_ai_thinking_indicator(uint8_t dot_count) {
@@ -330,7 +350,7 @@ void clear_puzzle_debug(void) {
 void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles, 
                        uint8_t puzzle_difficulty, bool is_solved) {
     char *buf = "";
-    char checked[] = { 222, '\0'};
+    char checked[] = {'^','2', 222, '^','1', '\0'};
     const uint8_t start_row = 22;
     // Puzzle Number
     buf = "^6Puzzle:^1               ";
@@ -343,11 +363,8 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
     textGotoXY(11 + index_digits + 1, start_row);
     textPrintUInt(total_puzzles);
     textGotoXY(10, start_row);
-    if(is_solved) {
-        textPrint(checked);
-    } else {
-        textPrint(" ");
-    }
+    print_formatted_text(10, start_row, is_solved ? checked : " ");
+
 
     // Win In
     buf = "^6Win In:^1 ";

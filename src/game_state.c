@@ -40,13 +40,50 @@ static void game_state_history_refresh_ui(game_state_t *state)
         live_move_count = state->history_state.entries[0].board.move_count;
     }
 
-    print_current_player(state->context.current_player);
+    // Print either the current player or the puzzle move-limit message
+    // using a centralized helper so that the logic is not duplicated.
+    game_state_print_current_player(state);
     print_move_history(state->context.history,
                        state->context.history_count,
                        board_move_count,
                        live_move_count,
                        is_free_play,
                        has_start_entry);
+}
+
+bool game_state_has_exceeded_puzzle_moves(const game_state_t *state)
+{
+    if (!state || !state->is_puzzle_mode)
+    {
+        return false;
+    }
+
+    const puzzle_t *puzzle = get_puzzle_by_index(state->prefs.current_puzzle_index);
+    if (!puzzle)
+    {
+        return false;
+    }
+
+    // Player (WHITE) move count is floor((move_count + 1) / 2)
+    const uint8_t white_moves = (uint8_t)((state->board.move_count + 1u) / 2u);
+    return (white_moves > puzzle->difficulty);
+}
+
+void game_state_print_current_player(const game_state_t *state)
+{
+    if (!state) return;
+
+    if (state->is_puzzle_mode && state->context.current_player == PLAYER_WHITE &&
+        game_state_has_exceeded_puzzle_moves(state))
+    {
+        // Show the disqualification message instead of player's move.
+        // Delegate to text_display so it respects existing state such as
+        // the blunder message.
+        print_too_many_moves();
+        return;
+    }
+
+    print_current_player(state->context.current_player);
 }
 
 static void game_state_record_freeplay_snapshot(game_state_t *state, bool allow_ai_turn)
@@ -146,7 +183,12 @@ static void game_state_after_history_navigation(game_state_t *state)
     if (game_state_restore_win_path(state))
     {
         state->phase = GAME_PHASE_GAME_OVER;
-        print_game_winner(state->win_path.winner);
+        if (state->is_puzzle_mode && state->win_path.winner == PLAYER_WHITE &&
+            game_state_has_exceeded_puzzle_moves(state)) {
+            print_game_over();
+        } else {
+            print_game_winner(state->win_path.winner);
+        }
     }
 }
 
@@ -300,13 +342,10 @@ bool game_state_apply_current_puzzle(game_state_t *state, bool announce)
     game_state_reset_move_history(state);
     state->context.current_player = PLAYER_WHITE;
 
-    ai_difficulty_t difficulty;
+    ai_difficulty_t difficulty = AI_DIFFICULTY_STANDARD; // Default for puzzle mode
     if (state->difficulty_manually_set) {
         difficulty = (ai_difficulty_t)state->prefs.difficulty_level;
-    } else {
-        difficulty = puzzle->difficulty;
-        state->prefs.difficulty_level = difficulty;
-    }
+    } 
 
     player_t ai_player = puzzle->is_solved ? PLAYER_BLACK : PLAYER_WHITE;
     game_state_configure_ai(state, state->prefs.swap_rule, difficulty, ai_player);
@@ -648,8 +687,6 @@ void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
 #pragma clang optimize on
 
 __attribute__((noinline, section(".block12")))
-
-
 void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 {
     bool new_mode=state->is_puzzle_mode;
@@ -837,6 +874,16 @@ bool game_state_check_win_condition(game_state_t *state)
 
     if (white_wins)
     {
+        // In puzzle mode, a player win that occurs after exceeding the
+        // allowable number of moves should not count as a win in the
+        // session statistics. Achievements are marked as failed.
+        if (state->is_puzzle_mode && game_state_has_exceeded_puzzle_moves(state))
+        {
+            achievements_on_puzzle_failed(&state->achievements);
+            render_invalidate_cache();
+            return true;
+        }
+
         state->stats.white_wins++;
         if (!state->is_puzzle_mode)
         {
@@ -859,6 +906,7 @@ bool game_state_check_win_condition(game_state_t *state)
         {
             achievements_on_puzzle_failed(&state->achievements);
         }
+
         state->stats.black_wins++;
         state->win_path = black_path;
         render_invalidate_cache();

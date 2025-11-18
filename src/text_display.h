@@ -31,6 +31,7 @@ void print_win_loss(uint16_t win_count, uint16_t loss_count);
 void print_current_player(player_t player);
 void text_display_update_ai_thinking_indicator(uint8_t dot_count);
 void print_game_winner(player_t winner);
+void print_game_over(void);
 void print_game_mode(bool is_puzzle_mode);
 void print_swap_rule(swap_rule_t rule);
 void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
@@ -38,6 +39,7 @@ void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
 void print_ai_difficulty(ai_difficulty_t difficulty);
 void print_puzzle_hint(const char *hint);
 void clear_puzzle_hint(void);
+void print_too_many_moves(void);
 void print_move_history(const move_t *history,
                         uint8_t move_count,
                         uint16_t board_move_count,

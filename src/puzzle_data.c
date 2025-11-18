@@ -222,23 +222,23 @@ static swap_rule_t puzzle_catalog_rule_for_index(uint16_t index) {
     return (swap_rule_value <= SWAP_RULE_SWAPPED_CLEARS_OWN) ? (swap_rule_t)swap_rule_value : SWAP_RULE_CLASSIC;
 }
 
-static void FAR12_puzzle_catalog_ensure_header(void);
+static void FAR13_puzzle_catalog_ensure_header(void);
 
 #pragma clang optimize off
 __attribute__((noinline))
 static void puzzle_catalog_ensure_header(void) {
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    FAR12_puzzle_catalog_ensure_header();
+    *(volatile unsigned char *)0x000d = 13;
+    FAR13_puzzle_catalog_ensure_header();
     *(volatile unsigned char *)0x000d = ___mmu;
     return;
 }
 
 #pragma clang optimize on
 
-__attribute__((noinline, section(".block12")))
+__attribute__((noinline, section(".block13")))
 
-static void FAR12_puzzle_catalog_ensure_header(void) {
+static void FAR13_puzzle_catalog_ensure_header(void) {
     if (s_header_loaded) {
         return;
     }
@@ -270,24 +270,24 @@ static void FAR12_puzzle_catalog_ensure_header(void) {
     s_header_loaded = true;
 }
 
-static bool FAR12_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index);
+static bool FAR13_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index);
 
 #pragma clang optimize off
 __attribute__((noinline))
 static bool puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    bool result = FAR12_puzzle_catalog_map_filtered_index(rule, filtered_index, out_actual_index);
+    *(volatile unsigned char *)0x000d = 13;
+    bool result = FAR13_puzzle_catalog_map_filtered_index(rule, filtered_index, out_actual_index);
     *(volatile unsigned char *)0x000d = ___mmu;
     return result;
 }
 
 #pragma clang optimize on
 
-__attribute__((noinline, section(".block12")))
+__attribute__((noinline, section(".block13")))
 
-static bool FAR12_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
-    FAR12_puzzle_catalog_ensure_header();
+static bool FAR13_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
+    FAR13_puzzle_catalog_ensure_header();
 
     if (rule >= NUMBER_OF_SWAP_RULES || filtered_index >= s_rule_counts[rule]) {
         return false;

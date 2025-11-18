@@ -41,7 +41,7 @@ static char *const SAVE_FILE_NAME = "switcheroo.dat";
 static char *const PUZZLE_FILE_NAME = "switcheroo.puz";
 
 #if defined(__llvm_mos__)
-
+__attribute__((noinline, section(".block12")))
 static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
     kernelArgs->file.write.stream = fd;
     kernelArgs->common.buf = buf;
@@ -58,7 +58,7 @@ static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
 
 #pragma push_macro("EOF")
 #undef EOF
-
+__attribute__((noinline, section(".block12")))
 static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
 
 	kernelArgs->file.read.stream = fd;
@@ -104,7 +104,7 @@ static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
 static uint8_t s_buffer[DATA_FILE_SIZE];
 static uint8_t s_puzzle_chunk[PUZZLE_FILE_CHUNK_SIZE];
 
-
+__attribute__((noinline, section(".block12")))
 static uint64_t read_le64(const uint8_t *data) {
     uint64_t value = 0u;
     for (uint8_t i = 0u; i < 8u; ++i) {
@@ -113,7 +113,7 @@ static uint64_t read_le64(const uint8_t *data) {
     return value;
 }
 
-
+__attribute__((noinline, section(".block12")))
 static void write_le64(uint8_t *data, uint64_t value) {
     for (uint8_t i = 0u; i < 8u; ++i) {
         data[i] = (uint8_t)((value >> (uint64_t)(i * 8u)) & 0xFFu);
@@ -121,7 +121,7 @@ static void write_le64(uint8_t *data, uint64_t value) {
 }
 
 
-
+__attribute__((noinline, section(".block12")))
 static void load_puzzle_catalog_from_file(void) {
     uint8_t *fd = fileOpen(PUZZLE_FILE_NAME, "r");
     if (!fd) {

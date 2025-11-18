@@ -74,7 +74,7 @@ void restore_main_screen(void) {
     print_game_mode(g_game_state.is_puzzle_mode);
     video_set_game_mode_icon_bitmap(g_game_state.is_puzzle_mode);
     print_swap_rule(g_game_state.ai_config.swap_rule);
-    print_current_player(g_game_state.context.current_player);
+    game_state_print_current_player(&g_game_state);
     ui_refresh_move_history();
     refresh_win_path(&g_game_state.win_path);
     if (g_game_state.is_puzzle_mode) {
@@ -95,7 +95,7 @@ void display_main_screen(void) {
     print_ai_difficulty(g_game_state.ai_config.difficulty);
     print_game_mode(g_game_state.is_puzzle_mode);
     print_swap_rule(g_game_state.ai_config.swap_rule);
-    print_current_player(g_game_state.context.current_player);
+    game_state_print_current_player(&g_game_state);
     if (g_game_state.is_puzzle_mode) {
         const puzzle_collection_t *collection = get_puzzle_collection();
         const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
@@ -133,7 +133,16 @@ void FAR11_main_loop(void) {
         game_state_update(&g_game_state, 1.0f / 60.0f);
 
         if (g_screen_state == SCREEN_MAIN && g_game_state.phase == GAME_PHASE_GAME_OVER) {
-            print_game_winner(g_game_state.win_path.winner);
+            // If this is a puzzle and the player won after exceeding the
+            // puzzle move limit, show a generic "Game Over" message instead
+            // of "Player Wins!" so the player isn't credited in the UI.
+            if (g_game_state.is_puzzle_mode &&
+                g_game_state.win_path.winner == PLAYER_WHITE &&
+                game_state_has_exceeded_puzzle_moves(&g_game_state)) {
+                print_game_over();
+            } else {
+                print_game_winner(g_game_state.win_path.winner);
+            }
             ui_refresh_move_history();
             if (g_game_state.is_puzzle_mode) {
                 // In puzzle mode, mark puzzle as solved if player won
@@ -166,9 +175,9 @@ void FAR11_main_loop(void) {
             }
         }
 
-        if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
+            if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
             ui_refresh_move_history();
-            print_current_player(g_game_state.context.current_player);
+                game_state_print_current_player(&g_game_state);
             old_move_count = g_game_state.board.move_count;
         }
 
@@ -260,7 +269,7 @@ void FAR11_main_loop(void) {
                 if (g_game_state.board.move_count != old_move_count && 
                     g_game_state.phase != GAME_PHASE_GAME_OVER && g_screen_state == SCREEN_MAIN  ) {
                     ui_refresh_move_history();
-                    print_current_player(g_game_state.context.current_player);
+                    game_state_print_current_player(&g_game_state);
                     old_move_count = g_game_state.board.move_count;
                 }
             }

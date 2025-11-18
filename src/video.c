@@ -178,20 +178,20 @@ void video_splash_continue(void) {
     } 
 }
 
-void FAR12_video_show_exit(void);
+void FAR13_video_show_exit(void);
 
 #pragma clang optimize off
 __attribute__((noinline))
 void video_show_exit(void) {
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    FAR12_video_show_exit();
+    *(volatile unsigned char *)0x000d = 13;
+    FAR13_video_show_exit();
     *(volatile unsigned char *)0x000d = ___mmu;
 }
 #pragma clang optimize on
 
-__attribute__((noinline, section(".block12")))
-void FAR12_video_show_exit(void) {
+__attribute__((noinline, section(".block13")))
+void FAR13_video_show_exit(void) {
     
     for(uint32_t i = 0; i < 76800u; ++i) {
         FAR_POKE(SRAM_SPLASH_BASE + i, 11);

@@ -760,8 +760,8 @@ uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buff
 	return required;
 }
 
-
-
+// only used by file io so move to block 12
+__attribute__((noinline, section(".block12")))
 bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
 	if (!state || !data) {
 		return false;
