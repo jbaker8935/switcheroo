@@ -326,7 +326,7 @@ static bool board_execute_move_internal(board_t *board, board_context_t *context
 
     // Save to history when requested so live boards retain full tracking
     if (record_history) {
-        for (int i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
+        for (uint8_t i = MAX_MOVE_HISTORY - 1; i > 0; --i) {
             context->history[i] = context->history[i - 1];
         }
         context->history[0] = *move;

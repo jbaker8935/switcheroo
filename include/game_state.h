@@ -74,7 +74,6 @@ typedef struct {
     menu_state_t menu;
     selection_state_t selection;
     win_path_t win_path;
-    uint32_t frame_count;
 } game_state_t;
 
 // Initialize game state

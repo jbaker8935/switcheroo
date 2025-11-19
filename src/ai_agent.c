@@ -17,116 +17,6 @@
 #include "../src/input.h"
 #include "../src/text_display.h"
 
-#ifdef AI_AGENT_ENABLE_TIMER
-#include <time.h>
-#endif
-
-#if defined(__llvm_mos__) && !defined(AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS)
-#define AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
-#endif
-
-#if defined(__llvm_mos__)
-#define T0_PEND 0xD660
-#define T0_MASK 0xD66C
-
-#define T0_CTR \
-    0xD650  // master control register for timer0, write.b0=ticks b1=reset b2=set to last value of VAL b3=set count up,
-            // clear count down
-#define T0_STAT 0xD650  // master control register for timer0, read bit0 set = reached target val
-
-#define CTR_INTEN 0x80  // present only for timer1? or timer0 as well?
-#define CTR_ENABLE 0x01
-#define CTR_CLEAR 0x02
-#define CTR_LOAD 0x04
-#define CTR_UPDOWN 0x08
-
-#define T0_VAL_L 0xD651  // current 24 bit value of the timer
-#define T0_VAL_M 0xD652
-#define T0_VAL_H 0xD653
-
-#define T0_CMP_CTR 0xD654  // b0: t0 returns 0 on reaching target. b1: CMP = last value written to T0_VAL
-#define T0_CMP_L 0xD655    // 24 bit target value for comparison
-#define T0_CMP_M 0xD656
-#define T0_CMP_H 0xD657
-
-#define T0_CMP_CTR_RECLEAR 0x01
-#define T0_CMP_CTR_RELOAD 0x02
-
-#endif
-
-#ifdef AI_AGENT_ENABLE_TIMER0_DIAGNOSTICS
-extern void print_formatted_text(uint8_t x, uint8_t y, const char *text);
-
-// static void ai_timer0_reset(void) {
-//     POKE(T0_CTR, CTR_CLEAR);
-//     POKE(T0_CTR, CTR_UPDOWN | CTR_ENABLE);
-//     POKE(T0_PEND, 0x10);
-//     POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR);
-//     POKE(T0_CMP_L, 0xFF);
-//     POKE(T0_CMP_M, 0xFF);
-//     POKE(T0_CMP_H, 0xFF);
-// }
-
-// static uint32_t ai_timer0_read(void) {
-//     uint32_t value_h = (uint32_t)PEEK(T0_VAL_H) << 16;
-//     uint32_t value_m = (uint32_t)PEEK(T0_VAL_M) << 8;
-//     uint32_t value_l = (uint32_t)PEEK(T0_VAL_L);
-//     return value_h | value_m | value_l;
-// }
-
-// static void ai_format_diag(char *dest, const char *label, uint32_t value) {
-//     uint8_t i = 0;
-//     while (label[i] != '\0' && i < 23) {
-//         dest[i] = label[i];
-//         ++i;
-//     }
-//     if (i < 23) {
-//         dest[i++] = ' ';
-//     }
-//     if (value == 0u) {
-//         dest[i++] = '0';
-//     } else {
-//         char digits[10];
-//         uint8_t count = 0;
-//         while (value != 0u && count < sizeof(digits)) {
-//             digits[count++] = (char)('0' + (value % 10u));
-//             value /= 10u;
-//         }
-//         while (count > 0 && i < 25) {
-//             dest[i++] = digits[--count];
-//         }
-//     }
-//     dest[i] = '\0';
-// }
-
-// static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
-//     if (!enabled) {
-//         print_formatted_text(1, 45, "");
-//         print_formatted_text(1, 46, "");
-//         return;
-//     }
-
-//     char buf_nodes[26];
-//     char buf_ticks[26];
-//     ai_format_diag(buf_nodes, "AI NODES:", nodes);
-//     ai_format_diag(buf_ticks, "AI TICKS:", ticks);
-//     print_formatted_text(1, 45, buf_nodes);
-//     print_formatted_text(1, 46, buf_ticks);
-// }
-#else
-// static void ai_timer0_reset(void) {}
-
-// static uint32_t ai_timer0_read(void) {
-//     return 0u;
-// }
-
-// static void ai_print_diagnostics(uint32_t nodes, uint32_t ticks, bool enabled) {
-//     (void)nodes;
-//     (void)ticks;
-//     (void)enabled;
-// }
-#endif
-
 #define AI_SCORE_WIN 30000
 #define AI_SCORE_LOSS (-AI_SCORE_WIN)
 #define AI_SCORE_MAX 32000
@@ -1440,7 +1330,7 @@ static void ai_sort_indices_by_evaluation(const ai_evaluated_moves_t *evaluated,
 
 __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_moves(
     board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered,
-    uint8_t generated, ai_evaluated_moves_t *evaluated, uint32_t *out_nodes) {
+    uint8_t generated, ai_evaluated_moves_t *evaluated) {
     if (!root || !config || !ordered || !evaluated) {
         return 0u;
     }
@@ -1492,9 +1382,6 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
             evaluated->opponent_forced_wins[target_index] = false;
             evaluated->forced_wins_self[target_index] = false;
             evaluated->evaluations[target_index] = AI_SCORE_WIN - (int16_t)(root->move_count & 0x7FFF);
-            if (out_nodes) {
-                ++(*out_nodes);
-            }
             count = 1u;
             break;
         }
@@ -1531,10 +1418,6 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
         }
 
         evaluated->evaluations[target_index] = eval_score;
-
-        if (out_nodes) {
-            ++(*out_nodes);
-        }
 
         ++count;
     }
@@ -1816,9 +1699,8 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
     }
 
     ai_evaluated_moves_t evaluated;
-    uint32_t nodes_recorded = 0u;
     uint8_t evaluated_count =
-        FAR10_ai_evaluate_moves(&root, current_player, &tuned, &ordered, generated, &evaluated, &nodes_recorded);
+        FAR10_ai_evaluate_moves(&root, current_player, &tuned, &ordered, generated, &evaluated);
 
     bool applied_blunder = false;
     move_t chosen_move = {0};

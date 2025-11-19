@@ -91,7 +91,6 @@ typedef struct {
     menu_state_t menu;
     selection_state_t selection;
     win_path_t win_path;
-    uint32_t frame_count;
     ai_config_t ai_config;
     uint8_t ai_think_frames;      // Frames spent in AI thinking (for visual delay)
     bool is_puzzle_mode;          // true = PUZZLE mode, false = FREEPLAY mode
