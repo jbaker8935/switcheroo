@@ -199,7 +199,21 @@ void FAR13_video_show_exit(void) {
     disable_mouse();
 }
 
+
+void FAR13_video_init(void);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void video_init(void) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 13;
+    FAR13_video_init();
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block13")))
+void FAR13_video_init(void) {
     // Set up configuration
     
     clear_text_matrix();

@@ -18,6 +18,7 @@
 #include "../src/achievements.h"
 #include "../src/file_io.h"
 #include "../src/sound.h"
+#include "../src/achievements_screen.h"
 #ifdef AI_AGENT_HOST_TEST
 #include "../tests/include/f256lib_host.h"
 #else

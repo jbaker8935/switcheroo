@@ -108,10 +108,6 @@ static inline const uint16_t *achievements_progress(const achievements_state_t *
 static inline const uint8_t *achievements_detail_bits(const achievements_state_t *state) {
 	return state ? state->detail_bits : NULL;
 }
-
-void display_achievements_screen(achievements_state_t *state, uint8_t page);
-void hide_achievements_screen(void);
-void numbytestohex(uint8_t byte_count, const uint8_t *data, char *out_hex);
-
+bool achievements_is_unlocked(const achievements_state_t *state, achievement_id_t achievement);
 #endif // ACHIEVEMENTS_H
 

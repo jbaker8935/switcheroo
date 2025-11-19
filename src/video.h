@@ -7,7 +7,7 @@
 #define VIDEO_H
 
 #include <stdint.h>
-#include "../src/sram_assets.h"
+
 
 // Constants
 #define VIDEO_BOARD_CLUT 0

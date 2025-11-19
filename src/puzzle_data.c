@@ -131,7 +131,8 @@ static void puzzle_catalog_host_load(void) {
 }
 #endif
 
-static void puzzle_catalog_init_solved_bits(uint16_t count) {
+__attribute__((noinline, section(".block13")))
+static void FAR13_puzzle_catalog_init_solved_bits(uint16_t count) {
     s_solved_bit_count = (count <= PUZZLE_SOLVED_CAPACITY) ? count : PUZZLE_SOLVED_CAPACITY;
     s_solved_bitset_bytes = (size_t)((s_solved_bit_count + 7u) / 8u);
     if (s_solved_bitset_bytes > sizeof(s_solved_bitset)) {
@@ -148,7 +149,7 @@ static void puzzle_catalog_init_solved_bits(uint16_t count) {
 #endif
 }
 
-static inline bool puzzle_catalog_solved_bit_get(uint16_t index) {
+static bool puzzle_catalog_solved_bit_get(uint16_t index) {
     if (!s_solved_bitset_ready || index >= s_solved_bit_count || s_solved_bitset_bytes == 0u) {
         return false;
     }
@@ -160,7 +161,7 @@ static inline bool puzzle_catalog_solved_bit_get(uint16_t index) {
     return (s_solved_bitset[byte_index] & mask) != 0u;
 }
 
-static inline void puzzle_catalog_solved_bit_set(uint16_t index, bool solved) {
+static void puzzle_catalog_solved_bit_set(uint16_t index, bool solved) {
     if (!s_solved_bitset_ready || index >= s_solved_bit_count || s_solved_bitset_bytes == 0u) {
         return;
     }
@@ -179,7 +180,7 @@ static inline void puzzle_catalog_solved_bit_set(uint16_t index, bool solved) {
     }
 }
 
-static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
+static uint8_t puzzle_catalog_read_byte(uint32_t offset) {
     #if defined(__llvm_mos__)
     return platform_far_read_byte(SRAM_PUZZLE_CATALOG + offset);
     #elif defined(AI_AGENT_HOST_TEST)
@@ -194,7 +195,7 @@ static inline uint8_t puzzle_catalog_read_byte(uint32_t offset) {
     #endif
 }
 
-static inline uint16_t puzzle_catalog_read_word(uint32_t offset) {
+static uint16_t puzzle_catalog_read_word(uint32_t offset) {
     #if defined(__llvm_mos__)
     return platform_far_read_word(SRAM_PUZZLE_CATALOG + offset);
     #elif defined(AI_AGENT_HOST_TEST)
@@ -210,7 +211,7 @@ static inline uint16_t puzzle_catalog_read_word(uint32_t offset) {
     #endif
 }
 
-static inline void puzzle_catalog_reset_index_cache(void) {
+static void puzzle_catalog_reset_index_cache(void) {
     s_last_index_lookup.filtered_index = UINT16_MAX;
     s_last_index_lookup.actual_index = 0u;
     s_last_index_lookup.rule = s_current_puzzle_swap_rule;
@@ -255,7 +256,7 @@ static void FAR13_puzzle_catalog_ensure_header(void) {
     s_puzzle_collection.puzzles = NULL;
 
     if (!s_solved_bitset_ready) {
-        puzzle_catalog_init_solved_bits(count);
+        FAR13_puzzle_catalog_init_solved_bits(count);
     }
 
     memset(s_rule_counts, 0, sizeof(s_rule_counts));

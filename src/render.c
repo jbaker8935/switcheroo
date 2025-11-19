@@ -45,7 +45,21 @@ static void cache_board_snapshot(const board_t *board) {
     }
 }
 
+void FAR13_render_init(void);
+
+#pragma clang optimize off
+__attribute__((noinline))
 void render_init(void) {
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 13;
+    FAR13_render_init();
+    *(volatile unsigned char *)0x000d = ___mmu;
+}
+#pragma clang optimize on
+
+__attribute__((noinline, section(".block13")))
+
+void FAR13_render_init(void) {
     
     const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11;
     const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15;

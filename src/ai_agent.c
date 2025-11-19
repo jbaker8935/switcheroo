@@ -1296,7 +1296,7 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
     return ai_clamp_score(total);
 }
 
-void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player);
+void FAR9_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player);
 
 #if !defined(AI_AGENT_HOST_TEST)
 
@@ -1304,8 +1304,8 @@ void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficult
 __attribute__((noinline)) void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty,
                                              player_t ai_player) {
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_ai_agent_init(config, swap_rule, difficulty, ai_player);
+    *(volatile unsigned char *)0x000d = 9;
+    FAR9_ai_agent_init(config, swap_rule, difficulty, ai_player);
     *(volatile unsigned char *)0x000d = ___mmu;
 }
 #pragma clang optimize on
@@ -1313,12 +1313,12 @@ __attribute__((noinline)) void ai_agent_init(ai_config_t *config, swap_rule_t sw
 #else
 
 void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player) {
-    FAR8_ai_agent_init(config, swap_rule, difficulty, ai_player);
+    FAR9_ai_agent_init(config, swap_rule, difficulty, ai_player);
 }
 
 #endif
 
-__attribute__((noinline, section(".block8"))) void FAR8_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
+__attribute__((noinline, section(".block9"))) void FAR9_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
                                                                       ai_difficulty_t difficulty, player_t ai_player) {
     if (!config) {
         return;
