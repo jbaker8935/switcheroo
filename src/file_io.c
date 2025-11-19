@@ -2,7 +2,7 @@
 #include "../src/puzzle_data.h"
 #include "../src/achievements.h"
 #include "../src/game_state.h"
-#include "../src/video.h"
+#include "../src/sram_assets.h"
 #include <stdint.h>
 #include <stdbool.h>
 #ifdef AI_AGENT_HOST_TEST

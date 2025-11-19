@@ -9,6 +9,7 @@
 #include "../src/text_display.h"
 #include "../src/mouse_pointer.h"
 #include <string.h>
+#include "../src/sram_assets.h"
 #include "../src/video.h"
 
 // External functions from video.c

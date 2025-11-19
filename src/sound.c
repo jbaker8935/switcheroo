@@ -2,6 +2,7 @@
 #include "../src/sound.h"
 #include "../src/timer.h"
 #include "../src/text_display.h"
+#include "../src/sram_assets.h"
 
 #define VS_SCI_CTRL  0xD700
 #define VS_SCI_ADDR  0xD701
@@ -34,11 +35,6 @@
 #define SM_CANCEL 0x0008         /* bit 3 */
 #define SM_RESET 0x0004          /* bit 2 */
 
-EMBED(sound_loss,"../assets/sounds/loss.mp3",0x5FE00u);
-EMBED(sound_move,"../assets/sounds/move.mp3",0x61630u);
-EMBED(sound_reset_board,"../assets/sounds/reset_board.mp3",0x62E60u);
-EMBED(sound_win,"../assets/sounds/win.mp3",0x64690u);
-EMBED(sound_game_start,"../assets/sounds/game_start_sound.mp3",0x65EC0u);
 
 uint16_t vs1053_read_sci(uint8_t addr) {
     POKE(VS_SCI_ADDR, addr);

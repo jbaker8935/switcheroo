@@ -1,6 +1,7 @@
 #include "../src/achievements.h"
 #include "../src/puzzle_data.h"
 #include "../src/timer.h"
+#include "../src/sram_assets.h"
 #include "../src/video.h"
 #include "../src/mouse_pointer.h"
 #include "../src/text_display.h"

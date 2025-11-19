@@ -3,7 +3,7 @@
 #include "../src/puzzle_data.h"
 #include "../src/board.h"
 #include "../src/text_display.h"
-#include "../src/video.h"
+#include "../src/sram_assets.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>

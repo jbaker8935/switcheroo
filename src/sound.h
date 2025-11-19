@@ -1,16 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#define SRAM_SOUND_LOSS 0x5FE00
-#define SOUND_LOSS_SIZE 6191u
-#define SRAM_SOUND_MOVE 0x61630
-#define SOUND_MOVE_SIZE 6191u
-#define SRAM_SOUND_RESET_BOARD 0x62E60
-#define SOUND_RESET_BOARD_SIZE 6191u
-#define SRAM_SOUND_WIN 0x64690
-#define SOUND_WIN_SIZE 6191u
-#define SRAM_SOUND_START 0x65EC0
-#define SOUND_START_SIZE 2508u
-
+#include "../src/sram_assets.h"
 typedef enum  {
     SOUND_ID_MOVE = 0,
     SOUND_ID_RESET_BOARD = 1,
