@@ -52,9 +52,19 @@ EMBED(sound_reset_board,"../assets/sounds/reset_board.mp3",0x62E60u);
 EMBED(sound_win,"../assets/sounds/win.mp3",0x64690u);
 EMBED(sound_game_start,"../assets/sounds/game_start_sound.mp3",0x65EC0u);
 
-EMBED(not_a_thing, "../assets/ui/not_a_thing.bin", 0x66890);
-EMBED(ui_splash_continue, "../assets/ui/ui_splash_continue.bin", 0x69130);
 
-EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x69700);
+EMBED(sid_sound_intro,"../assets/sounds/intro.bin",0x66890u);
+EMBED(sid_sound_game_start,"../assets/sounds/loaded.bin",0x685E0u);
+EMBED(sid_sound_loss,"../assets/sounds/loss.bin",0x688A0u);
+EMBED(sid_sound_move,"../assets/sounds/move.bin",0x68E80u);
+EMBED(sid_sound_win,"../assets/sounds/win.bin",0x69000u);
+EMBED(sid_outro,"../assets/sounds/outro.bin",0x695E0u);
+
+
+
+EMBED(not_a_thing, "../assets/ui/not_a_thing.bin", 0x6BB00u);
+EMBED(ui_splash_continue, "../assets/ui/ui_splash_continue.bin", 0x6E3A0u);
+EMBED(puzzle_catalog, "../assets/generated/puzzle_data.bin", 0x6E970u);
+
 
 

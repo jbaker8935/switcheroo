@@ -19,6 +19,7 @@
 #include "../src/file_io.h"
 #include "../src/sound.h"
 #include "../src/achievements_screen.h"
+#include "../src/playsid.h"
 #ifdef AI_AGENT_HOST_TEST
 #include "../tests/include/f256lib_host.h"
 #else
@@ -107,21 +108,21 @@ void display_main_screen(void) {
     }
 }
 
-void FAR11_main_loop(void);
+void FAR15_main_loop(void);
 
 #pragma clang optimize off
 __attribute__((noinline))
 
 void main_loop(void) {
     volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 11;
-    FAR11_main_loop();
+    *(volatile unsigned char *)0x000d = 15;
+    FAR15_main_loop();
     *(volatile unsigned char *)0x000d = ___mmu;
 }
 #pragma clang optimize on
 
-__attribute__((noinline, section(".block11"))) 
-void FAR11_main_loop(void) {
+__attribute__((noinline, section(".block15"))) 
+void FAR15_main_loop(void) {
 
     uint16_t old_move_count = 0;
     
@@ -184,7 +185,10 @@ void FAR11_main_loop(void) {
 
         // Process input events - drain all pending events like sprites example
         do {
-            timer_service();
+            if(isTimerDone() && is_sid_playing()) {
+                // Call SID streaming service if active
+                streaming_sid_service();
+            }
 
             bool splash_alarm_elapsed = checkAlarm(TIMER_ALARM_SPLASH);
             if (splash_alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
@@ -306,7 +310,8 @@ int main(int argc, char *argv[]) {
     // Initialize screen state - start in splash
     g_screen_state = SCREEN_SPLASH;
     video_show_splash();
-    setAlarm(TIMER_ALARM_SPLASH, 60); // Set alarm for 60 ticks
+    playback(SRAM_SOUND_INTRO_SID, SOUND_INTRO_SID_FRAMES);
+    setAlarm(TIMER_ALARM_SPLASH, 2u * T0_TICK_FREQ); 
     // Initialize game state
     game_state_init(&g_game_state);
     file_io_init();
@@ -323,8 +328,13 @@ int main(int argc, char *argv[]) {
     
     print_game_exit();
     video_show_exit();
-    // auto exit 5 seconds or on key press
-    setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(5u * T0_TICK_FREQ));
+
+   setMonoSID();
+   clearSIDRegisters();
+   playback(SRAM_SOUND_OUTRO_SID, SOUND_OUTRO_SID_FRAMES);
+
+    // auto exit 2 seconds or on key press
+    setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(2u * T0_TICK_FREQ));
     bool exit_wait = false;
     while (!exit_wait && !checkAlarm(TIMER_ALARM_GENERAL0)) {
         timer_service();

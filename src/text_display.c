@@ -177,7 +177,7 @@ void print_game_exit(void) {
 
 void print_puzzle_clock(uint16_t elapsed_ticks) {
     // Convert ticks to seconds
-    uint16_t total_seconds = elapsed_ticks / T0_TICK_FREQ; // Assuming 30 ticks per second
+    uint16_t total_seconds = elapsed_ticks / T0_TICK_FREQ; 
 
     print_formatted_text(3, 26, "^6Timer: ^1");
     textGotoXY(10, 26);

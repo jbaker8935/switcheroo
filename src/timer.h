@@ -1,3 +1,5 @@
+#if !defined(SRC_TIMER_H__)
+#define SRC_TIMER_H__
 #include <stdbool.h>
 #include <stdint.h>
 
@@ -25,7 +27,7 @@
 #define T0_CMP_CTR_RECLEAR 0x01
 #define T0_CMP_CTR_RELOAD  0x02
 
-#define T0_TICK_FREQ 30 //30 Hz
+#define T0_TICK_FREQ 50 //50 Hz to allow for sid playback timing
 #define VIDEO_DOT_CLOCK_HZ 25175000u
 #define T0_TICK_CMP_L ((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)&0xFF)
 #define T0_TICK_CMP_M (((VIDEO_DOT_CLOCK_HZ/T0_TICK_FREQ)>>8)&0xFF)
@@ -50,3 +52,4 @@ void setAlarm(timer_alarm_id_t alarm, uint16_t ticks);
 void clearAlarm(timer_alarm_id_t alarm);
 bool checkAlarm(timer_alarm_id_t alarm);
 uint16_t getAlarmTicks(timer_alarm_id_t alarm);
+#endif // SRC_TIMER_H__

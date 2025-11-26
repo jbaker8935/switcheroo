@@ -92,11 +92,13 @@ typedef struct {
     uint8_t row_mask;
     uint8_t row_links;
     uint8_t branching_nodes;
+    uint8_t best_component_mask;  // Row mask of the most complete connected component
 } ai_connection_metrics_t;
 
 static ai_eval_breakdown_t s_last_breakdown;
 
 // Global progress callback variables
+
 static ai_progress_callback_t s_progress_callback = NULL;
 static void *s_progress_user_data = NULL;
 
@@ -107,12 +109,28 @@ static const ai_eval_weights_t kRuleWeights[4] = {
     {72, 50, 46, 38, 16}   // Swapped Clears Own
 };
 
-static void ai_board_copy(board_t *dest, const board_t *src) {
-#pragma unroll 8
+
+#if defined(__llvm_mos__)
+void ai_board_copy(board_t *dest, const board_t *src);
+    asm (
+        ".text\n"
+        ".global ai_board_copy\n"
+        "ai_board_copy:\n"
+        "ldy #36\n"
+        "1: lda (__rc4),y\n"
+        "   sta (__rc2),y\n"
+        "   dey\n"
+        "   bpl 1b\n"
+        " rts\n"
+    );
+#else
+void ai_board_copy(board_t *dest, const board_t *src) {
     for (uint8_t i = 0; i < sizeof(board_t); ++i) {
         ((uint8_t *)dest)[i] = ((const uint8_t *)src)[i];
     }
 }
+#endif
+
 
 static const uint8_t kNibblePopcount[16] = {0u, 1u, 1u, 2u, 1u, 2u, 2u, 3u, 1u, 2u, 2u, 3u, 2u, 3u, 3u, 4u};
 
@@ -277,6 +295,7 @@ __attribute__((noinline, section(".block9"))) void FAR9_ai_compute_connection_me
     out->row_mask = 0;
     out->row_links = 0;
     out->branching_nodes = 0;
+    out->best_component_mask = 0;
 
     bool counted[BOARD_CELLS];
     memset(counted, 0, sizeof(counted));
@@ -298,6 +317,11 @@ __attribute__((noinline, section(".block9"))) void FAR9_ai_compute_connection_me
             }
         }
         out->branching_nodes = (uint8_t)(out->branching_nodes + branching[root]);
+        
+        // Track the best (most rows covered) single connected component
+        if (ai_popcount(mask) > ai_popcount(out->best_component_mask)) {
+            out->best_component_mask = mask;
+        }
     }
 }
 
@@ -952,9 +976,17 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     if (move.to_row < move.from_row) {
                         score += 280;
                     }
+                    // Extra bonus for WHITE reaching the far edge (row 1)
+                    if (move.to_row == WIN_START_ROW) {
+                        score += 200;
+                    }
                 } else {
                     if (move.to_row > move.from_row) {
                         score += 280;
+                    }
+                    // Extra bonus for BLACK reaching the far edge (row 6)
+                    if (move.to_row == WIN_END_ROW) {
+                        score += 200;
                     }
                 }
 
@@ -1138,10 +1170,41 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
     FAR9_ai_compute_connection_metrics(board, perspective, &conn_me);
     FAR9_ai_compute_connection_metrics(board, opponent, &conn_op);
 
+    // Base connection score from row coverage and links
     int16_t connection_me =
         (int16_t)(ai_popcount(conn_me.row_mask) * 12 + conn_me.row_links * 18 + conn_me.branching_nodes * 5);
     int16_t connection_op =
         (int16_t)(ai_popcount(conn_op.row_mask) * 12 + conn_op.row_links * 18 + conn_op.branching_nodes * 5);
+
+    // Add bonus for edge row coverage in best connected component
+    // Bit 0 = row 1 (WIN_START_ROW), Bit 5 = row 6 (WIN_END_ROW)
+    const uint8_t EDGE_ROW_START_BIT = 0u;
+    const uint8_t EDGE_ROW_END_BIT = (uint8_t)(WIN_END_ROW - WIN_START_ROW);  // Should be 5
+    const uint8_t START_MASK = (uint8_t)(1u << EDGE_ROW_START_BIT);
+    const uint8_t END_MASK = (uint8_t)(1u << EDGE_ROW_END_BIT);
+    
+    // Bonus for having each edge row in the best component
+    if (conn_me.best_component_mask & START_MASK) {
+        connection_me += 25;  // Has row 1 in main component
+    }
+    if (conn_me.best_component_mask & END_MASK) {
+        connection_me += 25;  // Has row 6 in main component
+    }
+    // Big bonus for having BOTH edge rows in the same component (near winning!)
+    if ((conn_me.best_component_mask & START_MASK) && (conn_me.best_component_mask & END_MASK)) {
+        connection_me += 80;  // Connected from row 1 to row 6!
+    }
+    
+    // Same for opponent
+    if (conn_op.best_component_mask & START_MASK) {
+        connection_op += 25;
+    }
+    if (conn_op.best_component_mask & END_MASK) {
+        connection_op += 25;
+    }
+    if ((conn_op.best_component_mask & START_MASK) && (conn_op.best_component_mask & END_MASK)) {
+        connection_op += 80;
+    }
 
     int16_t bridge_me = (int16_t)FAR9_ai_count_bridge_potential(board, perspective);
     int16_t bridge_op = (int16_t)FAR9_ai_count_bridge_potential(board, opponent);
@@ -1328,7 +1391,37 @@ static void ai_sort_indices_by_evaluation(const ai_evaluated_moves_t *evaluated,
     }
 }
 
-__attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_moves(
+static uint8_t FAR11_ai_evaluate_moves(
+    board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered,
+    uint8_t generated, ai_evaluated_moves_t *evaluated);
+
+#if defined(AI_AGENT_HOST_TEST)
+
+static uint8_t ai_evaluate_moves(board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered,
+    uint8_t generated, ai_evaluated_moves_t *evaluated) {
+    return FAR11_ai_evaluate_moves(root, current_player, config, ordered, generated, evaluated);
+}
+
+#else
+
+#pragma clang optimize off
+__attribute__((noinline)) 
+static uint8_t ai_evaluate_moves(board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered,
+    uint8_t generated, ai_evaluated_moves_t *evaluated) {
+
+    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
+    *(volatile unsigned char *)0x000d = 11;
+    uint8_t return_value = FAR11_ai_evaluate_moves( root, current_player, config, ordered, generated, evaluated);
+    *(volatile unsigned char *)0x000d = ___mmu;
+    return return_value;
+}
+
+#pragma clang optimize on
+
+#endif
+
+
+__attribute__((noinline, section(".block11"))) static uint8_t FAR11_ai_evaluate_moves(
     board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered,
     uint8_t generated, ai_evaluated_moves_t *evaluated) {
     if (!root || !config || !ordered || !evaluated) {
@@ -1337,6 +1430,9 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
 
     uint8_t count = 0u;
     player_t opponent = (current_player == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
+
+    // Track if AI has found a forced win - skip expensive opponent forcing checks after that
+    bool ai_has_forced_win = false;
 
     for (uint8_t i = 0u; i < generated && count < AI_MAX_ORDERED_MOVES; ++i) {
         uint8_t move_slot = ordered->indices[i];
@@ -1399,11 +1495,17 @@ __attribute__((noinline, section(".block10"))) static uint8_t FAR10_ai_evaluate_
         if (config->enable_forcing_check && config->difficulty >= AI_DIFFICULTY_STANDARD) {
             forced_self =
                 ai_board_creates_forced_immediate_win_postmove(&child, move.player, move.player, config->swap_rule);
+            if (forced_self) {
+                ai_has_forced_win = true;
+            }
         }
         evaluated->forced_wins_self[target_index] = forced_self;
 
         bool opponent_forced = false;
-        if (config->enable_forcing_check && config->difficulty == AI_DIFFICULTY_EXPERT && !opponent_win_next) {
+        // Skip expensive opponent forcing check if AI already has a forced win move
+        // (AI will play the forced win, so opponent's forcing potential is irrelevant)
+        if (config->enable_forcing_check && config->difficulty == AI_DIFFICULTY_EXPERT && 
+            !opponent_win_next && !ai_has_forced_win) {
             opponent_forced = ai_forcing_move_available(&child, defender, opponent, config->swap_rule);
         }
         evaluated->opponent_forced_wins[target_index] = opponent_forced;
@@ -1700,7 +1802,7 @@ __attribute__((noinline, section(".block10"))) bool FAR10_ai_agent_find_best_mov
 
     ai_evaluated_moves_t evaluated;
     uint8_t evaluated_count =
-        FAR10_ai_evaluate_moves(&root, current_player, &tuned, &ordered, generated, &evaluated);
+        ai_evaluate_moves(&root, current_player, &tuned, &ordered, generated, &evaluated);
 
     bool applied_blunder = false;
     move_t chosen_move = {0};

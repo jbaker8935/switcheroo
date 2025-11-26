@@ -4,6 +4,8 @@
 #include "../src/text_display.h"
 #include "../src/mouse_pointer.h"
 #include "../src/dma_copy.h"
+#include "../src/playsid.h"
+
 #include <stdint.h>
 
 

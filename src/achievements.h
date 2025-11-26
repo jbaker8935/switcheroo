@@ -27,6 +27,7 @@
 #endif
 
 #include "../src/ai_agent.h"
+#include "../src/timer.h"
 #include "../src/board.h"
 
 struct puzzle_t;
@@ -35,7 +36,7 @@ enum {
 	ACHIEVEMENT_COUNT = 16u,
 	ACHIEVEMENT_FREEPLAY_COUNT = 8u,
 	ACHIEVEMENT_PUZZLE_COUNT = 8u,
-	ACHIEVEMENT_PUZZLE_TIMER_TICKS = 900u
+	ACHIEVEMENT_PUZZLE_TIMER_TICKS = 30 * T0_TICK_FREQ,
 };
 
 typedef enum {

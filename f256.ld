@@ -128,19 +128,23 @@ OUTPUT_FORMAT {
   BYTE(0x00)
   TRIM(block12)
 
-
   SHORT(13*0x2000)
   BYTE(13/8)
   SHORT(end_block13 - __block13_lma)
   BYTE(0x00)
   TRIM(block13)
-
   
   SHORT(14*0x2000)
   BYTE(14/8)
   SHORT(end_block14 - __block14_lma)
   BYTE(0x00)
   TRIM(block14)
+  
+  SHORT(15*0x2000)
+  BYTE(15/8)
+  SHORT(end_block15 - __block15_lma)
+  BYTE(0x00)
+  TRIM(block15)
 
   /* Launch the program, at _start */
   SHORT(_start)

@@ -519,19 +519,22 @@ void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
 
 
 // Serialize the solved state of all puzzles (1 bit per puzzle, packed into bytes)
+// Always fills max_bytes to maintain consistent file size across different puzzle sets.
+// Active bits are copied from the internal bitset; remaining bytes are zeroed.
 size_t puzzle_catalog_serialize_solved(uint8_t *buffer, size_t max_bytes) {
     puzzle_catalog_ensure_header();
-    if (!buffer || !s_solved_bitset_ready) {
+    if (!buffer || !s_solved_bitset_ready || max_bytes == 0u) {
         return 0u;
     }
 
-    const size_t needed_bytes = s_solved_bitset_bytes;
-    if (needed_bytes == 0u || max_bytes < needed_bytes) {
-        return 0u;
+    const size_t copy_bytes = (s_solved_bitset_bytes <= max_bytes) ? s_solved_bitset_bytes : max_bytes;
+    if (copy_bytes > 0u) {
+        memcpy(buffer, s_solved_bitset, copy_bytes);
     }
-
-    memcpy(buffer, s_solved_bitset, needed_bytes);
-    return needed_bytes;
+    if (copy_bytes < max_bytes) {
+        memset(buffer + copy_bytes, 0, max_bytes - copy_bytes);
+    }
+    return max_bytes;
 }
 
 // Deserialize the solved state of all puzzles from a buffer (1 bit per puzzle, packed into bytes)

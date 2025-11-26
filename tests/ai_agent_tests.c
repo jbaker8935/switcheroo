@@ -10,6 +10,14 @@
 #include "../src/board.h"
 #include "puzzle_test_data.h"
 
+// Stubs for missing functions
+void print_made_blunder(const char *blunder_name) {
+    (void)blunder_name;
+}
+
+void render_invalidate_cache(void) {
+}
+
 typedef struct {
     board_t board;
     board_context_t context;
@@ -1591,16 +1599,6 @@ static void test_puzzle_21_c7_c6_issue(void) {
     }
 }
 
-int main(void) {
-    puts("Running Switcharoo AI agent tests...");
-    test_all_win_in_2_puzzles();
-    test_puzzle_3_a5_b6_issue();
-    test_puzzle_21_c7_c6_issue();
-    test_learning_blunder_selects_immediate_loss();
-    test_puzzle_45_c6_b5_not_forcing();
-    return 0;
-}
-
 static void test_puzzle_45_c6_b5_not_forcing(void) {
     printf("\n=== Testing puzzle 45 candidate C6->B5 forcing check ===\n");
     board_t board;
@@ -1687,3 +1685,15 @@ static void test_puzzle_45_c6_b5_not_forcing(void) {
         printf("Result: C6->B5 appears to be forcing (no reply prevents immediate win).\n");
     }
 }
+
+int main(void) {
+    puts("Running Switcharoo AI agent tests...");
+    test_all_win_in_2_puzzles();
+    test_puzzle_3_a5_b6_issue();
+    test_puzzle_21_c7_c6_issue();
+    test_learning_blunder_selects_immediate_loss();
+    test_puzzle_45_c6_b5_not_forcing();
+    return 0;
+}
+
+

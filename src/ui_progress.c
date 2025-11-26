@@ -9,7 +9,7 @@
 #include "../src/text_display.h"
 #include "../src/timer.h"
 
-static const uint8_t kDotFrequencyTicks = 30u;
+static const uint8_t kDotFrequencyTicks = T0_TICK_FREQ; // every 1 second
 
 void ui_progress_init(ui_progress_state_t *state) {
     if (!state) {
