@@ -1,7 +1,7 @@
 
 ## F256 Switcharoo
 
-A strategic puzzle game for the **Foenix/Wildbits F256** retro computer, built with **llvm-mos**. Play against a heuristic AI opponent in this unique piece-swapping strategy game.
+A strategic puzzle game for the **Foenix/Wildbits F256** retro computer, built with **llvm-mos**. Play against a heuristic Engine opponent in this unique piece-swapping strategy game.
 
 ## Game Overview
 
@@ -10,7 +10,7 @@ Switcharoo is a two-player abstract strategy game where players compete to creat
 ### Board and Players
 
 - **Board**: 8 rows × 4 columns
-- **Players**: White (human, bottom) vs Black (AI, top)
+- **Players**: White (human, bottom) vs Black (Engine, top)
 - **Objective**: Create a connected path of your pieces linking rows 2 through 7
 
 ### Movement Rules
@@ -31,8 +31,8 @@ Switcharoo is a two-player abstract strategy game where players compete to creat
 ## Features
 
 - **Puzzle Mode**: Solve pre-designed puzzles with optimal move sequences
-- **Free Play Mode**: Open gameplay against the AI with multiple starting layouts
-- **AI Difficulty Levels**: Adjustable AI strength from easy to advanced
+- **Free Play Mode**: Open gameplay against the Engine with multiple starting layouts
+- **Engine Difficulty Levels**: Adjustable Engine strength from easy to advanced
 - **Achievements System**: Track your progress and accomplishments
 - **Move History**: Review and navigate through past moves
 - **Mouse & Keyboard Support**: Full input support for both control methods
@@ -74,7 +74,7 @@ space key.
 
 ## Host Testing
 
-For rapid iteration and debugging, the AI agent can be tested on a Linux host:
+For rapid iteration and debugging, the Engine can be tested on a Linux host:
 
 ```bash
 gcc -o tests/ai_agent_tests_host \
@@ -132,22 +132,30 @@ The game is organized into distinct layers:
 
 ### Memory Constraints
 
-- RAM budget: ~48 KB outside AI overlay window
+- RAM budget: ~48 KB outside Engine overlay window
 - Assets and puzzle data stream from far memory
 - Minimal dependencies on `f256lib` primitives for portability
 
-## AI Heuristics
+## Engine Heuristics
 
-The AI evaluates moves using multiple factors:
+The Engine evaluates moves using multiple factors:
 
-**Positive factors:**
-- Number of rows occupied between rows 2-7
+**Connection Progress**
+- Rows occupied in the victory span (rows 2-7)
 - Number of connected rows in the victory span
-- Opponent pieces in swapped state (limiting their options)
 
-**Negative factors:**
-- Pieces remaining on the back row
-- Opponent connected pieces
+**Bridge Potential**
+- Empty cells available for path expansion
+
+**Swap Pressure**
+- Swapped pieces restrict opponent movement options (cannot be swap targets)
+
+**Blocking Coverage**
+- Pieces in center columns of victory rows
+- Adjacency for movement restriction and further swap opportunities
+
+**Mobility**
+- Total legal moves available
 
 **Win/Loss detection:**
 - Immediate win detection
