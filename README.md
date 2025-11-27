@@ -168,7 +168,6 @@ The Engine evaluates moves using multiple factors:
 - [design.md](design.md) - Technical architecture and module design
 - [tasks.md](tasks.md) - Implementation task tracking
 - [HOST_TEST_BUILD_GUIDE.md](HOST_TEST_BUILD_GUIDE.md) - Host testing setup
-- [llvm_mos_optimization.md](llvm_mos_optimization.md) - Performance optimization notes
 
 ## Controls
 
