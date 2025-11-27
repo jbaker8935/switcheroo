@@ -126,7 +126,7 @@ The game is organized into distinct layers:
 | Application Shell | Startup, event loop, shutdown | `main.c`, `system.c` |
 | Game State | Phase control, menu, puzzle transitions | `game_state.c` |
 | Board & Rules | Move validation, swap rules, win detection | `board.c` |
-| AI | Heuristic move selection, difficulty tuning | `ai_agent.c` |
+| Engine | Heuristic move selection, difficulty tuning | `ai_agent.c` |
 | Presentation | Sprites, highlights, text HUD | `render.c`, `video.c` |
 | Input | Mouse/keyboard translation | `input.c`, `input_handler.c` |
 
