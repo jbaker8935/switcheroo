@@ -104,9 +104,9 @@ static void *s_progress_user_data = NULL;
 
 static const ai_eval_weights_t kRuleWeights[4] = {
     {88, 58, 36, 44, 12},  // Classic
-    {84, 54, 32, 44, 12},  // Clears Own
-    {72, 52, 50, 38, 16},  // Swapped Clears
-    {72, 50, 46, 38, 16}   // Swapped Clears Own
+    {64, 48, 37, 46, 16},  // Clears Own
+    {58, 46, 41, 43, 36},  // Swapped Clears
+    {71, 49, 59, 44, 26},  // Swapped Clears Own
 };
 
 

@@ -1065,11 +1065,422 @@ static void test_all_win_in_2_puzzles(void) {
     }
 }
 
+// ============================================================================
+// Self-Play Tournament Weight Tuning
+// ============================================================================
 
+static const char *swap_rule_name(swap_rule_t rule) {
+    switch (rule) {
+        case SWAP_RULE_CLASSIC:
+            return "Classic";
+        case SWAP_RULE_CLEARS_OWN:
+            return "Clears Own";
+        case SWAP_RULE_SWAPPED_CLEARS:
+            return "Swapped Clears";
+        case SWAP_RULE_SWAPPED_CLEARS_OWN:
+            return "Swapped Clears Own";
+        default:
+            return "Unknown";
+    }
+}
+
+static void print_weights(const char *label, const ai_eval_weights_t *w) {
+    printf("%s: {%d, %d, %d, %d, %d}\n", label, w->connection_progress, w->bridge_potential, w->swap_pressure,
+           w->blocking_coverage, w->mobility);
+}
+
+// Tournament result for a single weight set
+typedef struct {
+    ai_eval_weights_t weights;
+    uint16_t wins;
+    uint16_t losses;
+    uint16_t draws;
+    uint32_t total_plies;
+    int32_t net_score;  // wins - losses, used for ranking
+    int32_t position_advantage;  // Accumulated positional advantage at end of draws
+} tournament_result_t;
+
+// Compare tournament results (for sorting - higher is better)
+static int compare_tournament_results(const void *a, const void *b) {
+    const tournament_result_t *ra = (const tournament_result_t *)a;
+    const tournament_result_t *rb = (const tournament_result_t *)b;
+    // First by net score (wins - losses)
+    if (ra->net_score != rb->net_score) {
+        return (rb->net_score - ra->net_score);  // Descending
+    }
+    // Then by total wins
+    if (ra->wins != rb->wins) {
+        return (int)(rb->wins - ra->wins);  // Descending
+    }
+    // Then by positional advantage (for drawn games)
+    if (ra->position_advantage != rb->position_advantage) {
+        return (rb->position_advantage - ra->position_advantage);  // Descending
+    }
+    // Then by fewer plies (faster wins)
+    return (int)(ra->total_plies - rb->total_plies);  // Ascending
+}
+
+// Game result with detailed metrics
+typedef struct {
+    player_t winner;
+    uint16_t plies;
+    int32_t white_advancement;
+    int32_t black_advancement;
+} game_result_t;
+
+// Run a single game: candidate (white_weights) vs opponent (black_weights) with random opponent
+static game_result_t run_tournament_game_detailed(const ai_eval_weights_t *white_weights,
+                                                   const ai_eval_weights_t *black_weights, swap_rule_t rule,
+                                                   uint16_t half_move_limit, uint8_t opponent_random_pct,
+                                                   uint32_t seed, bool white_is_candidate) {
+    board_t board;
+    board_context_t context;
+    board_init(&board);
+    context.current_player = PLAYER_WHITE;
+    context.history_count = 0;
+
+    ai_config_t white_cfg;
+    ai_agent_init(&white_cfg, rule, AI_DIFFICULTY_STANDARD, PLAYER_WHITE);
+    white_cfg.weights = *white_weights;
+    white_cfg.enable_forcing_check = true;
+
+    ai_config_t black_cfg;
+    ai_agent_init(&black_cfg, rule, AI_DIFFICULTY_STANDARD, PLAYER_BLACK);
+    black_cfg.weights = *black_weights;
+    black_cfg.enable_forcing_check = true;
+
+    rng_seed(seed);
+
+    game_result_t result = {.winner = PLAYER_NONE, .plies = 0, .white_advancement = 0, .black_advancement = 0};
+
+    for (uint16_t ply = 0; ply < half_move_limit; ++ply) {
+        ai_config_t *active_cfg = (context.current_player == PLAYER_WHITE) ? &white_cfg : &black_cfg;
+        bool is_candidate_turn = (context.current_player == PLAYER_WHITE) == white_is_candidate;
+        move_t move;
+        bool found = false;
+
+        // Only apply randomness to the opponent (non-candidate)
+        if (!is_candidate_turn && rng_chance_percent(opponent_random_pct)) {
+            found = select_random_move(&board, &move);
+            if (found) {
+                move.player = context.current_player;
+            }
+        }
+
+        if (!found) {
+            found = ai_agent_find_best_move(&board, &context, active_cfg, &move);
+        }
+
+        if (!found) {
+            break;  // No legal moves - stalemate
+        }
+
+        board_context_t move_ctx = {.current_player = context.current_player};
+        bool executed = board_execute_move(&board, &move_ctx, &move, rule);
+        if (!executed) {
+            break;
+        }
+
+        result.plies = ply + 1;
+
+        if (board_check_win(&board, context.current_player, NULL)) {
+            result.winner = context.current_player;
+            break;
+        }
+
+        board_switch_turn(&context);
+    }
+
+    // Calculate positional advantage at end of game
+    result.white_advancement = (int32_t)compute_advancement_score(&board, PLAYER_WHITE);
+    result.black_advancement = (int32_t)compute_advancement_score(&board, PLAYER_BLACK);
+
+    return result;
+}
+
+// Wrapper for backward compatibility
+static player_t run_tournament_game(const ai_eval_weights_t *white_weights, const ai_eval_weights_t *black_weights,
+                                    swap_rule_t rule, uint16_t half_move_limit, uint8_t random_pct, uint32_t seed) {
+    game_result_t result = run_tournament_game_detailed(white_weights, black_weights, rule, half_move_limit,
+                                                        random_pct, seed, true);
+    return result.winner;
+}
+
+// Generate a mutated version of weights with small random perturbations
+static ai_eval_weights_t mutate_weights(const ai_eval_weights_t *base, int16_t delta_range) {
+    ai_eval_weights_t mutated = *base;
+
+    // Apply random deltas to each weight
+    int16_t delta_conn = (int16_t)(rng_range((uint32_t)(delta_range * 2 + 1)) - delta_range);
+    int16_t delta_bridge = (int16_t)(rng_range((uint32_t)(delta_range * 2 + 1)) - delta_range);
+    int16_t delta_swap = (int16_t)(rng_range((uint32_t)(delta_range * 2 + 1)) - delta_range);
+    int16_t delta_block = (int16_t)(rng_range((uint32_t)(delta_range * 2 + 1)) - delta_range);
+    int16_t delta_mob = (int16_t)(rng_range((uint32_t)(delta_range * 2 + 1)) - delta_range);
+
+    mutated.connection_progress = clamp_range((int16_t)(mutated.connection_progress + delta_conn), 32, 140);
+    mutated.bridge_potential = clamp_range((int16_t)(mutated.bridge_potential + delta_bridge), 20, 100);
+    mutated.swap_pressure = clamp_range((int16_t)(mutated.swap_pressure + delta_swap), 16, 80);
+    mutated.blocking_coverage = clamp_range((int16_t)(mutated.blocking_coverage + delta_block), 20, 80);
+    mutated.mobility = clamp_range((int16_t)(mutated.mobility + delta_mob), 4, 40);
+
+    return mutated;
+}
+
+// Evaluate a weight set by playing games against a random opponent
+static tournament_result_t evaluate_weights_vs_random_opponent(const ai_eval_weights_t *candidate,
+                                                               const ai_eval_weights_t *baseline, swap_rule_t rule,
+                                                               uint16_t games_per_side, uint16_t half_move_limit,
+                                                               uint8_t opponent_random_pct, uint32_t seed_base) {
+    tournament_result_t result;
+    memset(&result, 0, sizeof(result));
+    result.weights = *candidate;
+
+    for (uint16_t game = 0; game < games_per_side; ++game) {
+        // Play as white (candidate) vs random opponent (baseline + randomness)
+        uint32_t seed_white = seed_base + game * 2;
+        game_result_t gr_white = run_tournament_game_detailed(candidate, baseline, rule, half_move_limit,
+                                                              opponent_random_pct, seed_white, true);
+
+        if (gr_white.winner == PLAYER_WHITE) {
+            result.wins++;
+        } else if (gr_white.winner == PLAYER_BLACK) {
+            result.losses++;
+        } else {
+            result.draws++;
+            // Track positional advantage for draws (white advancement - black advancement)
+            result.position_advantage += (gr_white.white_advancement - gr_white.black_advancement);
+        }
+        result.total_plies += gr_white.plies;
+
+        // Play as black (candidate) vs random opponent (baseline + randomness)
+        uint32_t seed_black = seed_base + game * 2 + 1;
+        game_result_t gr_black = run_tournament_game_detailed(baseline, candidate, rule, half_move_limit,
+                                                              opponent_random_pct, seed_black, false);
+
+        if (gr_black.winner == PLAYER_BLACK) {
+            result.wins++;
+        } else if (gr_black.winner == PLAYER_WHITE) {
+            result.losses++;
+        } else {
+            result.draws++;
+            // Track positional advantage for draws (black advantage as candidate)
+            result.position_advantage += (gr_black.black_advancement - gr_black.white_advancement);
+        }
+        result.total_plies += gr_black.plies;
+    }
+
+    result.net_score = (int32_t)result.wins - (int32_t)result.losses;
+    return result;
+}
+
+// Run a tournament pass for a single swap rule
+// Each candidate (mutation of current_best) plays head-to-head against current_best
+// Only becomes new champion if it beats current best by a margin
+static ai_eval_weights_t run_tournament_pass(swap_rule_t rule, const ai_eval_weights_t *current_best,
+                                             uint16_t num_candidates, uint16_t games_per_side, uint16_t half_move_limit,
+                                             uint8_t random_pct, int16_t mutation_range, uint32_t seed_base) {
+    printf("\n  Tournament pass for %s (candidates=%d, games/side=%d, random=%d%%)\n", 
+           swap_rule_name(rule), num_candidates, games_per_side, random_pct);
+    print_weights("    Current best", current_best);
+
+    ai_eval_weights_t champion = *current_best;
+    tournament_result_t best_result;
+    memset(&best_result, 0, sizeof(best_result));
+    best_result.weights = champion;
+
+    // Generate mutations and find the best performer against current best
+    rng_seed(seed_base + 0x12345678u);
+    for (uint16_t i = 0; i < num_candidates; ++i) {
+        ai_eval_weights_t challenger = mutate_weights(current_best, mutation_range);
+        
+        // Challenger plays against the ORIGINAL current_best (not the evolving champion)
+        // This ensures fair comparison between all candidates
+        tournament_result_t result = evaluate_weights_vs_random_opponent(
+            &challenger, current_best, rule, games_per_side, half_move_limit, random_pct,
+            seed_base + (uint32_t)(i + 1) * 0x1000);
+
+        printf("    Candidate %d: W=%d L=%d D=%d (net=%+d, pos=%+d) ", i + 1, 
+               result.wins, result.losses, result.draws, result.net_score, result.position_advantage);
+        print_weights("", &result.weights);
+
+        // Track the best performer
+        // Must have positive net score (more wins than losses)
+        // If tied, use position advantage as tiebreaker
+        bool is_better = false;
+        if (result.net_score > best_result.net_score) {
+            is_better = true;
+        } else if (result.net_score == best_result.net_score && 
+                   result.position_advantage > best_result.position_advantage) {
+            is_better = true;
+        }
+
+        if (is_better && result.net_score > 0) {
+            printf("      -> Best so far\n");
+            best_result = result;
+        }
+    }
+
+    // Only adopt new weights if they significantly outperform current best
+    // Require at least 2 more wins than losses to avoid noise
+    if (best_result.net_score >= 2) {
+        printf("    NEW CHAMPION (net=%+d): ", best_result.net_score);
+        print_weights("", &best_result.weights);
+        return best_result.weights;
+    } else {
+        printf("    No improvement found, keeping current best\n");
+        return champion;
+    }
+}
+
+// Main tournament tuning function
+static void run_weight_tuning_tournament(uint16_t tournament_passes, uint16_t candidates_per_pass,
+                                         uint16_t games_per_candidate, uint16_t half_move_limit, uint8_t random_pct) {
+    printf("\n");
+    printf("============================================================\n");
+    printf("     SELF-PLAY WEIGHT TUNING TOURNAMENT\n");
+    printf("============================================================\n");
+    printf("Parameters:\n");
+    printf("  Tournament passes:     %d\n", tournament_passes);
+    printf("  Candidates per pass:   %d\n", candidates_per_pass);
+    printf("  Games per candidate:   %d (x2 for both colors)\n", games_per_candidate);
+    printf("  Half-move limit:       %d\n", half_move_limit);
+    printf("  Opponent random %%:     %d%%\n", random_pct);
+    printf("============================================================\n");
+
+    // Starting weights from ai_agent.c kRuleWeights
+    ai_eval_weights_t best_weights[4] = {
+        {88, 58, 36, 44, 12},  // Classic
+        {84, 54, 32, 44, 12},  // Clears Own
+        {72, 52, 50, 38, 16},  // Swapped Clears
+        {72, 50, 46, 38, 16}   // Swapped Clears Own
+    };
+
+    // Seed the RNG with time
+    rng_seed((uint32_t)time(NULL));
+
+    // Progressively reduce mutation range as we converge
+    int16_t mutation_ranges[] = {12, 8, 6, 4, 3, 2};
+    size_t num_mutation_stages = sizeof(mutation_ranges) / sizeof(mutation_ranges[0]);
+
+    for (uint16_t pass = 0; pass < tournament_passes; ++pass) {
+        printf("\n=== Tournament Pass %d of %d ===\n", pass + 1, tournament_passes);
+
+        // Determine mutation range for this pass (decrease over time)
+        size_t stage = (size_t)pass * num_mutation_stages / tournament_passes;
+        if (stage >= num_mutation_stages) {
+            stage = num_mutation_stages - 1;
+        }
+        int16_t mutation_range = mutation_ranges[stage];
+        printf("Mutation range: +/- %d\n", mutation_range);
+
+        for (uint8_t rule_idx = 0; rule_idx < 4; ++rule_idx) {
+            swap_rule_t rule = (swap_rule_t)rule_idx;
+            uint32_t seed_base = (uint32_t)((pass + 1) * 0x10000 + rule_idx * 0x1000 + rng_next());
+
+            best_weights[rule_idx] =
+                run_tournament_pass(rule, &best_weights[rule_idx], candidates_per_pass, games_per_candidate,
+                                    half_move_limit, random_pct, mutation_range, seed_base);
+        }
+
+        // Print current best weights after each pass
+        printf("\n--- Current Best Weights After Pass %d ---\n", pass + 1);
+        for (uint8_t rule_idx = 0; rule_idx < 4; ++rule_idx) {
+            printf("  %s: ", swap_rule_name((swap_rule_t)rule_idx));
+            print_weights("", &best_weights[rule_idx]);
+        }
+    }
+
+    // Final validation: run head-to-head matches between new and original weights
+    printf("\n============================================================\n");
+    printf("     FINAL VALIDATION: NEW vs ORIGINAL WEIGHTS\n");
+    printf("============================================================\n");
+
+    ai_eval_weights_t original_weights[4] = {
+        {88, 58, 36, 44, 12},  // Classic
+        {84, 54, 32, 44, 12},  // Clears Own
+        {72, 52, 50, 38, 16},  // Swapped Clears
+        {72, 50, 46, 38, 16}   // Swapped Clears Own
+    };
+
+    for (uint8_t rule_idx = 0; rule_idx < 4; ++rule_idx) {
+        swap_rule_t rule = (swap_rule_t)rule_idx;
+        printf("\n%s:\n", swap_rule_name(rule));
+        print_weights("  Original", &original_weights[rule_idx]);
+        print_weights("  Tuned   ", &best_weights[rule_idx]);
+
+        // Play validation games
+        uint16_t new_wins = 0, orig_wins = 0, draws = 0;
+        uint16_t validation_games = 20;
+
+        for (uint16_t g = 0; g < validation_games; ++g) {
+            uint32_t seed = rng_next();
+
+            // New weights as white
+            player_t w1 =
+                run_tournament_game(&best_weights[rule_idx], &original_weights[rule_idx], rule, half_move_limit, 0, seed);
+            if (w1 == PLAYER_WHITE)
+                new_wins++;
+            else if (w1 == PLAYER_BLACK)
+                orig_wins++;
+            else
+                draws++;
+
+            // New weights as black
+            player_t w2 =
+                run_tournament_game(&original_weights[rule_idx], &best_weights[rule_idx], rule, half_move_limit, 0, seed + 1);
+            if (w2 == PLAYER_BLACK)
+                new_wins++;
+            else if (w2 == PLAYER_WHITE)
+                orig_wins++;
+            else
+                draws++;
+        }
+
+        printf("  Validation: Tuned wins=%d, Original wins=%d, Draws=%d\n", new_wins, orig_wins, draws);
+        if (new_wins > orig_wins) {
+            printf("  Result: TUNED WEIGHTS ARE BETTER\n");
+        } else if (orig_wins > new_wins) {
+            printf("  Result: Original weights are still better\n");
+        } else {
+            printf("  Result: Weights are roughly equal\n");
+        }
+    }
+
+    // Print final recommended weights in C code format
+    printf("\n============================================================\n");
+    printf("     RECOMMENDED WEIGHTS (copy to ai_agent.c)\n");
+    printf("============================================================\n");
+    printf("static const ai_eval_weights_t kRuleWeights[4] = {\n");
+    for (uint8_t rule_idx = 0; rule_idx < 4; ++rule_idx) {
+        printf("    {%d, %d, %d, %d, %d},  // %s\n", best_weights[rule_idx].connection_progress,
+               best_weights[rule_idx].bridge_potential, best_weights[rule_idx].swap_pressure,
+               best_weights[rule_idx].blocking_coverage, best_weights[rule_idx].mobility,
+               swap_rule_name((swap_rule_t)rule_idx));
+    }
+    printf("};\n");
+    printf("============================================================\n");
+}
 
 int main(void) {
     puts("Running Switcharoo AI agent tests...");
     test_all_win_in_2_puzzles();
+
+    // Check if tuning is requested via environment variable
+    const char *tune_env = getenv("RUN_WEIGHT_TUNING");
+    if (env_flag_enabled(tune_env)) {
+        // Tuning parameters - can be adjusted for faster/slower convergence
+        // Quick run: 3 passes, 4 candidates, 10 games, 100 move limit, 25% random
+        // Full run: 6 passes, 8 candidates, 50 games, 120 move limit, 8% random
+        uint16_t passes = 6;
+        uint16_t candidates = 8;
+        uint16_t games = 50;  // More games for statistical significance
+        uint16_t move_limit = 120;
+        uint8_t random_pct = 8;  // Lower randomness = more deterministic comparisons
+
+        run_weight_tuning_tournament(passes, candidates, games, move_limit, random_pct);
+    } else {
+        printf("\nTo run weight tuning tournament, set RUN_WEIGHT_TUNING=1\n");
+    }
 
     return 0;
 }
