@@ -1,7 +1,7 @@
 
 ## F256 Switcharoo
 
-A strategic puzzle game for the **Foenix/Wildbits F256K2** retro computer, built with **llvm-mos**. Play against a heuristic AI opponent in this unique piece-swapping strategy game.
+A strategic puzzle game for the **Foenix/Wildbits F256** retro computer, built with **llvm-mos**. Play against a heuristic AI opponent in this unique piece-swapping strategy game.
 
 ## Game Overview
 
@@ -56,12 +56,21 @@ This wraps the `f256build.sh` script from the llvm-mos F256 development environm
 
 ### Output
 
-The build produces `switcheroo.pgz` in the `project root` directory, ready to load on the F256K2.
+The build produces `switcheroo.pgz` in the `project root` directory, ready to load on the F256.
+Game should run on core1x or core2x gen1 and gen2 f256 hardware. 
+
+## Running on Emulator
+1. Copy `switcheroo.pgz` to the emulated SD Card
+2. Load the program through the command prompt.
+
+NOTE: When run on the Foenix IDE use the spacebar to progress the Splash and Exit screens.  The SID sound
+routine on those screens requires a timer, which is not working in the IDE.  Playback can be bypassed by selecting the
+space key.
 
 ## Running on Hardware
 
-1. Copy `switcheroo.pgz` to your F256K2 SD card
-2. Boot the F256K2 and load the program
+1. Copy `switcheroo.pgz` to your F256 SD card
+2. Boot the F256 and load the program
 
 ## Host Testing
 
@@ -172,5 +181,5 @@ See repository for license information.
 
 ## Acknowledgments
 
-- Built for the [Foenix F256K2](https://c256foenix.com/) retro computer
+- Built for the [Foenix F256](https://wiki.f256foenix.com/index.php?title=Main_Page) retro computer
 - Compiled with [llvm-mos](https://github.com/llvm-mos/llvm-mos-sdk)
