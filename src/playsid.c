@@ -60,11 +60,11 @@ void playback(uint32_t siddata, uint16_t sidframes) {
             }
             timer_service();
 
-            kernelNextEvent();
-            if (kernelEventData.type == kernelEvent(key.PRESSED)) {
-                break;
-            }
             sidframes--;
+        }
+        kernelNextEvent();
+        if (kernelEventData.type == kernelEvent(key.PRESSED)) {
+            break;
         }
     }
     clearSIDRegisters();
