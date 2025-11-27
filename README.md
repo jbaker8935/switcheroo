@@ -1,19 +1,7 @@
----
-post_title: "F256 Switcharoo - A Strategic Puzzle Game for Foenix F256K2"
-author1: "jbaker8935"
-post_slug: "f256-switcharoo-readme"
-microsoft_alias: ""
-featured_image: ""
-categories: ["Games"]
-tags: ["Foenix F256", "6502", "Retro Gaming", "Puzzle Game", "AI", "llvm-mos"]
-ai_note: "README generated with AI assistance based on project documentation."
-summary: "A strategic puzzle game featuring human vs AI gameplay on the Foenix F256K2 retro computer platform."
-post_date: 2025-11-26
----
 
 ## F256 Switcharoo
 
-A strategic puzzle game for the **Foenix F256K2** retro computer, built with **llvm-mos**. Play against a heuristic AI opponent in this unique piece-swapping strategy game.
+A strategic puzzle game for the **Foenix/Wildbits F256K2** retro computer, built with **llvm-mos**. Play against a heuristic AI opponent in this unique piece-swapping strategy game.
 
 ## Game Overview
 
@@ -54,7 +42,8 @@ Switcharoo is a two-player abstract strategy game where players compete to creat
 
 ### Prerequisites
 
-- [llvm-mos](https://github.com/llvm-mos/llvm-mos-sdk) toolchain
+
+- [llvm-mos for f256](https://kangaroopunch.com/view/ShowSoftware?id=13) toolchain 
 - Foenix F256 development environment (`f256build.sh`)
 
 ### Build Command
@@ -67,11 +56,11 @@ This wraps the `f256build.sh` script from the llvm-mos F256 development environm
 
 ### Output
 
-The build produces `switcheroo.pgz` in the `sdcard/` directory, ready to load on the F256K2.
+The build produces `switcheroo.pgz` in the `project root` directory, ready to load on the F256K2.
 
 ## Running on Hardware
 
-1. Copy `switcheroo.pgz` and `switcheroo.puz` (puzzle data) to your F256K2 SD card
+1. Copy `switcheroo.pgz` to your F256K2 SD card
 2. Boot the F256K2 and load the program
 
 ## Host Testing
@@ -113,7 +102,6 @@ f256_switch/
 │   ├── sounds/             # Audio assets
 │   └── puzzle_json/        # Puzzle definitions
 ├── scripts/                # Build and asset conversion tools
-├── sdcard/                 # Output binaries for SD card
 ├── docs/                   # Additional documentation
 ├── requirements.md         # Functional requirements (EARS notation)
 ├── design.md               # Architecture and design documentation
