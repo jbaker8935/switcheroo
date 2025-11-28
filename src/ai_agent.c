@@ -103,9 +103,9 @@ static ai_progress_callback_t s_progress_callback = NULL;
 static void *s_progress_user_data = NULL;
 
 static const ai_eval_weights_t kRuleWeights[4] = {
-    {71, 59, 24, 41, 30},  // Classic
-    {82, 63, 52, 33, 21},  // Clears Own
-    {72, 51, 50, 56, 14},  // Swapped Clears
+    {58, 78, 40, 41, 35},  // Classic
+    {73, 52, 69, 22, 11},  // Clears Own
+    {69, 37, 62, 47, 8},  // Swapped Clears
     {63, 39, 67, 36, 20},  // Swapped Clears Own
 };
 
@@ -856,6 +856,7 @@ __attribute__((noinline, section(".block9"))) bool FAR9_ai_forcing_move_availabl
 }
 uint8_t FAR10_ai_generate_moves(const board_t *board, player_t current_player, const ai_config_t *config,
                                 ai_ordered_moves_t *out_moves);
+
 static bool ai_all_replies_allow_opponent_immediate_win_from_ordered(const ai_ordered_moves_t *ordered,
                                                                      uint8_t generated) {
     if (!ordered || generated == 0u) {
@@ -968,9 +969,10 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     }
                 }
 
-                if (move.to_col == 1 || move.to_col == 2) {
-                    score += 350;
-                }
+                // NOTE: Central column bonus REMOVED from move ordering
+                // It was causing A/D column pieces to be deprioritized, leaving them
+                // stranded on back ranks. The evaluation function still considers
+                // central control, but move ordering should not bias against edge columns.
 
                 // Player-agnostic advancement logic
                 // Board coordinates: Row 0 = top (Black's back, chess row 8)
@@ -998,28 +1000,58 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                 }
                 
                 if (is_advancing) {
-                    score += 350;  // Bonus for advancing toward opponent's side
+                    score += 400;  // Bonus for advancing toward opponent's side
                 }
                 
                 if (reached_far_edge) {
-                    score += 280;  // Bonus for reaching the far edge victory row
+                    score += 300;  // Bonus for reaching the far edge victory row
                 }
                 
-                // STRONG bonus for moving OFF the absolute back rank
-                // Based on CORRECTED puzzle analysis: 73% of winning positions have
-                // 0 pieces on absolute back rank. This should be a priority.
+                // VERY STRONG bonus for moving OFF the absolute back rank
+                // This is critical for development - back rank pieces are liabilities
                 if (is_leaving_absolute_back) {
-                    score += 800;  // Very strong - absolute back should be empty
+                    score += 1200;  // Increased from 800 - prioritize evacuation
                 }
                 
-                // Moderate bonus for advancing from second rank to victory rows
-                // Having 1-2 pieces on second rank is acceptable, but advancing helps
+                // Strong bonus for advancing from second rank to victory rows
                 if (is_leaving_second_rank) {
-                    score += 300;  // Moderate bonus - 2nd rank is less critical
+                    score += 500;  // Increased from 300
                 }
 
                 if (move.type == MOVE_TYPE_EMPTY && move.to_row >= WIN_START_ROW && move.to_row <= WIN_END_ROW) {
                     score += 120;
+                }
+                
+                // UNBLOCKING BONUS: Favor moves that free trapped back-rank pieces.
+                // If we have pieces on the back ranks with 0 legal moves, prioritize
+                // moves that will give them mobility (by vacating blocking squares).
+                // Check if this move vacates a square adjacent to our back rank.
+                if (move.type == MOVE_TYPE_EMPTY) {
+                    uint8_t back_row = (current_player == PLAYER_WHITE) ? 7u : 0u;
+                    uint8_t second_row = (current_player == PLAYER_WHITE) ? 6u : 1u;
+                    
+                    // If moving FROM the second rank, check if we unblock back rank pieces
+                    if (move.from_row == second_row) {
+                        // Count trapped pieces on back rank BEFORE this move
+                        uint8_t trapped_before = 0;
+                        move_array_t check_moves;
+                        for (uint8_t c = 0; c < BOARD_COLS; ++c) {
+                            piece_type_t p = board_get_piece_unchecked(board, back_row, c);
+                            if (board_get_piece_owner(p) == current_player) {
+                                if (board_get_legal_moves_soa(board, current_player, back_row, c, &check_moves) == 0) {
+                                    trapped_before++;
+                                }
+                            }
+                        }
+                        
+                        // If there are trapped back-rank pieces, give a big bonus
+                        // for moves that might unblock them
+                        if (trapped_before > 0) {
+                            // Moving from second rank creates space for back rank
+                            // Bonus scales with number of trapped pieces
+                            score += (int16_t)(trapped_before * 400);
+                        }
+                    }
                 }
 
                 // Anti-reversal: penalize moves that reverse opponent's last move
@@ -1121,7 +1153,11 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                 out_moves->moves.to_cols[slot_index] = move.to_col;
                 out_moves->moves.types[slot_index] = move.type;
                 out_moves->moves.players[slot_index] = move.player;
-                out_moves->order_scores[slot_index] = score;
+                // Add small random tiebreaker (+0 to +15) to break deterministic 
+                // left-to-right enumeration bias for moves with equal strategic value.
+                // This ensures pieces on all columns have equal chance of being selected
+                // when their moves have equivalent ordering scores.
+                out_moves->order_scores[slot_index] = (int16_t)(score + (int16_t)(ai_random_next() & 0x0F));
             }
         }
     }
@@ -1251,6 +1287,7 @@ static uint16_t ai_count_victory_row_pieces(const board_t *board, player_t playe
 //
 // Returns: positive score for good development, negative for poor
 // Range: approximately -600 to +400
+__attribute__((noinline, section(".block9"))) 
 static int16_t ai_calculate_development_score(const board_t *board, player_t player) {
     uint8_t packed_back = ai_count_back_rank_pieces(board, player);
     uint8_t back_rank = (packed_back >> 4) & 0x0F;
@@ -1264,53 +1301,50 @@ static int16_t ai_calculate_development_score(const board_t *board, player_t pla
     int16_t score = 0;
     
     // ========== BACK RANK PENALTIES ==========
-    // Based on CORRECT puzzle analysis (100 Win-in-2 puzzles, White's perspective):
-    //   Row 1 (absolute back): 73% have 0 pieces, 27% have 1 piece
-    //   Row 2 (second rank): avg 1.57 pieces (1-3 is normal)
-    //   Combined rows 1-2: avg 1.84 pieces
+    // CRITICAL: Pieces on starting ranks are a major strategic liability.
+    // The AI must prioritize evacuating ALL pieces, not just some.
     //
-    // Key insight: Row 1 should be EMPTY, Row 2 having 1-2 pieces is acceptable
+    // Increased penalties to ensure back-rank evacuation is prioritized
+    // over other strategic considerations.
     
-    // Strong penalty for pieces on absolute back rank (row 1/8)
-    // 73% of winning positions have 0 pieces here
-    // Each piece = -60 points
-    score -= (int16_t)(back_rank * 60);
+    // VERY strong penalty for pieces on absolute back rank (row 8 for Black, row 1 for White)
+    // Each piece on absolute back = -150 points (was -60)
+    score -= (int16_t)(back_rank * 150);
     
-    // Extra penalty if 2+ pieces on absolute back rank (very rare in wins)
+    // Escalating penalty: more pieces on back rank is exponentially worse
+    // 2 pieces: extra -100, 3 pieces: extra -200, 4 pieces: extra -300
     if (back_rank >= 2) {
-        score -= (int16_t)((back_rank - 1) * 80);
+        score -= (int16_t)((back_rank - 1) * 100);
     }
     
-    // Mild penalty for pieces on second rank beyond the first one
-    // Having 1-2 on 2nd rank is normal, 3+ is problematic
-    if (second_rank > 2) {
-        score -= (int16_t)((second_rank - 2) * 30);
+    // Moderate penalty for pieces on second rank
+    // Each piece = -60 points (was -30 for pieces beyond 2)
+    score -= (int16_t)(second_rank * 60);
+    
+    // Extra penalty if 3+ pieces on second rank
+    if (second_rank >= 3) {
+        score -= (int16_t)((second_rank - 2) * 80);
     }
     
-    // Penalty for having too many pieces clustered on back two ranks
-    // Target: ~2 pieces on rows 1-2, penalize if 4+
+    // Severe penalty for having many pieces clustered on back two ranks
+    // 4+ pieces on rows 1-2 combined is very bad
     if (total_back_rows >= 4) {
-        score -= (int16_t)((total_back_rows - 3) * 50);
+        score -= (int16_t)((total_back_rows - 3) * 100);
     }
     
     // ========== ADVANCEMENT BONUSES ==========
-    // Based on puzzle analysis:
-    //   Rows 3-8 (advanced): avg 6.16 pieces
-    //   86% have 6+ pieces advanced
-    //   Target: 6+ pieces on rows 3-8 (or 3-7 for victory rows)
+    // Reward for pieces on victory rows (rows 2-7 for both players)
     
-    // Bonus for pieces on victory/advanced rows
-    // Each piece advanced = +20 points (base)
-    score += (int16_t)(victory_pieces * 20);
+    // Each piece on victory row = +30 points
+    score += (int16_t)(victory_pieces * 30);
     
-    // Extra bonus for reaching 6+ pieces advanced (target state)
+    // Bonus for good coverage (6+ pieces advanced)
     if (victory_pieces >= 6) {
-        score += 40;  // Threshold bonus
+        score += 60;
     }
     
-    // Bonus for row coverage (spreading across the board)
-    // Each victory row occupied = +15 points
-    score += (int16_t)(victory_rows_occupied * 15);
+    // Bonus for row coverage
+    score += (int16_t)(victory_rows_occupied * 20);
     
     // ========== COMBINED ASSESSMENT ==========
     
@@ -1944,25 +1978,60 @@ __attribute__((noinline, section(".block10"))) static bool FAR10_ai_choose_move_
             return true;
         }
 
-        uint8_t chosen_index = best_index;
-
-        if (!use_hint && config->random_top_k > 1u && config->random_epsilon_pct > 0u && safe_count > 1u &&
-            ai_random_chance(config->random_epsilon_pct)) {
-            uint8_t top_indices[AI_MAX_ORDERED_MOVES];
-            for (uint8_t i = 0u; i < safe_count; ++i) {
-                top_indices[i] = safe_indices[i];
-            }
-            ai_sort_indices_by_evaluation(evaluated, top_indices, safe_count);
-
-            uint8_t limit = config->random_top_k;
-            if (limit > safe_count) {
-                limit = safe_count;
-            }
-            if (limit > 1u) {
-                uint8_t choice = (uint8_t)ai_random_range(limit);
-                chosen_index = top_indices[choice];
+        // Two-stage move selection:
+        // 1. Top-K scoring tiers: With epsilon chance, pick a lower-ranked score tier
+        // 2. Random among equivalent: Randomly select among moves sharing the chosen score
+        
+        // First, sort safe moves by evaluation score (descending)
+        uint8_t sorted_indices[AI_MAX_ORDERED_MOVES];
+        for (uint8_t i = 0u; i < safe_count; ++i) {
+            sorted_indices[i] = safe_indices[i];
+        }
+        ai_sort_indices_by_evaluation(evaluated, sorted_indices, safe_count);
+        
+        // Build distinct score tiers (groups of moves with the same score)
+        // Each tier contains moves with equivalent evaluation scores
+        int16_t tier_scores[AI_MAX_ORDERED_MOVES];
+        uint8_t tier_start[AI_MAX_ORDERED_MOVES];  // Start index in sorted_indices for each tier
+        uint8_t tier_count[AI_MAX_ORDERED_MOVES];  // Number of moves in each tier
+        uint8_t num_tiers = 0u;
+        
+        for (uint8_t i = 0u; i < safe_count; ++i) {
+            int16_t score = evaluated->evaluations[sorted_indices[i]];
+            if (num_tiers == 0u || score != tier_scores[num_tiers - 1u]) {
+                // New tier
+                tier_scores[num_tiers] = score;
+                tier_start[num_tiers] = i;
+                tier_count[num_tiers] = 1u;
+                num_tiers++;
+            } else {
+                // Same score as previous, extend current tier
+                tier_count[num_tiers - 1u]++;
             }
         }
+        
+        // Stage 1: Select which score tier to use
+        // Default to best tier (tier 0), but with epsilon chance pick from top-k tiers
+        uint8_t selected_tier = 0u;
+        if (!use_hint && config->random_top_k > 1u && config->random_epsilon_pct > 0u && 
+            num_tiers > 1u && ai_random_chance(config->random_epsilon_pct)) {
+            // Pick randomly among top-k distinct score tiers
+            uint8_t tier_limit = config->random_top_k;
+            if (tier_limit > num_tiers) {
+                tier_limit = num_tiers;
+            }
+            selected_tier = (uint8_t)ai_random_range(tier_limit);
+        }
+        
+        // Stage 2: Randomly select among moves in the chosen tier
+        uint8_t tier_base = tier_start[selected_tier];
+        uint8_t tier_size = tier_count[selected_tier];
+        uint8_t choice_in_tier = 0u;
+        if (tier_size > 1u && !use_hint) {
+            choice_in_tier = (uint8_t)ai_random_range(tier_size);
+        }
+        
+        uint8_t chosen_index = sorted_indices[tier_base + choice_in_tier];
 
         *out_move = (move_t){.from_row = evaluated->moves.from_rows[chosen_index],
                              .from_col = evaluated->moves.from_cols[chosen_index],

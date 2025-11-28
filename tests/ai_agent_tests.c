@@ -240,7 +240,11 @@ static bool weight_stats_better(const ai_weight_stats_t *lhs, const ai_weight_st
 }
 
 static const ai_eval_weights_t kBaselineWeights[4] = {
-    {60, 40, 32, 44, 22}, {58, 38, 28, 42, 22}, {55, 42, 44, 36, 24}, {55, 40, 40, 36, 24}};
+    {58, 78, 40, 41, 35},  // Classic
+    {73, 52, 69, 22, 11},  // Clears Own
+    {69, 37, 62, 47, 8},  // Swapped Clears
+    {63, 39, 67, 36, 20},  // Swapped Clears Own
+};
 
 static const uint8_t kRandomOpponentEpsilonPct = 20;
 
@@ -1349,9 +1353,9 @@ static void run_weight_tuning_tournament(uint16_t tournament_passes, uint16_t ca
 
     // Starting weights from ai_agent.c kRuleWeights
     ai_eval_weights_t best_weights[4] = {
-    {71, 59, 24, 41, 30},  // Classic
-    {82, 63, 52, 33, 21},  // Clears Own
-    {72, 51, 50, 56, 14},  // Swapped Clears
+    {58, 78, 40, 41, 35},  // Classic
+    {73, 52, 69, 22, 11},  // Clears Own
+    {69, 37, 62, 47, 8},  // Swapped Clears
     {63, 39, 67, 36, 20},  // Swapped Clears Own
     };
 
@@ -1396,9 +1400,9 @@ static void run_weight_tuning_tournament(uint16_t tournament_passes, uint16_t ca
     printf("============================================================\n");
 
 ai_eval_weights_t original_weights[4] = {
-    {71, 59, 24, 41, 30},  // Classic
-    {82, 63, 52, 33, 21},  // Clears Own
-    {72, 51, 50, 56, 14},  // Swapped Clears
+    {58, 78, 40, 41, 35},  // Classic
+    {73, 52, 69, 22, 11},  // Clears Own
+    {69, 37, 62, 47, 8},  // Swapped Clears
     {63, 39, 67, 36, 20},  // Swapped Clears Own
 };
 
