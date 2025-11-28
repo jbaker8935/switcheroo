@@ -1,0 +1,1077 @@
+{
+  "generatedAt": "2025-11-28T15:00:07.607Z",
+  "puzzles": [
+    {
+      "difficulty": 4,
+      "exampleSolution": [
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 5
+            },
+            "priority": 7,
+            "to": {
+              "col": "B",
+              "row": 4
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 3
+            },
+            "priority": 6.5,
+            "to": {
+              "col": "C",
+              "row": 3
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 6
+            },
+            "priority": 6,
+            "to": {
+              "col": "A",
+              "row": 6
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 2
+            },
+            "priority": 5.5,
+            "to": {
+              "col": "C",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 7
+            },
+            "priority": 5,
+            "to": {
+              "col": "B",
+              "row": 7
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 1
+            },
+            "priority": 4.5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 2
+            },
+            "priority": 4,
+            "to": {
+              "col": "B",
+              "row": 3
+            },
+            "type": "empty"
+          },
+          "player": "A"
+        }
+      ],
+      "id": "clears_own_depth4_1",
+      "metadata": {
+        "attempts": 261,
+        "positionsEvaluated": 818876
+      },
+      "startingPosition": [
+        {
+          "col": "D",
+          "player": "A",
+          "row": 1,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 2,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 2,
+          "swapped": true
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 3,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 5,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 5,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 5,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "B",
+          "row": 8,
+          "swapped": false
+        }
+      ],
+      "swapRule": "clears_own"
+    },
+    {
+      "difficulty": 4,
+      "exampleSolution": [
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 2
+            },
+            "priority": 7,
+            "to": {
+              "col": "B",
+              "row": 3
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 1
+            },
+            "priority": 6.5,
+            "to": {
+              "col": "D",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 4
+            },
+            "priority": 6,
+            "to": {
+              "col": "C",
+              "row": 5
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 2
+            },
+            "priority": 5.5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 1
+            },
+            "priority": 5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "D",
+              "row": 1
+            },
+            "priority": 4.5,
+            "to": {
+              "col": "C",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 3
+            },
+            "priority": 4,
+            "to": {
+              "col": "C",
+              "row": 4
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        }
+      ],
+      "id": "clears_own_depth4_2",
+      "metadata": {
+        "attempts": 64,
+        "positionsEvaluated": 1.6811e+06
+      },
+      "startingPosition": [
+        {
+          "col": "A",
+          "player": "A",
+          "row": 1,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 1,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 2,
+          "swapped": true
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 3,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 3,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "B",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 5,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 5,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 6,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 7,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 8,
+          "swapped": false
+        }
+      ],
+      "swapRule": "clears_own"
+    },
+    {
+      "difficulty": 4,
+      "exampleSolution": [
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 7
+            },
+            "priority": 7,
+            "to": {
+              "col": "B",
+              "row": 6
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 1
+            },
+            "priority": 6.5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 2
+            },
+            "priority": 6,
+            "to": {
+              "col": "B",
+              "row": 2
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 3
+            },
+            "priority": 5.5,
+            "to": {
+              "col": "C",
+              "row": 3
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "D",
+              "row": 2
+            },
+            "priority": 5,
+            "to": {
+              "col": "C",
+              "row": 3
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 2
+            },
+            "priority": 4.5,
+            "to": {
+              "col": "A",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 8
+            },
+            "priority": 4,
+            "to": {
+              "col": "C",
+              "row": 7
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        }
+      ],
+      "id": "clears_own_depth4_3",
+      "metadata": {
+        "attempts": 31,
+        "positionsEvaluated": 2.21866e+06
+      },
+      "startingPosition": [
+        {
+          "col": "A",
+          "player": "B",
+          "row": 1,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 3,
+          "swapped": true
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 3,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 4,
+          "swapped": true
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 5,
+          "swapped": true
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 8,
+          "swapped": true
+        }
+      ],
+      "swapRule": "clears_own"
+    },
+    {
+      "difficulty": 4,
+      "exampleSolution": [
+        {
+          "move": {
+            "from": {
+              "col": "D",
+              "row": 1
+            },
+            "priority": 7,
+            "to": {
+              "col": "C",
+              "row": 2
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "D",
+              "row": 2
+            },
+            "priority": 6.5,
+            "to": {
+              "col": "C",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 6
+            },
+            "priority": 6,
+            "to": {
+              "col": "B",
+              "row": 5
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 1
+            },
+            "priority": 5.5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 5
+            },
+            "priority": 5,
+            "to": {
+              "col": "B",
+              "row": 4
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 1
+            },
+            "priority": 4.5,
+            "to": {
+              "col": "A",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 4
+            },
+            "priority": 4,
+            "to": {
+              "col": "B",
+              "row": 3
+            },
+            "type": "empty"
+          },
+          "player": "A"
+        }
+      ],
+      "id": "clears_own_depth4_4",
+      "metadata": {
+        "attempts": 68,
+        "positionsEvaluated": 2.33047e+06
+      },
+      "startingPosition": [
+        {
+          "col": "D",
+          "player": "A",
+          "row": 1,
+          "swapped": true
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 5,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 5,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "A",
+          "row": 7,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 7,
+          "swapped": true
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 8,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 8,
+          "swapped": true
+        }
+      ],
+      "swapRule": "clears_own"
+    },
+    {
+      "difficulty": 4,
+      "exampleSolution": [
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 2
+            },
+            "priority": 7,
+            "to": {
+              "col": "B",
+              "row": 3
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 1
+            },
+            "priority": 6.5,
+            "to": {
+              "col": "D",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "C",
+              "row": 2
+            },
+            "priority": 6,
+            "to": {
+              "col": "C",
+              "row": 3
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 2
+            },
+            "priority": 5.5,
+            "to": {
+              "col": "A",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "B",
+              "row": 3
+            },
+            "priority": 5,
+            "to": {
+              "col": "C",
+              "row": 2
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "A",
+              "row": 1
+            },
+            "priority": 4.5,
+            "to": {
+              "col": "B",
+              "row": 1
+            },
+            "type": "empty"
+          },
+          "player": "B"
+        },
+        {
+          "move": {
+            "from": {
+              "col": "D",
+              "row": 6
+            },
+            "priority": 4,
+            "to": {
+              "col": "D",
+              "row": 5
+            },
+            "type": "swap"
+          },
+          "player": "A"
+        }
+      ],
+      "id": "clears_own_depth4_5",
+      "metadata": {
+        "attempts": 103,
+        "positionsEvaluated": 2.79342e+06
+      },
+      "startingPosition": [
+        {
+          "col": "C",
+          "player": "B",
+          "row": 1,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "A",
+          "row": 2,
+          "swapped": true
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 2,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 3,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 3,
+          "swapped": false
+        },
+        {
+          "col": "B",
+          "player": "B",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 4,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 4,
+          "swapped": true
+        },
+        {
+          "col": "D",
+          "player": "B",
+          "row": 5,
+          "swapped": false
+        },
+        {
+          "col": "A",
+          "player": "B",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 6,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 6,
+          "swapped": true
+        },
+        {
+          "col": "A",
+          "player": "B",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "A",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "D",
+          "player": "A",
+          "row": 7,
+          "swapped": false
+        },
+        {
+          "col": "C",
+          "player": "B",
+          "row": 8,
+          "swapped": false
+        }
+      ],
+      "swapRule": "clears_own"
+    }
+  ],
+  "totalPuzzles": 5,
+  "version": "1.0"
+}

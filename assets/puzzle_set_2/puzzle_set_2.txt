@@ -1,0 +1,1000 @@
+Puzzle ID: classic_depth2_1
+B |B |..|..
+..|..|Bs|A 
+..|As|As|..
+..|..|Bs|..
+A |Bs|..|..
+..|B |B |..
+A |A |A |A 
+..|..|..|B 
+
+Puzzle ID: classic_depth2_2
+..|B |..|B 
+..|..|A |A 
+..|..|As|..
+B |As|A |..
+..|Bs|Bs|..
+..|..|..|B 
+..|A |A |A 
+B |B |..|..
+
+Puzzle ID: classic_depth2_3
+..|..|..|..
+A |..|B |B 
+..|B |B |A 
+..|A |As|..
+..|A |As|Bs
+..|..|..|Bs
+..|A |B |A 
+..|B |..|..
+
+Puzzle ID: classic_depth2_4
+Bs|..|..|Bs
+B |Bs|..|As
+A |As|Bs|As
+..|..|..|..
+..|B |A |A 
+..|B |..|B 
+A |..|..|A 
+..|..|..|..
+
+Puzzle ID: classic_depth2_5
+..|Bs|..|Bs
+..|..|As|Bs
+A |..|..|..
+..|A |..|A 
+B |..|..|B 
+A |A |B |..
+A |A |..|..
+B |B |..|..
+
+Puzzle ID: classic_depth2_6
+B |..|B |..
+..|..|A |A 
+Bs|Bs|B |B 
+Bs|As|..|A 
+As|..|..|..
+..|A |..|..
+..|..|B |A 
+..|A |..|..
+
+Puzzle ID: classic_depth2_7
+..|A |B |B 
+..|A |A |..
+..|B |..|..
+A |A |..|B 
+A |B |..|..
+B |..|As|Bs
+..|..|..|As
+B |..|..|..
+
+Puzzle ID: classic_depth2_8
+..|B |..|..
+B |..|A |A 
+..|..|B |A 
+A |A |..|..
+B |..|..|Bs
+..|As|Bs|..
+Bs|As|As|..
+..|..|Bs|..
+
+Puzzle ID: classic_depth2_9
+..|A |..|B 
+..|A |B |B 
+B |..|..|..
+A |A |..|B 
+A |A |..|..
+..|..|..|..
+A |..|Bs|As
+..|..|Bs|Bs
+
+Puzzle ID: classic_depth2_10
+B |..|..|..
+B |B |A |A 
+A |A |..|..
+..|A |..|..
+A |B |..|A 
+..|..|B |..
+B |As|Bs|B 
+..|..|..|..
+
+Puzzle ID: classic_depth3_1
+B |..|..|B 
+..|A |B |A 
+..|B |B |..
+..|..|..|..
+A |As|A |..
+Bs|As|..|..
+..|Bs|As|..
+..|..|As|Bs
+
+Puzzle ID: classic_depth3_2
+..|..|..|A 
+..|..|A |B 
+A |..|..|..
+A |..|..|Bs
+As|As|Bs|Bs
+..|..|Bs|..
+A |Bs|Bs|..
+B |..|As|..
+
+Puzzle ID: classic_depth3_3
+Bs|..|Bs|..
+As|Bs|..|A 
+As|..|..|..
+A |..|..|A 
+..|B |A |B 
+..|..|..|..
+B |B |A |A 
+..|..|B |..
+
+Puzzle ID: classic_depth3_4
+..|B |..|..
+..|A |..|..
+..|..|B |..
+..|A |A |A 
+..|..|B |..
+Bs|As|B |..
+B |A |A |B 
+A |..|..|B 
+
+Puzzle ID: classic_depth3_5
+..|As|..|..
+..|Bs|As|..
+..|Bs|..|B 
+As|Bs|A |B 
+A |A |B |B 
+A |..|..|B 
+..|..|A |..
+..|..|..|..
+
+Puzzle ID: classic_depth3_6
+..|..|..|..
+B |B |A |B 
+..|..|..|B 
+..|A |..|..
+A |..|A |..
+A |..|..|..
+A |A |As|Bs
+B |B |..|Bs
+
+Puzzle ID: classic_depth3_7
+..|..|B |B 
+..|A |A |B 
+Bs|..|B |B 
+As|..|As|..
+..|Bs|..|A 
+Bs|As|..|..
+..|..|As|As
+..|..|..|..
+
+Puzzle ID: classic_depth3_8
+B |..|..|Bs
+As|..|As|Bs
+..|Bs|As|..
+..|A |..|..
+..|B |..|..
+..|B |A |B 
+A |A |..|..
+..|A |..|B 
+
+Puzzle ID: classic_depth3_9
+B |A |..|..
+A |B |B |..
+B |..|..|..
+..|..|As|Bs
+..|..|As|..
+..|As|..|Bs
+As|Bs|..|As
+..|..|As|Bs
+
+Puzzle ID: classic_depth3_10
+..|A |..|..
+..|As|..|Bs
+..|..|As|As
+B |As|..|Bs
+..|Bs|..|As
+A |B |..|Bs
+A |B |..|..
+..|..|B |..
+
+Puzzle ID: classic_depth4_1
+B |..|..|..
+Bs|..|A |As
+..|Bs|As|A 
+..|Bs|As|..
+..|..|..|A 
+A |..|B |..
+..|A |B |..
+..|B |B |..
+
+Puzzle ID: classic_depth4_2
+B |..|B |..
+..|A |A |..
+..|..|..|As
+As|As|Bs|..
+As|..|Bs|..
+..|Bs|B |..
+B |A |A |..
+..|B |..|..
+
+Puzzle ID: classic_depth4_3
+..|..|..|..
+A |B |B |..
+..|Bs|A |..
+As|As|A |..
+..|Bs|Bs|..
+Bs|As|..|..
+A |A |B |B 
+..|..|..|..
+
+Puzzle ID: classic_depth4_4
+..|B |..|..
+..|As|..|..
+As|..|..|..
+B |Bs|A |..
+Bs|A |B |..
+..|Bs|..|A 
+B |A |..|A 
+B |A |..|..
+
+Puzzle ID: classic_depth4_5
+B |B |..|A 
+..|..|..|A 
+Bs|..|..|..
+Bs|..|..|A 
+Bs|As|As|As
+..|..|Bs|As
+..|..|As|..
+B |B |..|..
+
+Puzzle ID: clears_own_depth2_1
+..|..|B |..
+..|B |..|A 
+A |..|B |B 
+A |..|..|As
+A |B |..|..
+A |A |..|..
+..|As|..|..
+..|B |Bs|B 
+
+Puzzle ID: clears_own_depth2_2
+..|Bs|..|Bs
+..|..|A |A 
+..|A |A |..
+B |..|B |..
+B |..|..|A 
+..|A |..|B 
+..|Bs|A |A 
+B |..|..|..
+
+Puzzle ID: clears_own_depth2_3
+..|..|..|..
+..|..|As|..
+..|..|A |..
+Bs|B |A |A 
+A |B |..|..
+Bs|..|B |..
+A |A |A |..
+..|B |B |B 
+
+Puzzle ID: clears_own_depth2_4
+Bs|..|..|..
+..|..|A |..
+B |..|..|B 
+..|B |As|A 
+As|A |..|..
+..|Bs|Bs|A 
+Bs|..|A |A 
+..|B |..|..
+
+Puzzle ID: clears_own_depth2_5
+..|B |..|..
+..|As|A |..
+..|..|B |B 
+..|A |A |..
+B |A |B |..
+A |B |..|A 
+..|..|B |As
+..|..|B |..
+
+Puzzle ID: clears_own_depth2_6
+..|..|B |B 
+B |A |Bs|A 
+Bs|..|..|B 
+..|A |..|A 
+..|A |A |..
+B |..|..|..
+A |..|..|A 
+B |..|..|..
+
+Puzzle ID: clears_own_depth2_7
+..|..|..|B 
+A |A |B |..
+..|..|Bs|Bs
+A |Bs|..|..
+..|A |A |A 
+..|..|B |..
+..|..|A |A 
+Bs|..|..|B 
+
+Puzzle ID: clears_own_depth2_8
+..|..|..|..
+B |Bs|A |B 
+..|A |As|..
+A |..|..|Bs
+..|B |..|A 
+..|A |B |..
+..|As|..|..
+B |..|A |B 
+
+Puzzle ID: clears_own_depth2_9
+..|..|B |B 
+A |..|A |Bs
+..|B |..|..
+..|A |B |Bs
+A |A |..|B 
+..|..|..|A 
+As|..|..|A 
+..|Bs|..|..
+
+Puzzle ID: clears_own_depth2_10
+..|B |B |B 
+..|A |A |..
+As|..|..|A 
+..|B |..|B 
+A |Bs|..|A 
+..|..|..|As
+..|..|A |B 
+B |..|..|..
+
+Puzzle ID: clears_own_depth3_1
+Bs|As|..|..
+B |As|Bs|..
+..|Bs|B |..
+B |As|..|Bs
+..|A |B |..
+..|..|As|..
+..|As|..|A 
+..|..|..|A 
+
+Puzzle ID: clears_own_depth3_2
+A |B |B |B 
+A |B |B |B 
+..|As|As|..
+..|A |As|..
+..|A |..|..
+..|..|B |..
+..|A |..|..
+..|..|..|B 
+
+Puzzle ID: clears_own_depth3_3
+..|As|..|..
+..|A |A |B 
+B |B |..|A 
+..|..|As|..
+..|Bs|..|As
+..|B |B |..
+Bs|B |A |..
+..|A |..|..
+
+Puzzle ID: clears_own_depth3_4
+..|..|..|..
+As|..|A |..
+B |..|As|A 
+..|..|..|B 
+A |B |..|..
+..|As|B |..
+A |B |B |..
+B |A |B |..
+
+Puzzle ID: clears_own_depth3_5
+..|..|..|..
+..|As|..|A 
+B |As|B |As
+B |..|..|..
+..|B |B |..
+..|B |As|..
+Bs|As|A |..
+As|..|..|B 
+
+Puzzle ID: clears_own_depth3_6
+..|B |A |B 
+B |As|B |..
+B |..|As|A 
+Bs|..|..|..
+..|..|A |A 
+B |..|..|..
+..|..|A |A 
+B |..|..|..
+
+Puzzle ID: clears_own_depth3_7
+..|..|..|Bs
+A |..|A |A 
+As|B |..|..
+A |B |..|B 
+..|As|..|..
+..|B |B |B 
+..|..|A |..
+..|..|B |A 
+
+Puzzle ID: clears_own_depth3_8
+A |B |B |B 
+B |..|..|A 
+B |..|B |..
+..|A |A |A 
+..|..|..|A 
+..|..|..|B 
+..|..|A |A 
+..|B |..|..
+
+Puzzle ID: clears_own_depth3_9
+A |..|Bs|..
+A |..|As|B 
+..|Bs|..|As
+..|A |B |..
+..|B |..|..
+..|..|As|B 
+B |A |As|..
+..|B |..|..
+
+Puzzle ID: clears_own_depth3_10
+A |..|..|..
+As|..|As|..
+B |A |..|B 
+..|B |..|B 
+A |Bs|B |Bs
+A |..|As|..
+..|B |A |..
+..|..|..|..
+
+Puzzle ID: clears_own_depth4_1
+Bs|..|..|..
+..|B |A |..
+A |B |A |..
+Bs|A |B |..
+B |B |..|..
+A |..|..|..
+As|..|A |A 
+..|..|..|B 
+
+Puzzle ID: clears_own_depth4_2
+Bs|Bs|..|..
+A |As|..|..
+B |B |..|..
+..|A |..|..
+A |..|B |A 
+As|..|A |B 
+..|..|As|B 
+..|B |..|..
+
+Puzzle ID: clears_own_depth4_3
+..|..|..|B 
+A |..|B |Bs
+..|B |Bs|A 
+As|..|A |..
+..|A |Bs|As
+Bs|..|B |..
+..|A |As|..
+..|..|..|..
+
+Puzzle ID: clears_own_depth4_4
+..|..|..|..
+..|..|As|A 
+B |B |A |B 
+Bs|..|..|..
+As|As|..|..
+B |B |..|A 
+A |Bs|B |..
+As|..|..|..
+
+Puzzle ID: clears_own_depth4_5
+..|A |..|..
+..|A |Bs|A 
+Bs|A |..|..
+..|B |..|..
+..|..|B |As
+..|..|As|..
+Bs|B |As|A 
+..|..|B |Bs
+
+Puzzle ID: swapped_clears_depth2_1
+A |..|..|..
+..|Bs|A |B 
+..|..|As|..
+..|As|Bs|Bs
+A |..|..|..
+B |..|..|A 
+A |..|B |A 
+B |B |..|..
+
+Puzzle ID: swapped_clears_depth2_2
+..|Bs|Bs|..
+B |..|..|As
+..|..|As|Bs
+..|A |B |..
+..|..|B |A 
+..|..|B |..
+B |..|A |A 
+A |A |..|..
+
+Puzzle ID: swapped_clears_depth2_3
+..|..|..|..
+B |..|A |A 
+A |..|A |..
+..|B |..|..
+A |B |..|Bs
+A |..|..|Bs
+B |Bs|As|As
+..|..|Bs|..
+
+Puzzle ID: swapped_clears_depth2_4
+A |Bs|Bs|..
+..|As|As|..
+B |..|..|Bs
+..|A |As|..
+..|A |B |B 
+..|A |..|..
+..|..|..|A 
+..|B |B |..
+
+Puzzle ID: swapped_clears_depth2_5
+..|B |..|..
+..|A |A |A 
+B |..|B |..
+..|Bs|..|A 
+Bs|As|As|..
+..|..|..|Bs
+A |..|B |B 
+..|..|..|A 
+
+Puzzle ID: swapped_clears_depth2_6
+..|..|..|A 
+..|A |Bs|..
+..|As|As|..
+A |Bs|..|..
+..|As|B |B 
+B |Bs|..|..
+A |..|B |..
+B |A |..|..
+
+Puzzle ID: swapped_clears_depth2_7
+..|..|B |..
+A |A |..|B 
+..|B |..|..
+..|..|A |A 
+..|..|..|A 
+B |B |..|B 
+..|As|As|As
+..|Bs|Bs|..
+
+Puzzle ID: swapped_clears_depth2_8
+..|..|..|..
+B |..|A |A 
+..|Bs|B |..
+Bs|..|As|..
+As|As|..|Bs
+A |B |..|..
+..|..|A |..
+B |B |A |..
+
+Puzzle ID: swapped_clears_depth2_9
+..|..|..|..
+B |A |B |..
+..|B |B |A 
+B |A |..|A 
+..|A |..|..
+..|..|..|As
+..|..|As|A 
+Bs|Bs|Bs|..
+
+Puzzle ID: swapped_clears_depth2_10
+..|..|B |..
+B |A |..|A 
+..|B |B |..
+..|As|..|A 
+As|As|..|..
+..|Bs|B |A 
+..|B |..|A 
+B |..|..|..
+
+Puzzle ID: swapped_clears_depth3_1
+..|A |..|B 
+..|B |A |..
+..|..|A |..
+A |B |..|..
+..|..|Bs|Bs
+A |As|As|Bs
+..|..|..|As
+B |..|..|Bs
+
+Puzzle ID: swapped_clears_depth3_2
+As|..|..|..
+..|Bs|As|..
+..|..|As|..
+..|As|Bs|Bs
+..|..|B |B 
+..|..|A |A 
+A |..|B |B 
+..|A |..|B 
+
+Puzzle ID: swapped_clears_depth3_3
+B |..|Bs|..
+A |As|As|..
+B |Bs|Bs|As
+A |..|As|..
+..|..|A |..
+B |..|..|..
+A |B |..|..
+..|..|B |..
+
+Puzzle ID: swapped_clears_depth3_4
+..|B |..|A 
+A |..|..|Bs
+As|..|Bs|Bs
+As|..|As|..
+As|Bs|..|..
+B |..|..|..
+A |..|..|B 
+..|..|A |B 
+
+Puzzle ID: swapped_clears_depth3_5
+..|..|..|..
+A |..|..|A 
+B |B |..|A 
+..|..|..|B 
+..|B |B |A 
+..|..|..|As
+Bs|As|..|As
+Bs|..|Bs|A 
+
+Puzzle ID: swapped_clears_depth3_6
+..|A |A |B 
+A |B |..|..
+Bs|..|..|..
+B |As|..|..
+Bs|..|As|B 
+..|As|B |..
+B |..|A |..
+..|A |..|..
+
+Puzzle ID: swapped_clears_depth3_7
+..|..|B |..
+A |B |..|..
+..|Bs|..|A 
+..|Bs|..|A 
+As|..|As|..
+A |As|..|Bs
+..|A |..|Bs
+..|B |..|B 
+
+Puzzle ID: swapped_clears_depth3_8
+..|..|B |B 
+A |..|..|A 
+..|B |..|B 
+B |..|As|..
+As|Bs|Bs|As
+..|..|..|As
+A |..|..|A 
+..|..|..|B 
+
+Puzzle ID: swapped_clears_depth3_9
+..|..|..|A 
+..|As|..|..
+Bs|As|..|B 
+..|A |As|A 
+..|..|..|Bs
+..|B |..|B 
+B |A |B |A 
+..|..|B |..
+
+Puzzle ID: swapped_clears_depth3_10
+..|Bs|..|..
+Bs|Bs|As|..
+..|..|As|..
+B |..|As|..
+B |..|B |..
+A |..|..|..
+A |B |A |A 
+..|..|A |B 
+
+Puzzle ID: swapped_clears_depth4_1
+..|..|..|..
+..|..|A |..
+..|As|Bs|..
+A |Bs|As|As
+B |..|As|A 
+..|B |..|B 
+A |B |B |..
+..|B |..|..
+
+Puzzle ID: swapped_clears_depth4_2
+..|Bs|B |Bs
+..|..|As|A 
+A |..|..|..
+B |..|A |..
+A |A |..|..
+..|B |B |..
+B |A |A |..
+..|B |..|..
+
+Puzzle ID: swapped_clears_depth4_3
+..|..|..|..
+As|..|Bs|..
+..|As|..|As
+..|As|..|Bs
+A |..|..|Bs
+B |B |..|Bs
+A |B |..|A 
+..|..|B |A 
+
+Puzzle ID: swapped_clears_depth4_4
+..|..|..|..
+B |A |A |A 
+..|..|..|..
+B |..|A |A 
+..|As|B |Bs
+Bs|..|Bs|B 
+As|As|..|..
+..|Bs|..|..
+
+Puzzle ID: swapped_clears_depth4_5
+..|..|As|..
+..|As|..|Bs
+Bs|..|As|..
+As|..|A |..
+..|Bs|B |A 
+A |..|B |..
+..|B |A |..
+B |..|..|B 
+
+Puzzle ID: swapped_clears_own_depth2_1
+..|..|B |..
+A |Bs|..|..
+A |..|..|Bs
+B |..|A |..
+A |..|B |..
+..|..|A |A 
+Bs|..|A |A 
+..|..|B |Bs
+
+Puzzle ID: swapped_clears_own_depth2_2
+..|..|..|..
+A |B |Bs|B 
+..|..|..|A 
+A |B |..|..
+..|..|As|..
+Bs|B |B |A 
+..|A |A |..
+B |A |..|..
+
+Puzzle ID: swapped_clears_own_depth2_3
+B |B |A |..
+..|A |A |..
+..|A |..|..
+..|..|B |B 
+A |B |..|As
+A |..|..|..
+..|As|..|B 
+B |..|B |..
+
+Puzzle ID: swapped_clears_own_depth2_4
+..|..|B |Bs
+As|A |As|..
+..|..|..|B 
+..|..|..|..
+A |As|..|..
+..|A |A |B 
+A |B |B |B 
+..|..|..|B 
+
+Puzzle ID: swapped_clears_own_depth2_5
+..|B |..|B 
+B |..|A |A 
+..|Bs|..|B 
+B |A |..|A 
+As|..|A |..
+B |..|..|..
+..|A |..|A 
+B |..|..|..
+
+Puzzle ID: swapped_clears_own_depth2_6
+..|A |..|..
+B |As|B |..
+As|B |..|..
+A |A |A |B 
+..|B |A |..
+..|..|B |..
+..|B |B |A 
+..|..|..|..
+
+Puzzle ID: swapped_clears_own_depth2_7
+..|A |B |..
+..|As|..|..
+A |..|B |B 
+..|Bs|A |A 
+..|..|A |..
+..|..|B |..
+..|As|Bs|A 
+B |..|B |..
+
+Puzzle ID: swapped_clears_own_depth2_8
+..|..|..|..
+..|Bs|A |A 
+B |..|..|B 
+..|Bs|A |..
+A |..|..|As
+B |A |..|..
+As|A |..|B 
+B |..|..|B 
+
+Puzzle ID: swapped_clears_own_depth2_9
+..|Bs|..|..
+A |B |A |..
+Bs|B |..|..
+A |A |..|..
+..|A |A |..
+..|..|B |..
+Bs|B |As|A 
+..|B |..|..
+
+Puzzle ID: swapped_clears_own_depth2_10
+..|Bs|Bs|B 
+A |..|A |A 
+B |Bs|A |..
+..|As|..|..
+..|..|A |..
+..|B |..|..
+A |..|B |..
+..|B |..|A 
+
+Puzzle ID: swapped_clears_own_depth3_1
+..|..|..|..
+As|..|B |As
+..|..|B |..
+..|As|..|B 
+B |B |B |..
+..|As|A |B 
+..|..|As|As
+A |..|..|B 
+
+Puzzle ID: swapped_clears_own_depth3_2
+A |..|..|..
+..|..|B |A 
+As|A |B |..
+..|..|..|A 
+..|..|A |..
+Bs|..|..|Bs
+B |A |As|..
+B |Bs|..|B 
+
+Puzzle ID: swapped_clears_own_depth3_3
+B |..|..|..
+B |..|A |B 
+A |..|B |..
+..|B |..|A 
+..|As|..|..
+Bs|A |A |..
+B |..|..|As
+..|..|As|Bs
+
+Puzzle ID: swapped_clears_own_depth3_4
+..|..|B |A 
+B |..|As|..
+B |Bs|..|As
+..|..|..|Bs
+..|..|..|As
+A |B |A |A 
+Bs|..|B |A 
+..|..|..|..
+
+Puzzle ID: swapped_clears_own_depth3_5
+..|..|B |Bs
+As|B |..|..
+..|..|B |..
+A |B |B |..
+..|..|A |As
+..|..|As|..
+As|..|A |B 
+..|B |A |..
+
+Puzzle ID: swapped_clears_own_depth3_6
+B |..|Bs|B 
+..|As|..|As
+..|As|..|A 
+B |B |As|..
+B |..|..|..
+..|Bs|..|A 
+..|..|Bs|A 
+..|..|..|A 
+
+Puzzle ID: swapped_clears_own_depth3_7
+B |B |..|..
+A |As|..|..
+As|..|As|B 
+..|..|As|..
+..|B |..|As
+..|..|B |..
+A |A |..|..
+B |B |B |..
+
+Puzzle ID: swapped_clears_own_depth3_8
+..|B |..|B 
+B |As|..|..
+..|B |Bs|..
+A |..|As|A 
+..|B |A |..
+..|..|..|..
+..|A |As|..
+A |..|B |Bs
+
+Puzzle ID: swapped_clears_own_depth3_9
+..|..|B |..
+..|As|..|As
+B |Bs|A |..
+..|B |..|..
+..|As|..|..
+Bs|As|A |..
+A |Bs|..|As
+B |..|..|B 
+
+Puzzle ID: swapped_clears_own_depth3_10
+..|..|B |..
+As|B |..|..
+A |A |..|B 
+..|A |A |B 
+B |..|..|..
+..|B |..|..
+A |..|A |A 
+..|..|B |B 
+
+Puzzle ID: swapped_clears_own_depth4_1
+Bs|..|Bs|..
+A |..|..|Bs
+..|..|A |..
+..|..|A |..
+..|B |..|..
+A |B |A |..
+As|B |..|B 
+As|..|B |As
+
+Puzzle ID: swapped_clears_own_depth4_2
+As|..|..|..
+..|..|..|A 
+A |..|B |..
+A |Bs|Bs|..
+As|..|..|..
+Bs|B |..|..
+B |A |A |..
+Bs|As|..|B 
+
+Puzzle ID: swapped_clears_own_depth4_3
+B |B |..|A 
+..|A |Bs|A 
+..|..|..|As
+A |..|..|..
+..|Bs|B |As
+..|..|B |B 
+..|As|As|..
+B |..|..|..
+
+Puzzle ID: swapped_clears_own_depth4_4
+Bs|..|..|A 
+A |B |..|Bs
+..|..|A |B 
+A |..|A |Bs
+..|..|As|B 
+..|..|..|B 
+..|..|A |A 
+..|Bs|..|..
+
+Puzzle ID: swapped_clears_own_depth4_5
+..|..|..|B 
+A |B |..|..
+..|As|..|..
+..|..|B |..
+..|Bs|As|B 
+..|B |B |As
+A |..|A |As
+A |B |..|..
+
