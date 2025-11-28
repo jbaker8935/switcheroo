@@ -1349,10 +1349,10 @@ static void run_weight_tuning_tournament(uint16_t tournament_passes, uint16_t ca
 
     // Starting weights from ai_agent.c kRuleWeights
     ai_eval_weights_t best_weights[4] = {
-        {88, 58, 36, 44, 12},  // Classic
-        {84, 54, 32, 44, 12},  // Clears Own
-        {72, 52, 50, 38, 16},  // Swapped Clears
-        {72, 50, 46, 38, 16}   // Swapped Clears Own
+    {71, 59, 24, 41, 30},  // Classic
+    {82, 63, 52, 33, 21},  // Clears Own
+    {72, 51, 50, 56, 14},  // Swapped Clears
+    {63, 39, 67, 36, 20},  // Swapped Clears Own
     };
 
     // Seed the RNG with time
@@ -1395,12 +1395,12 @@ static void run_weight_tuning_tournament(uint16_t tournament_passes, uint16_t ca
     printf("     FINAL VALIDATION: NEW vs ORIGINAL WEIGHTS\n");
     printf("============================================================\n");
 
-    ai_eval_weights_t original_weights[4] = {
-        {88, 58, 36, 44, 12},  // Classic
-        {84, 54, 32, 44, 12},  // Clears Own
-        {72, 52, 50, 38, 16},  // Swapped Clears
-        {72, 50, 46, 38, 16}   // Swapped Clears Own
-    };
+ai_eval_weights_t original_weights[4] = {
+    {71, 59, 24, 41, 30},  // Classic
+    {82, 63, 52, 33, 21},  // Clears Own
+    {72, 51, 50, 56, 14},  // Swapped Clears
+    {63, 39, 67, 36, 20},  // Swapped Clears Own
+};
 
     for (uint8_t rule_idx = 0; rule_idx < 4; ++rule_idx) {
         swap_rule_t rule = (swap_rule_t)rule_idx;

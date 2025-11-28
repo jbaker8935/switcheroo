@@ -103,10 +103,10 @@ static ai_progress_callback_t s_progress_callback = NULL;
 static void *s_progress_user_data = NULL;
 
 static const ai_eval_weights_t kRuleWeights[4] = {
-    {88, 58, 36, 44, 12},  // Classic
-    {64, 48, 37, 46, 16},  // Clears Own
-    {58, 46, 41, 43, 36},  // Swapped Clears
-    {71, 49, 59, 44, 26},  // Swapped Clears Own
+    {71, 59, 24, 41, 30},  // Classic
+    {82, 63, 52, 33, 21},  // Clears Own
+    {72, 51, 50, 56, 14},  // Swapped Clears
+    {63, 39, 67, 36, 20},  // Swapped Clears Own
 };
 
 
@@ -972,26 +972,80 @@ __attribute__((noinline, section(".block10"))) uint8_t FAR10_ai_generate_moves(c
                     score += 350;
                 }
 
+                // Player-agnostic advancement logic
+                // Board coordinates: Row 0 = top (Black's back, chess row 8)
+                //                    Row 7 = bottom (White's back, chess row 1)
+                // White advances UP (toward row 0), Black advances DOWN (toward row 7)
+                bool is_advancing;
+                bool is_leaving_absolute_back;
+                bool is_leaving_second_rank;
+                bool reached_far_edge;
+                
                 if (current_player == PLAYER_WHITE) {
-                    if (move.to_row < move.from_row) {
-                        score += 280;
-                    }
-                    // Extra bonus for WHITE reaching the far edge (row 1)
-                    if (move.to_row == WIN_START_ROW) {
-                        score += 200;
-                    }
+                    // White advances by moving to lower row numbers (up toward row 0)
+                    is_advancing = (move.to_row < move.from_row);
+                    reached_far_edge = (move.to_row == WIN_START_ROW);  // Row 1
+                    // White's absolute back is row 7, second rank is row 6
+                    is_leaving_absolute_back = (move.from_row == 7 && move.to_row < 7);
+                    is_leaving_second_rank = (move.from_row == 6 && move.to_row < 6);
                 } else {
-                    if (move.to_row > move.from_row) {
-                        score += 280;
-                    }
-                    // Extra bonus for BLACK reaching the far edge (row 6)
-                    if (move.to_row == WIN_END_ROW) {
-                        score += 200;
-                    }
+                    // Black advances by moving to higher row numbers (down toward row 7)
+                    is_advancing = (move.to_row > move.from_row);
+                    reached_far_edge = (move.to_row == WIN_END_ROW);  // Row 6
+                    // Black's absolute back is row 0, second rank is row 1
+                    is_leaving_absolute_back = (move.from_row == 0 && move.to_row > 0);
+                    is_leaving_second_rank = (move.from_row == 1 && move.to_row > 1);
+                }
+                
+                if (is_advancing) {
+                    score += 350;  // Bonus for advancing toward opponent's side
+                }
+                
+                if (reached_far_edge) {
+                    score += 280;  // Bonus for reaching the far edge victory row
+                }
+                
+                // STRONG bonus for moving OFF the absolute back rank
+                // Based on CORRECTED puzzle analysis: 73% of winning positions have
+                // 0 pieces on absolute back rank. This should be a priority.
+                if (is_leaving_absolute_back) {
+                    score += 800;  // Very strong - absolute back should be empty
+                }
+                
+                // Moderate bonus for advancing from second rank to victory rows
+                // Having 1-2 pieces on second rank is acceptable, but advancing helps
+                if (is_leaving_second_rank) {
+                    score += 300;  // Moderate bonus - 2nd rank is less critical
                 }
 
                 if (move.type == MOVE_TYPE_EMPTY && move.to_row >= WIN_START_ROW && move.to_row <= WIN_END_ROW) {
                     score += 120;
+                }
+
+                // Anti-reversal: penalize moves that reverse opponent's last move
+                if (config->last_opp_from != 0xFF) {
+                    uint8_t opp_from_row = config->last_opp_from >> 4;
+                    uint8_t opp_from_col = config->last_opp_from & 0x0F;
+                    uint8_t opp_to_row = config->last_opp_to >> 4;
+                    uint8_t opp_to_col = config->last_opp_to & 0x0F;
+                    // Check if this move reverses opponent's last move
+                    if (move.to_row == opp_from_row && move.to_col == opp_from_col &&
+                        move.from_row == opp_to_row && move.from_col == opp_to_col) {
+                        score -= 600;  // Discourage direct reversal
+                    }
+                }
+
+                // Self-reversal: penalize returning own piece to where it was 2 plies ago
+                if (config->self_prev_from != 0xFF) {
+                    uint8_t self_from_row = config->self_prev_from >> 4;
+                    uint8_t self_from_col = config->self_prev_from & 0x0F;
+                    uint8_t self_to_row = config->self_prev_to >> 4;
+                    uint8_t self_to_col = config->self_prev_to & 0x0F;
+                    // Check if this move returns a piece to its position from 2 plies ago
+                    if (move.to_row == self_from_row && move.to_col == self_from_col &&
+                        move.from_row == self_to_row && move.from_col == self_to_col) {
+                        score -= 700;  // Stronger penalty for self-reversal (oscillation)
+                    }
                 }
 
                 // Apply move once for immediate outcome analysis
@@ -1128,6 +1182,153 @@ int16_t ai_agent_evaluate_internal(const board_t *board, player_t current_player
 
 #endif
 
+// Count pieces on back ranks and victory rows for a player
+// Returns packed data:
+//   High nibble (bits 4-7): pieces on back rank
+//   Low nibble (bits 0-3): pieces on second rank
+//
+// Board coordinate system:
+//   Row 0 = Black's back rank (top of screen, chess row 8)
+//   Row 1 = Black's second rank (chess row 7)
+//   Row 6 = White's second rank (chess row 2)
+//   Row 7 = White's back rank (bottom of screen, chess row 1)
+//   White advances toward row 0 (up), Black advances toward row 7 (down)
+static uint8_t ai_count_back_rank_pieces(const board_t *board, player_t player) {
+    uint8_t back_rank_count = 0;
+    uint8_t second_rank_count = 0;
+    
+    // White's back rank is row 7 (bottom, chess A1-D1)
+    // Black's back rank is row 0 (top, chess A8-D8)
+    uint8_t back_row = (player == PLAYER_WHITE) ? 7u : 0u;
+    uint8_t second_row = (player == PLAYER_WHITE) ? 6u : 1u;
+    
+    for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+        piece_type_t piece_back = board_get_piece_unchecked(board, back_row, col);
+        if (board_get_piece_owner(piece_back) == player) {
+            back_rank_count++;
+        }
+        
+        piece_type_t piece_second = board_get_piece_unchecked(board, second_row, col);
+        if (board_get_piece_owner(piece_second) == player) {
+            second_rank_count++;
+        }
+    }
+    
+    return (uint8_t)((back_rank_count << 4) | second_rank_count);
+}
+
+// Count pieces on victory rows and how many victory rows are occupied
+// Returns packed data:
+//   High byte: total pieces on victory rows (2-7)
+//   Low byte: number of distinct victory rows occupied (0-6)
+static uint16_t ai_count_victory_row_pieces(const board_t *board, player_t player) {
+    uint8_t total_pieces = 0;
+    uint8_t rows_occupied = 0;
+    
+    for (uint8_t row = WIN_START_ROW; row <= WIN_END_ROW; ++row) {
+        uint8_t pieces_on_row = 0;
+        for (uint8_t col = 0; col < BOARD_COLS; ++col) {
+            piece_type_t piece = board_get_piece_unchecked(board, row, col);
+            if (board_get_piece_owner(piece) == player) {
+                pieces_on_row++;
+            }
+        }
+        total_pieces += pieces_on_row;
+        if (pieces_on_row > 0) {
+            rows_occupied++;
+        }
+    }
+    
+    return (uint16_t)((total_pieces << 8) | rows_occupied);
+}
+
+// Calculate development/occupancy score based on puzzle analysis
+// Derived from 40 Win-in-2 puzzles:
+//   - 95% have 7-8 pieces on victory rows (target: 7+)
+//   - 95% have 0-1 pieces on back ranks combined
+//   - 90% have 4-5 victory rows occupied
+//   - Max 1 piece on own back rank, max 2 on far back (very rare)
+//
+// Returns: positive score for good development, negative for poor
+// Range: approximately -600 to +400
+static int16_t ai_calculate_development_score(const board_t *board, player_t player) {
+    uint8_t packed_back = ai_count_back_rank_pieces(board, player);
+    uint8_t back_rank = (packed_back >> 4) & 0x0F;
+    uint8_t second_rank = packed_back & 0x0F;
+    uint8_t total_back_rows = back_rank + second_rank;
+    
+    uint16_t packed_victory = ai_count_victory_row_pieces(board, player);
+    uint8_t victory_pieces = (packed_victory >> 8) & 0xFF;
+    uint8_t victory_rows_occupied = packed_victory & 0xFF;
+    
+    int16_t score = 0;
+    
+    // ========== BACK RANK PENALTIES ==========
+    // Based on CORRECT puzzle analysis (100 Win-in-2 puzzles, White's perspective):
+    //   Row 1 (absolute back): 73% have 0 pieces, 27% have 1 piece
+    //   Row 2 (second rank): avg 1.57 pieces (1-3 is normal)
+    //   Combined rows 1-2: avg 1.84 pieces
+    //
+    // Key insight: Row 1 should be EMPTY, Row 2 having 1-2 pieces is acceptable
+    
+    // Strong penalty for pieces on absolute back rank (row 1/8)
+    // 73% of winning positions have 0 pieces here
+    // Each piece = -60 points
+    score -= (int16_t)(back_rank * 60);
+    
+    // Extra penalty if 2+ pieces on absolute back rank (very rare in wins)
+    if (back_rank >= 2) {
+        score -= (int16_t)((back_rank - 1) * 80);
+    }
+    
+    // Mild penalty for pieces on second rank beyond the first one
+    // Having 1-2 on 2nd rank is normal, 3+ is problematic
+    if (second_rank > 2) {
+        score -= (int16_t)((second_rank - 2) * 30);
+    }
+    
+    // Penalty for having too many pieces clustered on back two ranks
+    // Target: ~2 pieces on rows 1-2, penalize if 4+
+    if (total_back_rows >= 4) {
+        score -= (int16_t)((total_back_rows - 3) * 50);
+    }
+    
+    // ========== ADVANCEMENT BONUSES ==========
+    // Based on puzzle analysis:
+    //   Rows 3-8 (advanced): avg 6.16 pieces
+    //   86% have 6+ pieces advanced
+    //   Target: 6+ pieces on rows 3-8 (or 3-7 for victory rows)
+    
+    // Bonus for pieces on victory/advanced rows
+    // Each piece advanced = +20 points (base)
+    score += (int16_t)(victory_pieces * 20);
+    
+    // Extra bonus for reaching 6+ pieces advanced (target state)
+    if (victory_pieces >= 6) {
+        score += 40;  // Threshold bonus
+    }
+    
+    // Bonus for row coverage (spreading across the board)
+    // Each victory row occupied = +15 points
+    score += (int16_t)(victory_rows_occupied * 15);
+    
+    // ========== COMBINED ASSESSMENT ==========
+    
+    // Bonus for well-developed positions:
+    // 6+ pieces advanced AND <=1 on absolute back rank
+    if (victory_pieces >= 6 && back_rank <= 1) {
+        score += 50;
+    }
+    
+    // Penalty for underdeveloped positions:
+    // <5 pieces advanced means not enough development
+    if (victory_pieces < 5) {
+        score -= (int16_t)((5 - victory_pieces) * 25);
+    }
+    
+    return score;
+}
+
 __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_internal(const board_t *board,
                                                                                       player_t current_player,
                                                                                       player_t perspective,
@@ -1218,12 +1419,19 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
     int16_t mobility_me = (int16_t)FAR9_ai_measure_mobility(board, perspective);
     int16_t mobility_op = (int16_t)FAR9_ai_measure_mobility(board, opponent);
 
+    // Development score: positive = good development, negative = poor
+    // Based on puzzle analysis: target 7+ pieces on victory rows, ≤1 on back ranks
+    int16_t dev_score_me = ai_calculate_development_score(board, perspective);
+    int16_t dev_score_op = ai_calculate_development_score(board, opponent);
+
     int32_t total = 0;
     int16_t diff_conn = (int16_t)(connection_me - connection_op);
     int16_t diff_bridge = (int16_t)(bridge_me - bridge_op);
     int16_t diff_swap = (int16_t)(swap_me - swap_op);
     int16_t diff_block = (int16_t)(block_me - block_op);
     int16_t diff_mobility = (int16_t)(mobility_me - mobility_op);
+    // Development: positive score is better, so we want (my_score - opponent_score)
+    int16_t diff_development = (int16_t)(dev_score_me - dev_score_op);
 
     int16_t contrib_conn = ai_clamp_score(ai_signed_multiply(config->weights.connection_progress, diff_conn));
     int16_t contrib_bridge = ai_clamp_score(ai_signed_multiply(config->weights.bridge_potential, diff_bridge));
@@ -1236,6 +1444,10 @@ __attribute__((noinline, section(".block9"))) int16_t FAR9_ai_agent_evaluate_int
     total += contrib_swap;
     total += contrib_block;
     total += contrib_mobility;
+    
+    // Add development contribution directly (already scaled in the penalty calculation)
+    // This encourages advancing pieces off the back ranks
+    total += diff_development;
 
     if (breakdown) {
         breakdown->connection_progress = contrib_conn;
@@ -1290,6 +1502,8 @@ __attribute__((noinline, section(".block9"))) void FAR9_ai_agent_init(ai_config_
     config->blunder_enabled = false;
     config->blunder_chance_pct = 0u;
     config->blunder_type = ai_allowed_blunder_type(difficulty);
+    config->last_opp_from = 0xFF;   // No last opponent move initially
+    config->self_prev_from = 0xFF;  // No previous own move initially
 
     switch (difficulty) {
         case AI_DIFFICULTY_LEARNING:
@@ -1517,6 +1731,21 @@ __attribute__((noinline, section(".block11"))) static uint8_t FAR11_ai_evaluate_
 
         if (config->enable_forcing_check && opponent_forced) {
             eval_score = AI_SCORE_LOSS + (int16_t)(child.move_count & 0x7FFF) + 1000;
+        }
+
+        // Apply self-reversal penalty to final evaluation (prevents oscillation loops)
+        // Only apply if not already a bad move (opponent wins next or forced loss)
+        if (config->self_prev_from != 0xFF && !opponent_win_next && !opponent_forced) {
+            uint8_t self_from_row = config->self_prev_from >> 4;
+            uint8_t self_from_col = config->self_prev_from & 0x0F;
+            uint8_t self_to_row = config->self_prev_to >> 4;
+            uint8_t self_to_col = config->self_prev_to & 0x0F;
+            // Check if this move reverses our own previous move
+            if (move.to_row == self_from_row && move.to_col == self_from_col &&
+                move.from_row == self_to_row && move.from_col == self_to_col) {
+                // Strong penalty to prevent oscillation - proportional to avoid overflow
+                eval_score -= 2000;  // Heavy penalty to break oscillation loops
+            }
         }
 
         evaluated->evaluations[target_index] = eval_score;
@@ -1889,7 +2118,29 @@ bool ai_agent_find_best_move(const board_t *board, const board_context_t *contex
         return false;
     }
 
-    return ai_agent_find_best_move_impl(board, context->current_player, config, out_move);
+    // Inject move history for anti-reversal (lightweight copy)
+    // NOTE: history is stored in reverse order - history[0] is the most recent move
+    ai_config_t augmented = *config;
+    
+    // Opponent's last move (1 ply ago) - stored at history[0]
+    if (context->history_count > 0) {
+        const move_t *last = &context->history[0];
+        augmented.last_opp_from = (last->from_row << 4) | last->from_col;
+        augmented.last_opp_to = (last->to_row << 4) | last->to_col;
+    } else {
+        augmented.last_opp_from = 0xFF;  // Sentinel: no last move
+    }
+    
+    // Own move from 2 plies ago (for self-reversal detection) - stored at history[1]
+    if (context->history_count >= 2) {
+        const move_t *own_prev = &context->history[1];
+        augmented.self_prev_from = (own_prev->from_row << 4) | own_prev->from_col;
+        augmented.self_prev_to = (own_prev->to_row << 4) | own_prev->to_col;
+    } else {
+        augmented.self_prev_from = 0xFF;  // Sentinel: no previous own move
+    }
+
+    return ai_agent_find_best_move_impl(board, context->current_player, &augmented, out_move);
 }
 
 int16_t ai_agent_evaluate_board(const board_t *board, player_t player, const ai_config_t *config) {

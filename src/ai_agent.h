@@ -76,6 +76,11 @@ typedef struct {
     bool blunder_enabled;
     uint8_t blunder_chance_pct;
     ai_blunder_type_t blunder_type;
+    // Anti-reversal: compact storage (row << 4 | col), 0xFF = none
+    uint8_t last_opp_from;   // Opponent's last move source
+    uint8_t last_opp_to;     // Opponent's last move dest
+    uint8_t self_prev_from;  // Own move from 2 plies ago source
+    uint8_t self_prev_to;    // Own move from 2 plies ago dest
 } ai_config_t;
 
 typedef struct {

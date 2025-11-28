@@ -10,7 +10,7 @@
 #include "../src/ai_agent.h"
 #include <string.h>
 
-#define PROGRESS_CALLBACK_FREQUENCY 5
+#define PROGRESS_CALLBACK_FREQUENCY 3
 static uint8_t s_progress_callback_counter = 0;
 
 enum {

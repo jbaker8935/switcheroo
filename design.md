@@ -257,8 +257,19 @@ This approach is lightweight, suitable for 6502 targets, and keeps input polling
 
 ### Artificial Intelligence (`ai_agent.c/.h`)
 - Provides deterministic heuristic move ranking that evaluates goal-row
-  progress, swap pressure, blocking coverage, and mobility while tracking
-  immediate and forced-win signals.
+  progress, swap pressure, blocking coverage, mobility, and piece development
+  while tracking immediate and forced-win signals.
+- Implements a development/occupancy heuristic derived from analysis of 100
+  Win-in-2 puzzle positions (from White's perspective):
+  - **Row distribution targets** (based on puzzle analysis):
+    - Row 1 (absolute back): avg 0.27 pieces (73% have 0, target: empty)
+    - Row 2 (second rank): avg 1.57 pieces (1-2 is acceptable)
+    - Rows 3-8 (advanced): avg 6.16 pieces (86% have 6+, target: 6+)
+  - Penalizes pieces on absolute back rank (-60 per piece, extra -80 if 2+)
+  - Mild penalty for 3+ pieces on second rank
+  - Rewards pieces on victory/advanced rows (+20 per piece, +40 bonus at 6+)
+  - Move ordering strongly favors leaving absolute back rank (+800) over
+    second rank (+300) - reflecting that absolute back should be empty
 - Applies candidate moves on cloned boards via
   `board_execute_move_without_history` so simulations avoid polluting move
   history while cached counters stay in sync.
