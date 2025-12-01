@@ -786,8 +786,10 @@ void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             
         case MENU_ICON_SWAP:
   
-            game_state_toggle_swap_rule(state);
-            state->phase = GAME_PHASE_PLAYING;
+            if (state->phase != GAME_PHASE_GAME_OVER) {
+                game_state_toggle_swap_rule(state);
+                state->phase = GAME_PHASE_PLAYING;
+            }
             break; 
             
         case MENU_ICON_DIFFICULTY:
