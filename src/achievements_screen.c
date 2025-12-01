@@ -134,7 +134,7 @@ void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page
 	uint8_t first = page == 0u ? 0u : 8u;
 	uint8_t last = page == 0u ? 8u : ACHIEVEMENT_COUNT;
 	const char* page_footer = page == 0u ? "Free Play Achievements 1/2" : "Puzzle Achievements 2/2";
-	const char* page_instruction = "Press [A] to switch pages, [SPACE] to exit";
+	const char* page_instruction = "Press [^6A^1] to switch pages, [^6SPACE^1] to exit";
 	// Hide All Sprites
 	spriteReset();
 

@@ -293,10 +293,18 @@ void FAR15_main_loop(void) {
     }
 
 }
-
+char g_base_dir[256]={0};
 int main(int argc, char *argv[]) {
-        (void)argc;
-        (void)argv;
+        
+    char *last_slash = strrchr(argv[0], '/');
+    if (last_slash != NULL) {
+        uint8_t dir_len = last_slash - argv[0] + 1;
+        strncpy(g_base_dir, argv[0], dir_len);
+        g_base_dir[dir_len] = '\0';
+    } 
+    
+    (void)argc;
+
 
         
         // Initialize f256lib (includes kernelReset and all subsystems)

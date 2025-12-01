@@ -36,9 +36,11 @@ void file_io_save(void) {
 #include "../src/text_display.h"
 
 extern game_state_t g_game_state;
+extern char g_base_dir[256];
 
 static char *const SAVE_FILE_NAME = "switcheroo.dat";
 static char *const PUZZLE_FILE_NAME = "switcheroo.puz";
+static char file_name_buffer[256];
 
 #if defined(__llvm_mos__)
 __attribute__((noinline, section(".block12")))
@@ -123,7 +125,10 @@ static void write_le64(uint8_t *data, uint64_t value) {
 
 __attribute__((noinline, section(".block12")))
 static void load_puzzle_catalog_from_file(void) {
-    uint8_t *fd = fileOpen(PUZZLE_FILE_NAME, "r");
+    strcpy(file_name_buffer, g_base_dir);
+    strcat(file_name_buffer, PUZZLE_FILE_NAME);
+
+    uint8_t *fd = fileOpen(file_name_buffer, "r");
     if (!fd) {
         return;
     }
@@ -178,8 +183,10 @@ void FAR12_file_io_init(void) {
     bool achievements_loaded = false;
     bool has_saved_signature = false;
     uint64_t saved_signature = 0u;
-
-    uint8_t *fd = fileOpen(SAVE_FILE_NAME, "r");
+    strcpy(file_name_buffer, g_base_dir);
+    strcat(file_name_buffer, SAVE_FILE_NAME);
+   
+    uint8_t *fd = fileOpen(file_name_buffer, "r");
     if (fd) {
         int16_t file_size = kernelReadC(*fd, s_buffer, DATA_FILE_SIZE);
 
@@ -259,8 +266,10 @@ void FAR12_file_io_save(void) {
     if (actual_achievement_size != ACHIEVEMENT_DATA_SIZE) {
         return;
     }
+    strcpy(file_name_buffer, g_base_dir);
+    strcat(file_name_buffer, SAVE_FILE_NAME);
 
-    uint8_t *fd = fileOpen(SAVE_FILE_NAME, "w");
+    uint8_t *fd = fileOpen(file_name_buffer, "w");
     if (fd) {
         int16_t bytes_written = kernelWriteC(*fd, s_buffer, DATA_FILE_SIZE);
         fileClose(fd);
