@@ -38,8 +38,14 @@ void FAR_video_show_exit(void) {
 
     clear_text_matrix();
 
-    // exit occurs when User is on Main screen and Menu is in Palette CLUT 2
-    // setup clut 0xDC00
+    POKE(MMU_IO_CTRL, 1);
+    for (uint16_t i = 0; i < 1024; ++i) {
+        uint8_t color_component = FAR_PEEK(SRAM_SPLASH_PALETTE + i);
+        POKE(0xDC00 + i, color_component);
+    }
+    POKE(MMU_IO_CTRL, 0);
+
+    text_display_init();
 
     // XXX GAMMA  SPRITE   TILE  | BITMAP  GRAPH  OVRLY  TEXT
     POKE(VKY_MSTR_CTRL_0, 0b00001111); // bitmap, graph, overlay, text enabled 
@@ -64,14 +70,14 @@ void FAR_video_show_exit(void) {
     print_formatted_text(28, 44, "^2Addy's 'Switcheroo' Game^1");
     print_formatted_text(28, 46, "^2Developed by jbaker8935^1");
     print_formatted_text(16, 48, "^2Special Thanks to the Wildbits Discord Community^1");
-    print_formatted_text(26, 50, "^2Powered by LLVM-MOS F256 SDK^1");
+    print_formatted_text(26, 50, "^2Powered by oscar64 / f256lib^1");
     print_formatted_text(31, 54, "^4Thanks ^1for ^5Playing^1");
     
     disable_mouse();
 }
 #pragma code(code)
 
-void video_show_exit(void) {
+OVERLAY_TRAMPOLINE void video_show_exit(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_video_show_exit();

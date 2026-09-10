@@ -223,14 +223,14 @@ void FAR_file_io_save(void) {
 }
 #pragma code(code)
 
-void file_io_init(void) {
+OVERLAY_TRAMPOLINE void file_io_init(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_12);
     FAR_file_io_init();
     POKE(OVERLAY_MMU_REG, saved);
 }
 
-void file_io_save(void) {
+OVERLAY_TRAMPOLINE void file_io_save(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_12);
     FAR_file_io_save();

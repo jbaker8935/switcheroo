@@ -64,6 +64,29 @@ uint16_t ReadVS10xxMem(uint16_t addr) {
     return vs1053_read_sci(VS_SCI_ADDR_WRAM);
 }
 
+int16_t VS1053bStreamBufferFillWords(void) {
+    volatile uint16_t wrp, rdp;
+    volatile int16_t res;
+    int16_t bufSize = 0x400;
+    vs1053_write_sci(VS_SCI_ADDR_WRAMADDR, 0x5A7D);
+    wrp = vs1053_read_sci(VS_SCI_ADDR_WRAM);
+    rdp = vs1053_read_sci(VS_SCI_ADDR_WRAM);
+    res = wrp - rdp;
+    if (res < 0) {
+        return res + bufSize;
+    }
+    return res;
+}
+
+int16_t VS1053bStreamBufferFreeWords(void) {
+    volatile int16_t bufSize = 0x400;
+    volatile int16_t res = bufSize - VS1053bStreamBufferFillWords();
+    if (res < 2) {
+        return 0;
+    }
+    return res - 2;
+}
+
 void init_sounds(void) {
     // init codec
     POKE(0xD620, 0x1F);
@@ -96,8 +119,9 @@ void init_sounds(void) {
 
 bool isWave2(void) {
     uint8_t mid;
-    mid = PEEK(0xD6A7) & 0x3F;
-    return (mid == 0x22 || mid == 0x11);  // 22 is Jr2 and 11 is K2
+    // mid = PEEK(0xD6A7) & 0x3F;
+    // return (mid == 0x22 || mid == 0x11);  // 22 is Jr2 and 11 is K2
+    return false;    // always use SID playback for now
 }
 
 void play_sound(sound_id_t id) {
@@ -117,7 +141,10 @@ void play_sound(sound_id_t id) {
         uint16_t rawFIFOCount = PEEKW(VS_FIFO_STAT);
         uint16_t bytesToTopOff = 2048 - (rawFIFOCount & 0x0FFF);  // found how many bytes are left in the 2KB buffer
         uint8_t endFillByte = ReadVS10xxMem(PAR_END_FILL_BYTE);
-
+        int16_t freeWords = VS1053bStreamBufferFreeWords();
+        const uint16_t MAX_TRANSFER_SIZE = SDI_MAX_TRANSFER_SIZE;
+        bytesToTopOff = bytesToTopOff > MAX_TRANSFER_SIZE ? MAX_TRANSFER_SIZE : bytesToTopOff;
+        bytesToTopOff = bytesToTopOff > freeWords*2 ? freeWords*2 : bytesToTopOff;
         while (sound_size > 0) {
             for (uint8_t i = 0; i < bytesToTopOff && sound_size > 0; i++) {
                 POKE(VS_FIFO_DATA, FAR_PEEK(sound_addr));
@@ -129,6 +156,9 @@ void play_sound(sound_id_t id) {
                 rawFIFOCount = PEEKW(VS_FIFO_STAT);
             } while ((rawFIFOCount & 0x0FFF) > 1792);
             bytesToTopOff = 2048 - (rawFIFOCount & 0x0FFF);  // found how many bytes are left in the 2KB buffer
+            bytesToTopOff = bytesToTopOff > MAX_TRANSFER_SIZE ? MAX_TRANSFER_SIZE : bytesToTopOff;
+            freeWords = VS1053bStreamBufferFreeWords();
+            bytesToTopOff = bytesToTopOff > freeWords*2 ? freeWords*2 : bytesToTopOff;            
         }
         sound_size = SDI_END_FILL_BYTES;
 
@@ -143,6 +173,9 @@ void play_sound(sound_id_t id) {
                 rawFIFOCount = PEEKW(VS_FIFO_STAT);
             } while ((rawFIFOCount & 0x0FFF) > 1792);
             bytesToTopOff = 2048 - (rawFIFOCount & 0x0FFF);  // found how many bytes are left in the 2KB buffer
+            bytesToTopOff = bytesToTopOff > MAX_TRANSFER_SIZE ? MAX_TRANSFER_SIZE : bytesToTopOff;
+            freeWords = VS1053bStreamBufferFreeWords();
+            bytesToTopOff = bytesToTopOff > freeWords*2 ? freeWords*2 : bytesToTopOff;                
         }
     } else {
         // Use SID playback as fallback

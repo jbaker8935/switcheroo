@@ -26,6 +26,7 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0xB9: return KEY_RIGHT;   // Right arrow
         case 0x94: return KEY_ENTER;   // Enter
         case 0x92: return KEY_ESCAPE;  // Escape
+        case 0x95: return KEY_ESCAPE;  // Escape (microkernel alternate)
         case 0x6D: return KEY_M;       // M
         case 0x72: return KEY_R;       // R
         case 0x70: return KEY_P;       // P
@@ -42,6 +43,67 @@ static key_code_t scan_to_key(uint8_t scan) {
         case 0x61: return KEY_A;      // A
         default: return KEY_NONE;
     }
+}
+
+static key_code_t ascii_to_key(char c) {
+    switch (c) {
+        case ' ': return KEY_SPACE;
+        case 'm': case 'M': return KEY_M;
+        case 'r': case 'R': return KEY_R;
+        case 'p': case 'P': return KEY_P;
+        case 'n': case 'N': return KEY_N;
+        case 'b': case 'B': return KEY_B;
+        case 'f': case 'F': return KEY_F;
+        case 's': case 'S': return KEY_S;
+        case 'd': case 'D': return KEY_D;
+        case 'h': case 'H': return KEY_H;
+        case 'x': case 'X': return KEY_X;
+        case 'u': case 'U': return KEY_U;
+        case 'a': case 'A': return KEY_A;
+        case '\r':
+        case '\n': return KEY_ENTER;
+        case 27: return KEY_ESCAPE;
+        default: return KEY_NONE;
+    }
+}
+
+static key_code_t key_from_kernel_event(void) {
+    key_code_t key = scan_to_key(kernelEventData.u.key.raw);
+    if (key != KEY_NONE) {
+        return key;
+    }
+
+    char c = kernelEventData.u.key.ascii;
+    if (c != 0 && !kernelEventData.u.key.flags) {
+        return ascii_to_key(c);
+    }
+
+    return KEY_NONE;
+}
+
+void input_sync_mouse_from_hardware(void) {
+    int16_t hw_x = PEEKW(PS2_M_X_LO);
+    int16_t hw_y = PEEKW(PS2_M_Y_LO);
+
+    if (hw_x < 0) {
+        hw_x = 0;
+    }
+    if (hw_x >= 640) {
+        hw_x = 639;
+    }
+    if (hw_y < 0) {
+        hw_y = 0;
+    }
+    if (hw_y >= 480) {
+        hw_y = 479;
+    }
+
+    s_input_state.mouse_x = (uint16_t)(hw_x / 2);
+    s_input_state.mouse_y = (uint16_t)(hw_y / 2);
+}
+
+void input_reset_mouse_button_edges(void) {
+    s_input_state.mouse_buttons_prev = s_input_state.mouse_buttons;
 }
 
 void input_init(void) {
@@ -75,14 +137,13 @@ bool input_translate_event(input_event_t *event) {
     
     // Handle keyboard events
     if (kernelEventData.type == kernelEvent(key.PRESSED)) {
-        key_code_t key = scan_to_key(kernelEventData.u.key.raw);
-   
+        key_code_t key = key_from_kernel_event();
+
         if (key != KEY_NONE && event) {
             event->type = INPUT_EVENT_KEY_DOWN;
             event->data.key.code = key;
             event->data.key.ascii = kernelEventData.u.key.ascii;
             event->data.key.is_repeat = false;
-
 
             return true;
         }

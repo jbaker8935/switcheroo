@@ -115,7 +115,7 @@ void video_wait_vblank(void);
 void video_set_board_cell_hover_color(uint8_t row, uint8_t col);
 void video_reset_board_cell_color(uint8_t row, uint8_t col);
 
-void video_show_exit();
+void video_show_exit(void);
 void video_splash_continue();
 
 

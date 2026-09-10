@@ -5,6 +5,10 @@
 
 #define OVERLAY_MMU_REG  MMU_MEM_BANK_5
 
+/* Bank-5 trampolines must remain in always-mapped low memory; do not inline into overlays. */
+#define OVERLAY_TRAMPOLINE __noinline
+/* Place before return type: OVERLAY_TRAMPOLINE void foo(void) */
+
 #define BLOCK_8   8
 #define BLOCK_9   9
 #define BLOCK_10 10

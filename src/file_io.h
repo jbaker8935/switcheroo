@@ -2,7 +2,6 @@
 #define FILE_IO_H
 
 #include <stdint.h>
-
 // File I/O module for saving/loading game state
 
 // Initialize file I/O - called on application startup

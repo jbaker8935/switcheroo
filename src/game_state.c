@@ -555,7 +555,7 @@ void FAR_game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 }
 #pragma code(code)
 
-void game_state_set_game_mode(game_state_t *state, bool puzzle_mode) {
+OVERLAY_TRAMPOLINE void game_state_set_game_mode(game_state_t *state, bool puzzle_mode) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_12);
     FAR_game_state_set_game_mode(state, puzzle_mode);
@@ -868,7 +868,7 @@ void FAR_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 }
 #pragma code(code)
 
-void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
+OVERLAY_TRAMPOLINE void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_12);
@@ -1016,7 +1016,7 @@ void FAR_game_state_update(game_state_t *state, float delta_time)
 }
 #pragma code(code)
 
-void game_state_update(game_state_t *state, float delta_time) {
+OVERLAY_TRAMPOLINE void game_state_update(game_state_t *state, float delta_time) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_12);
     FAR_game_state_update(state, delta_time);

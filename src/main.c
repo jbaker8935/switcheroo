@@ -82,6 +82,8 @@ void restore_main_screen(void) {
     }
 }
 
+static uint8_t s_main_mouse_grace = 0;
+
 void display_main_screen(void) {
     video_hide_splash();
     init_main_screen();
@@ -101,12 +103,28 @@ void display_main_screen(void) {
     }
 }
 
+static void enter_main_from_splash(void) {
+    g_screen_state = SCREEN_MAIN;
+    clearAlarm(TIMER_ALARM_SPLASH);
+    play_sound(SOUND_ID_RESET_BOARD);
+    display_main_screen();
+    input_sync_mouse_from_hardware();
+    input_reset_mouse_button_edges();
+    s_main_mouse_grace = 3;
+}
+
 #pragma code(ovl15_code)
 void FAR_main_loop(void) {
 
     uint16_t old_move_count = 0;
 
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
+        timer_service();
+
+        if (g_screen_state == SCREEN_MAIN && s_main_mouse_grace > 0u) {
+            s_main_mouse_grace--;
+        }
+
         game_state_update(&g_game_state, 1.0 / 60.0);
 
         if (g_screen_state == SCREEN_MAIN && g_game_state.phase == GAME_PHASE_GAME_OVER) {
@@ -159,10 +177,7 @@ void FAR_main_loop(void) {
 
             bool splash_alarm_elapsed = checkAlarm(TIMER_ALARM_SPLASH);
             if (splash_alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
-                g_screen_state = SCREEN_MAIN;
-                clearAlarm(TIMER_ALARM_SPLASH);
-                play_sound(SOUND_ID_RESET_BOARD);
-                display_main_screen();
+                enter_main_from_splash();
             }
 
             bool puzzle_alarm_elapsed = checkAlarm(TIMER_ALARM_PUZZLE);
@@ -181,13 +196,14 @@ void FAR_main_loop(void) {
                         disable_mouse();
                         if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
                             (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
-                            g_screen_state = SCREEN_MAIN;
-                            clearAlarm(TIMER_ALARM_SPLASH);
-                            play_sound(SOUND_ID_RESET_BOARD);
-                            display_main_screen();
+                            enter_main_from_splash();
                         }
                         break;
                     case SCREEN_MAIN:
+                        if (s_main_mouse_grace > 0u &&
+                            event.type == INPUT_EVENT_MOUSE_DOWN) {
+                            break;
+                        }
                         if (event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_F1) {
                             display_show_help_screen();
                             g_screen_state = SCREEN_HELP;
@@ -249,7 +265,7 @@ void FAR_main_loop(void) {
 }
 #pragma code(code)
 
-void main_loop(void) {
+OVERLAY_TRAMPOLINE void main_loop(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_15);
     FAR_main_loop();
@@ -291,7 +307,6 @@ int main(int argc, char *argv[]) {
 
     main_loop();
 
-    print_game_exit();
     video_show_exit();
 
     setMonoSID();

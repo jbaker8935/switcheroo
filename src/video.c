@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include "board.h"
 #include "mouse_pointer.h"
+#include "input.h"
 #include "video.h"
 #include "text_display.h"
 #include "sram_assets.h"
@@ -187,11 +188,13 @@ void FAR_video_init(void) {
     set_mouse_cursor(MOUSE_CURSOR_NORMAL);
     enable_mouse();
     center_mouse();
+    input_sync_mouse_from_hardware();
+    input_reset_mouse_button_edges();
 
 }
 #pragma code(code)
 
-void video_init(void) {
+OVERLAY_TRAMPOLINE void video_init(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_video_init();

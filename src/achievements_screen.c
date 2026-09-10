@@ -313,7 +313,7 @@ void FAR_display_achievements_screen(achievements_state_t *state, uint8_t page){
 }
 #pragma code(code)
 
-void display_achievements_screen(achievements_state_t *state, uint8_t page) {
+OVERLAY_TRAMPOLINE void display_achievements_screen(achievements_state_t *state, uint8_t page) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
 	POKE(OVERLAY_MMU_REG, BLOCK_14);
 	FAR_display_achievements_screen(state, page);

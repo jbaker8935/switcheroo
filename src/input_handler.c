@@ -218,6 +218,10 @@ void FAR_input_handler_process_event(game_state_t *state, const input_event_t *e
                     break;
                 case KEY_X:
                     if (state->menu.enabled[MENU_ICON_EXIT]) {
+                        char ascii = event->data.key.ascii;
+                        if (ascii != 0 && ascii != 'x' && ascii != 'X') {
+                            break;
+                        }
                         game_state_activate_menu_icon(state, MENU_ICON_EXIT);
                     }
                     break;
@@ -236,7 +240,7 @@ void FAR_input_handler_process_event(game_state_t *state, const input_event_t *e
 }
 #pragma code(code)
 
-void input_handler_process_event(game_state_t *state, const input_event_t *event) {
+OVERLAY_TRAMPOLINE void input_handler_process_event(game_state_t *state, const input_event_t *event) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_15);
     FAR_input_handler_process_event(state, event);

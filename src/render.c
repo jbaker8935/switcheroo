@@ -101,7 +101,7 @@ void FAR_render_init(void) {
 }
 #pragma code(code)
 
-void render_init(void) {
+OVERLAY_TRAMPOLINE void render_init(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_render_init();
@@ -352,14 +352,14 @@ void FAR_render_update_highlights(const selection_state_t *selection) {
 }
 #pragma code(code)
 
-void render_update_pieces(const board_t *board, const win_path_t *path) {
+OVERLAY_TRAMPOLINE void render_update_pieces(const board_t *board, const win_path_t *path) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_render_update_pieces(board, path);
     POKE(OVERLAY_MMU_REG, saved);
 }
 
-void render_update_highlights(const selection_state_t *selection) {
+OVERLAY_TRAMPOLINE void render_update_highlights(const selection_state_t *selection) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_render_update_highlights(selection);

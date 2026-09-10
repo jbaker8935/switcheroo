@@ -87,7 +87,7 @@ static void FAR_puzzle_catalog_init_solved_bits(uint16_t count) {
 }
 #pragma code(code)
 
-static void puzzle_catalog_init_solved_bits(uint16_t count) {
+static OVERLAY_TRAMPOLINE void puzzle_catalog_init_solved_bits(uint16_t count) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_puzzle_catalog_init_solved_bits(count);
@@ -177,7 +177,7 @@ static void FAR_puzzle_catalog_ensure_header(void) {
 }
 #pragma code(code)
 
-static void puzzle_catalog_ensure_header(void) {
+static OVERLAY_TRAMPOLINE void puzzle_catalog_ensure_header(void) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     FAR_puzzle_catalog_ensure_header();
@@ -223,7 +223,7 @@ static bool FAR_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t fil
 }
 #pragma code(code)
 
-static bool puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
+static OVERLAY_TRAMPOLINE bool puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_13);
     bool result = FAR_puzzle_catalog_map_filtered_index(rule, filtered_index, out_actual_index);

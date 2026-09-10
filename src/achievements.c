@@ -188,7 +188,7 @@ void FAR_achievements_reset_puzzle_progress(achievements_state_t *state, swap_ru
 }
 #pragma code(code)
 
-void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+OVERLAY_TRAMPOLINE void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
 	POKE(OVERLAY_MMU_REG, BLOCK_8);
 	FAR_achievements_reset_puzzle_progress(state, active_rule, active_index);
@@ -258,7 +258,7 @@ void FAR_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t a
 }
 #pragma code(code)
 
-void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+OVERLAY_TRAMPOLINE void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
 	POKE(OVERLAY_MMU_REG, BLOCK_8);
 	FAR_achievements_refresh_catalog(state, active_rule, active_index);
@@ -371,7 +371,7 @@ void FAR_achievements_on_freeplay_win(achievements_state_t *state,
 }
 #pragma code(code)
 
-void achievements_on_freeplay_win(achievements_state_t *state,
+OVERLAY_TRAMPOLINE void achievements_on_freeplay_win(achievements_state_t *state,
 								  uint8_t layout_id,
 								  swap_rule_t rule,
 								  ai_difficulty_t difficulty,
@@ -510,7 +510,7 @@ void FAR_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 }
 #pragma code(code)
 
-void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
+OVERLAY_TRAMPOLINE void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 											  const struct puzzle_t *puzzle,
 											  bool qualifies_for_mark) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
@@ -683,7 +683,7 @@ bool FAR_achievements_deserialize(achievements_state_t *state, const uint8_t *da
 }
 #pragma code(code)
 
-uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
+OVERLAY_TRAMPOLINE uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
 	POKE(OVERLAY_MMU_REG, BLOCK_8);
 	uint16_t result = FAR_achievements_serialize(state, buffer, max_bytes);
@@ -691,7 +691,7 @@ uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buff
 	return result;
 }
 
-bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
+OVERLAY_TRAMPOLINE bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
 	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
 	POKE(OVERLAY_MMU_REG, BLOCK_8);
 	bool result = FAR_achievements_deserialize(state, data, length);

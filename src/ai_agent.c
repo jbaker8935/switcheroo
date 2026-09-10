@@ -611,7 +611,7 @@ bool FAR_ai_forcing_move_available(const board_t *board,
 
 #pragma code(code)
 
-bool ai_forcing_move_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule) {
+OVERLAY_TRAMPOLINE bool ai_forcing_move_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_9);
     bool result = FAR_ai_forcing_move_available(board, current_player, player, rule);
@@ -1199,7 +1199,7 @@ int16_t FAR_ai_agent_evaluate_internal(const board_t *board,
 
 #pragma code(code)
 
-int16_t ai_agent_evaluate_internal(const board_t *board, player_t current_player, player_t perspective, const ai_config_t *config, ai_eval_breakdown_t *breakdown) {
+OVERLAY_TRAMPOLINE int16_t ai_agent_evaluate_internal(const board_t *board, player_t current_player, player_t perspective, const ai_config_t *config, ai_eval_breakdown_t *breakdown) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_9);
     int16_t result = FAR_ai_agent_evaluate_internal(board, current_player, perspective, config, breakdown);
@@ -1267,7 +1267,7 @@ void FAR_ai_agent_init(ai_config_t *config, swap_rule_t swap_rule,
 
 #pragma code(code)
 
-void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player) {
+OVERLAY_TRAMPOLINE void ai_agent_init(ai_config_t *config, swap_rule_t swap_rule, ai_difficulty_t difficulty, player_t ai_player) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_9);
     FAR_ai_agent_init(config, swap_rule, difficulty, ai_player);
@@ -1462,7 +1462,7 @@ static uint8_t FAR_ai_evaluate_moves(
 
 #pragma code(code)
 
-static uint8_t ai_evaluate_moves(board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered, uint8_t generated, ai_evaluated_moves_t *evaluated) {
+static OVERLAY_TRAMPOLINE uint8_t ai_evaluate_moves(board_t *root, player_t current_player, const ai_config_t *config, const ai_ordered_moves_t *ordered, uint8_t generated, ai_evaluated_moves_t *evaluated) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_11);
     uint8_t result = FAR_ai_evaluate_moves(root, current_player, config, ordered, generated, evaluated);
@@ -1808,7 +1808,7 @@ bool FAR_ai_agent_find_best_move_impl(const board_t *board,
 
 #pragma code(code)
 
-bool ai_agent_find_best_move_impl(const board_t *board, player_t current_player, const ai_config_t *config, move_t *out_move) {
+OVERLAY_TRAMPOLINE bool ai_agent_find_best_move_impl(const board_t *board, player_t current_player, const ai_config_t *config, move_t *out_move) {
     volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
     POKE(OVERLAY_MMU_REG, BLOCK_10);
     bool result = FAR_ai_agent_find_best_move_impl(board, current_player, config, out_move);

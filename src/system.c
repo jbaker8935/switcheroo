@@ -1,4 +1,5 @@
 #include "platform_f256.h"
+#include "f256lib.h"
 #include <stdint.h>
 
 // Simple video initialization without complex config
@@ -45,12 +46,7 @@ void platform_bootstrap(void) {
 }
 
 void platform_idle(void) {
-    // Placeholder that will later process events and maintain timing.
-    for (;;) {
-        // Break immediately until the real loop is implemented.
-        
-        break;
-    }
+    kernelCall(Yield);
 }
 
 void platform_shutdown(void) {

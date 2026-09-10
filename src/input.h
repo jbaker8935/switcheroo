@@ -89,6 +89,10 @@ typedef struct {
 // Initialize input subsystem
 void input_init(void);
 
+// Match software mouse position to PS/2 hardware (320x240 screen coords)
+void input_sync_mouse_from_hardware(void);
+void input_reset_mouse_button_edges(void);
+
 // Translate kernelEventData to our event format (caller must call kernelCall(NextEvent) first!)
 bool input_translate_event(input_event_t *event);
 

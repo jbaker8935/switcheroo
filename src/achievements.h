@@ -23,7 +23,6 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
 #include "ai_agent.h"
 #include "timer.h"
 #include "board.h"
