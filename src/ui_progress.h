@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-#include "../src/ai_agent.h"
+#include "ai_agent.h"
 
 typedef struct {
     uint8_t dot_phase;
@@ -16,6 +16,6 @@ typedef struct {
 
 void ui_progress_init(ui_progress_state_t *state);
 void ui_progress_register(ai_config_t *config, ui_progress_state_t *state);
-void ui_progress_on_search_progress(void *user_data) __attribute__((nonreentrant));
+void ui_progress_on_search_progress(void *user_data);
 
 #endif // UI_PROGRESS_H

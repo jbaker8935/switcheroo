@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "../src/sram_assets.h"
+#include "sram_assets.h"
 typedef enum  {
     SOUND_ID_MOVE = 0,
     SOUND_ID_RESET_BOARD = 1,

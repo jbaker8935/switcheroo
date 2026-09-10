@@ -1,29 +1,16 @@
 #include "f256lib.h"
-#include "../src/sram_assets.h"
-#include "../src/video.h"
-#include "../src/text_display.h"
-#include "../src/mouse_pointer.h"
-#include "../src/dma_copy.h"
-#include "../src/playsid.h"
+#include "sram_assets.h"
+#include "video.h"
+#include "text_display.h"
+#include "mouse_pointer.h"
+#include "dma_copy.h"
+#include "playsid.h"
+#include "overlay_config.h"
 
 #include <stdint.h>
 
-
-
-void FAR13_video_show_exit(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void video_show_exit(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 13;
-    FAR13_video_show_exit();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block13")))
-void FAR13_video_show_exit(void) {
+#pragma code(ovl13_code)
+void FAR_video_show_exit(void) {
     
     for(uint32_t i = 0; i < 76800u; ++i) {
         FAR_POKE(SRAM_SPLASH_BASE + i, 11);
@@ -81,4 +68,12 @@ void FAR13_video_show_exit(void) {
     print_formatted_text(31, 54, "^4Thanks ^1for ^5Playing^1");
     
     disable_mouse();
+}
+#pragma code(code)
+
+void video_show_exit(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_video_show_exit();
+    POKE(OVERLAY_MMU_REG, saved);
 }

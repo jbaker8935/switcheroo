@@ -1,17 +1,14 @@
-#include "../src/platform_f256.h"
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
+#include "platform_f256.h"
 #include "f256lib.h"
-#endif
 #include <stdint.h>
 #include <stddef.h>
-#include "../src/board.h"
-#include "../src/mouse_pointer.h"
-#include "../src/video.h"
-#include "../src/text_display.h"
-#include "../src/sram_assets.h"
-#include "../src/dma_copy.h"
+#include "board.h"
+#include "mouse_pointer.h"
+#include "video.h"
+#include "text_display.h"
+#include "sram_assets.h"
+#include "dma_copy.h"
+#include "overlay_config.h"
 
 // Function declarations 
 uint8_t video_board_palette_index(uint8_t row, uint8_t col);
@@ -131,22 +128,10 @@ void video_splash_continue(void) {
 }
 
 
-void FAR13_video_init(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void video_init(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 13;
-    FAR13_video_init();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block13")))
-void FAR13_video_init(void) {
+#pragma code(ovl13_code)
+void FAR_video_init(void) {
     // Set up configuration
-    
+
     clear_text_matrix();
 
     spriteReset();
@@ -203,6 +188,14 @@ void FAR13_video_init(void) {
     enable_mouse();
     center_mouse();
 
+}
+#pragma code(code)
+
+void video_init(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_video_init();
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
 static void video_setup_clut() {

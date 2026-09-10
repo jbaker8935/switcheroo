@@ -3,11 +3,11 @@
  * @brief Callback helpers for AI search progress UI feedback.
  */
 
-#include "../src/ui_progress.h"
+#include "ui_progress.h"
 
-#include "../src/mouse_pointer.h"
-#include "../src/text_display.h"
-#include "../src/timer.h"
+#include "mouse_pointer.h"
+#include "text_display.h"
+#include "timer.h"
 
 static const uint8_t kDotFrequencyTicks = T0_TICK_FREQ; // every 1 second
 

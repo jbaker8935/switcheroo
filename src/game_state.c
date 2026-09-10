@@ -3,16 +3,17 @@
  * @brief Game state management implementation
  */
 
-#include "../src/game_state.h"
-#include "../src/puzzle_data.h"
-#include "../src/ai_agent.h"
+#include "game_state.h"
+#include "puzzle_data.h"
+#include "ai_agent.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "../src/text_display.h"
-#include "../src/mouse_pointer.h"
-#include "../src/board.h"
-#include "../src/sound.h"
+#include "text_display.h"
+#include "mouse_pointer.h"
+#include "board.h"
+#include "sound.h"
+#include "overlay_config.h"
 
 extern void render_invalidate_cache(void);
 extern void video_reset_all_board_cell_colors(void);
@@ -451,7 +452,8 @@ game_phase_t game_state_get_phase(const game_state_t *state)
     return state->phase;
 }
 
-void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
+#pragma code(ovl12_code)
+void FAR_game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
 {
     bool mode_changed = (state->is_puzzle_mode != puzzle_mode);
     bool previous_mode = state->is_puzzle_mode;
@@ -476,7 +478,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_STANDARD);
             state->ai_config.enable_forcing_check = true;
             state->difficulty_manually_set = false; // Reset manual flag since we're setting default
-            
+
             print_ai_difficulty(state->prefs.difficulty_level);
 
             game_state_focus_first_unsolved_puzzle(state);
@@ -512,7 +514,7 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
             state->ai_config.blunder_type = ai_allowed_blunder_type(AI_DIFFICULTY_EASY);
             state->ai_config.enable_forcing_check = false;
             state->difficulty_manually_set = false; // Reset manual flag since we're setting default
-            
+
             print_ai_difficulty(state->prefs.difficulty_level);
 
             // Ensure free play snapshots only capture player-to-move states by resetting the AI side.
@@ -550,6 +552,14 @@ void game_state_set_game_mode(game_state_t *state, bool puzzle_mode)
     video_reset_all_board_cell_colors();
     video_set_game_mode_icon_bitmap(state->is_puzzle_mode);
     game_state_history_refresh_ui(state);
+}
+#pragma code(code)
+
+void game_state_set_game_mode(game_state_t *state, bool puzzle_mode) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_12);
+    FAR_game_state_set_game_mode(state, puzzle_mode);
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
 void game_state_start_new_game(game_state_t *state)
@@ -674,20 +684,8 @@ void game_state_update_menu_enables(game_state_t *state)
 
 }
 
-void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    FAR12_game_state_activate_menu_icon(state, icon);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block12")))
-void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
+#pragma code(ovl12_code)
+void FAR_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
 {
     bool new_mode=state->is_puzzle_mode;
 
@@ -868,6 +866,15 @@ void FAR12_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             break;
     }
 }
+#pragma code(code)
+
+void game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
+{
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_12);
+    FAR_game_state_activate_menu_icon(state, icon);
+    POKE(OVERLAY_MMU_REG, saved);
+}
 
 bool game_state_check_win_condition(game_state_t *state)
 {
@@ -918,7 +925,8 @@ bool game_state_check_win_condition(game_state_t *state)
     return false;
 }
 
-void game_state_update(game_state_t *state, float delta_time)
+#pragma code(ovl12_code)
+void FAR_game_state_update(game_state_t *state, float delta_time)
 {
     (void)delta_time;
 
@@ -1006,6 +1014,14 @@ void game_state_update(game_state_t *state, float delta_time)
         break;
     }
 }
+#pragma code(code)
+
+void game_state_update(game_state_t *state, float delta_time) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_12);
+    FAR_game_state_update(state, delta_time);
+    POKE(OVERLAY_MMU_REG, saved);
+}
 
 bool game_state_step_history_back(game_state_t *state)
 {
@@ -1059,27 +1075,3 @@ bool game_state_is_history_live(const game_state_t *state)
     return freeplay_history_is_live(&state->history_state);
 }
 
-#ifdef AI_AGENT_HOST_TEST
-// Stub implementations for host tests
-static const puzzle_collection_t *get_puzzle_collection(void) {
-    static puzzle_collection_t collection = {0};
-    return &collection;
-}
-
-static const puzzle_t *get_puzzle_by_index(uint16_t index) {
-    return NULL;
-}
-
-static void apply_puzzle_position(board_t *board, const puzzle_t *puzzle) {
-    // Stub
-}
-
-static void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles,
-                      uint8_t puzzle_difficulty, bool is_solved) {
-    // Stub
-}
-
-static void display_puzzle_solution(const puzzle_t *puzzle) {
-    // Stub
-}
-#endif

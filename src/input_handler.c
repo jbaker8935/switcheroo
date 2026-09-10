@@ -3,15 +3,16 @@
  * @brief Input event handler implementation
  */
 
-#include "../src/input_handler.h"
-#include "../src/mouse_pointer.h"
-#include "../src/video.h"
-#include "../src/text_display.h"
-#include "../src/render.h"
-#include "../src/game_state.h"
+#include "input_handler.h"
+#include "mouse_pointer.h"
+#include "video.h"
+#include "text_display.h"
+#include "render.h"
+#include "game_state.h"
 #include <string.h>
 
-#include "../src/screen.h"
+#include "screen.h"
+#include "overlay_config.h"
 
 void input_handler_init(void) {
 
@@ -76,7 +77,8 @@ hit_result_t input_handler_hit_test(uint16_t screen_x, uint16_t screen_y) {
     return result;
 }
 
-void input_handler_process_event(game_state_t *state, const input_event_t *event) {
+#pragma code(ovl15_code)
+void FAR_input_handler_process_event(game_state_t *state, const input_event_t *event) {
     static uint16_t last_hovered_row = 0xFFFF;
     static uint16_t last_hovered_col = 0xFFFF;
     switch (event->type) {
@@ -231,6 +233,14 @@ void input_handler_process_event(game_state_t *state, const input_event_t *event
             break;
     }
     // To add a new screen: update screen_state_t, add a case above, and implement input guards and transitions as needed.
+}
+#pragma code(code)
+
+void input_handler_process_event(game_state_t *state, const input_event_t *event) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_15);
+    FAR_input_handler_process_event(state, event);
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
 void input_handler_move_focus(game_state_t *state, key_code_t direction) {

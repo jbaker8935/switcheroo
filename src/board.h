@@ -12,15 +12,9 @@
 #include <string.h>
 
 #include <stdint.h>
-#ifdef AI_AGENT_HOST_TEST
 #include <stdbool.h>
-#endif
 
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
 #include "platform_f256.h"
-#endif
 
 // Swap rule modes
 #define NUMBER_OF_SWAP_RULES 4
@@ -85,6 +79,14 @@ typedef struct {
     move_type_t type;
     player_t player;
 } move_t;
+
+static inline move_t move_make(uint8_t fr, uint8_t fc, uint8_t tr, uint8_t tc, move_type_t ty, player_t pl) {
+    move_t m;
+    m.from_row = fr; m.from_col = fc;
+    m.to_row = tr; m.to_col = tc;
+    m.type = ty; m.player = pl;
+    return m;
+}
 
 /**
  * Struct-of-arrays representation for efficient move storage on 6502

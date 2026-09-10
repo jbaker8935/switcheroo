@@ -8,11 +8,7 @@
 #ifndef PLATFORM_INPUT_H
 #define PLATFORM_INPUT_H
 
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/platform_f256_host.h"
-#else
 #include "platform_f256.h"
-#endif
 #include <stdint.h>
 
 // Input event types

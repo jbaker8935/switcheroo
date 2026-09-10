@@ -1,10 +1,3 @@
-
-#ifdef AI_AGENT_HOST_TEST
-// Expose for test harness symmetry
-#include <stdbool.h>
-#include "../src/board.h"
-bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_ai, player_t mover, player_t ai_player, swap_rule_t rule);
-#endif
 /**
  * @file ai_agent.h
  * @brief AI agent for F256 Switcharoo
@@ -18,14 +11,10 @@ bool ai_board_creates_forced_immediate_win_postmove(const board_t *after_ai, pla
 #define AI_MAX_ORDERED_MOVES 32
 
 #include <stdint.h>
-#include "../src/board.h"
-
-#ifdef AI_AGENT_HOST_TEST
 #include <stdbool.h>
-#include "../tests/include/f256lib_host.h"
-#else
+#include "board.h"
+
 #include "platform_f256.h"
-#endif
 
 
 
@@ -154,19 +143,5 @@ void ai_agent_config_set_randomization(ai_config_t *config, uint8_t top_k, uint8
 void ai_agent_config_set_blunder(ai_config_t *config, bool enabled, ai_blunder_type_t type, uint8_t chance_pct);
 ai_blunder_type_t ai_allowed_blunder_type(ai_difficulty_t difficulty);
 void ai_agent_set_random_seed(uint16_t seed);
-
-#ifdef AI_AGENT_HOST_TEST
-bool ai_agent_detect_unavoidable_loss(const board_t *board, player_t current_player, const ai_config_t *config);
-bool ai_agent_move_creates_forced_immediate_win(const board_t *board, player_t current_player,
-                                                const move_t *move,
-                                                const ai_config_t *config,
-                                                player_t ai_player);
-bool ai_agent_move_allows_opponent_immediate_win(const board_t *board, player_t current_player,
-                                                 const move_t *move,
-                                                 const ai_config_t *config,
-                                                 player_t ai_player);
-bool ai_forcing_move_available(const board_t *board, player_t current_player, player_t player, swap_rule_t rule);
-bool ai_immediate_win_available(const board_t *board, player_t player, swap_rule_t rule);
-#endif
 
 #endif // AI_AGENT_H

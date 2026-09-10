@@ -1,19 +1,15 @@
 
 
-#include "../src/puzzle_data.h"
-#include "../src/board.h"
-#include "../src/text_display.h"
-#include "../src/sram_assets.h"
+#include "puzzle_data.h"
+#include "board.h"
+#include "text_display.h"
+#include "sram_assets.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <string.h>
 
-#if defined(__llvm_mos__)
-#include "../src/platform_f256.h"
-#elif defined(AI_AGENT_HOST_TEST)
-#include <stdio.h>
-#include <stdlib.h>
-#endif
+#include "platform_f256.h"
+#include "overlay_config.h"
 
 enum {
     PUZZLE_SIGNATURE_BYTES = PUZZLE_CATALOG_SIGNATURE_BYTES,
@@ -34,14 +30,14 @@ static uint8_t s_puzzle_piece_buffer[PUZZLE_PIECE_BYTES];
 static uint16_t s_puzzle_solution_buffer[PUZZLE_SOLUTION_WORDS];
 
 static puzzle_t s_puzzle_cache = {
-    .id = s_puzzle_id_buffer,
-    .swap_rule = SWAP_RULE_CLASSIC,
-    .difficulty = 1u,
-    .is_solved = false,
-    .piece_count = 0u,
-    .pieces = s_puzzle_piece_buffer,
-    .solution_length = 0u,
-    .solution = s_puzzle_solution_buffer
+    s_puzzle_id_buffer,
+    SWAP_RULE_CLASSIC,
+    1u,
+    false,
+    0u,
+    s_puzzle_piece_buffer,
+    0u,
+    s_puzzle_solution_buffer
 };
 
 static uint16_t s_rule_counts[NUMBER_OF_SWAP_RULES] = {0u};
@@ -53,20 +49,20 @@ typedef struct {
 } puzzle_index_cache_t;
 
 static puzzle_index_cache_t s_last_index_lookup = {
-    .rule = SWAP_RULE_CLASSIC,
-    .filtered_index = UINT16_MAX,
-    .actual_index = 0u
+    SWAP_RULE_CLASSIC,
+    UINT16_MAX,
+    0u
 };
 
 static swap_rule_t s_current_puzzle_swap_rule = SWAP_RULE_CLASSIC;
 
 static puzzle_collection_t s_puzzle_collection = {
-    .count = 0u,
-    .puzzles = NULL
+    0u,
+    NULL
 };
 
 static bool s_header_loaded = false;
-static uint64_t s_puzzle_catalog_signature_value = 0u;
+static sig64_t s_puzzle_catalog_signature_value;
 static bool s_puzzle_cache_valid = false;
 static uint16_t s_puzzle_cache_index = 0u;
 
@@ -75,64 +71,9 @@ static uint16_t s_solved_bit_count = 0u;
 static size_t s_solved_bitset_bytes = 0u;
 static bool s_solved_bitset_ready = false;
 
-#if defined(AI_AGENT_HOST_TEST)
-static uint8_t *s_host_catalog_data = NULL;
-static size_t s_host_catalog_size = 0u;
-static const char *const s_host_catalog_candidates[] = {
-    "assets/generated/puzzle_data.bin",
-    "../assets/generated/puzzle_data.bin"
-};
 
-static void puzzle_catalog_host_load(void) {
-    if (s_host_catalog_data != NULL) {
-        return;
-    }
-
-    const size_t candidate_count = sizeof(s_host_catalog_candidates) / sizeof(s_host_catalog_candidates[0]);
-
-    for (size_t i = 0u; i < candidate_count; ++i) {
-        const char *path = s_host_catalog_candidates[i];
-        FILE *file = fopen(path, "rb");
-        if (file == NULL) {
-            continue;
-        }
-        
-        if (fseek(file, 0, SEEK_END) != 0) {
-            fclose(file);
-            continue;
-        }
-        long size = ftell(file);
-        if (size <= 0) {
-            fclose(file);
-            continue;
-        }
-        if (fseek(file, 0, SEEK_SET) != 0) {
-            fclose(file);
-            continue;
-        }
-        
-        uint8_t *buffer = (uint8_t *)malloc((size_t)size);
-        if (buffer == NULL) {
-            fclose(file);
-            continue;
-        }
-        
-        size_t read = fread(buffer, 1, (size_t)size, file);
-        fclose(file);
-        if (read != (size_t)size) {
-            free(buffer);
-            continue;
-        }
-        
-        s_host_catalog_data = buffer;
-        s_host_catalog_size = (size_t)size;
-        break;
-    }
-}
-#endif
-
-__attribute__((noinline, section(".block13")))
-static void FAR13_puzzle_catalog_init_solved_bits(uint16_t count) {
+#pragma code(ovl13_code)
+static void FAR_puzzle_catalog_init_solved_bits(uint16_t count) {
     s_solved_bit_count = (count <= PUZZLE_SOLVED_CAPACITY) ? count : PUZZLE_SOLVED_CAPACITY;
     s_solved_bitset_bytes = (size_t)((s_solved_bit_count + 7u) / 8u);
     if (s_solved_bitset_bytes > sizeof(s_solved_bitset)) {
@@ -140,13 +81,17 @@ static void FAR13_puzzle_catalog_init_solved_bits(uint16_t count) {
     }
     memset(s_solved_bitset, 0, sizeof(s_solved_bitset));
     s_solved_bitset_ready = true;
-#if defined(__llvm_mos__)
     if (count > PUZZLE_SOLVED_CAPACITY) {
         print_puzzle_debug("PUZ BITSET TRUNC", "INCREASE CAPACITY");
     }
-#else
-    (void)count;
-#endif
+}
+#pragma code(code)
+
+static void puzzle_catalog_init_solved_bits(uint16_t count) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_puzzle_catalog_init_solved_bits(count);
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
 static bool puzzle_catalog_solved_bit_get(uint16_t index) {
@@ -181,34 +126,11 @@ static void puzzle_catalog_solved_bit_set(uint16_t index, bool solved) {
 }
 
 static uint8_t puzzle_catalog_read_byte(uint32_t offset) {
-    #if defined(__llvm_mos__)
     return platform_far_read_byte(SRAM_PUZZLE_CATALOG + offset);
-    #elif defined(AI_AGENT_HOST_TEST)
-    puzzle_catalog_host_load();
-    if (s_host_catalog_data == NULL || offset >= s_host_catalog_size) {
-        return 0u;
-    }
-    return s_host_catalog_data[offset];
-    #else
-    (void)offset;
-    return 0u;
-    #endif
 }
 
 static uint16_t puzzle_catalog_read_word(uint32_t offset) {
-    #if defined(__llvm_mos__)
     return platform_far_read_word(SRAM_PUZZLE_CATALOG + offset);
-    #elif defined(AI_AGENT_HOST_TEST)
-    puzzle_catalog_host_load();
-    if (s_host_catalog_data == NULL || (offset + 1u) >= s_host_catalog_size) {
-        return 0u;
-    }
-    return (uint16_t)s_host_catalog_data[offset] |
-    ((uint16_t)s_host_catalog_data[offset + 1u] << 8);
-    #else
-    (void)offset;
-    return 0u;
-    #endif
 }
 
 static void puzzle_catalog_reset_index_cache(void) {
@@ -223,32 +145,15 @@ static swap_rule_t puzzle_catalog_rule_for_index(uint16_t index) {
     return (swap_rule_value <= SWAP_RULE_SWAPPED_CLEARS_OWN) ? (swap_rule_t)swap_rule_value : SWAP_RULE_CLASSIC;
 }
 
-static void FAR13_puzzle_catalog_ensure_header(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-static void puzzle_catalog_ensure_header(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 13;
-    FAR13_puzzle_catalog_ensure_header();
-    *(volatile unsigned char *)0x000d = ___mmu;
-    return;
-}
-
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block13")))
-
-static void FAR13_puzzle_catalog_ensure_header(void) {
+#pragma code(ovl13_code)
+static void FAR_puzzle_catalog_ensure_header(void) {
     if (s_header_loaded) {
         return;
     }
 
-    uint64_t signature = 0u;
     for (uint8_t i = 0u; i < PUZZLE_SIGNATURE_BYTES; ++i) {
-        signature |= ((uint64_t)puzzle_catalog_read_byte(i) << (uint8_t)(i * 8u));
+        s_puzzle_catalog_signature_value.bytes[i] = puzzle_catalog_read_byte(i);
     }
-    s_puzzle_catalog_signature_value = signature;
 
     const uint16_t count = (uint16_t)puzzle_catalog_read_byte(PUZZLE_SIGNATURE_BYTES) |
         ((uint16_t)puzzle_catalog_read_byte(PUZZLE_SIGNATURE_BYTES + 1u) << 8);
@@ -256,7 +161,7 @@ static void FAR13_puzzle_catalog_ensure_header(void) {
     s_puzzle_collection.puzzles = NULL;
 
     if (!s_solved_bitset_ready) {
-        FAR13_puzzle_catalog_init_solved_bits(count);
+        puzzle_catalog_init_solved_bits(count);
     }
 
     memset(s_rule_counts, 0, sizeof(s_rule_counts));
@@ -270,25 +175,18 @@ static void FAR13_puzzle_catalog_ensure_header(void) {
     puzzle_catalog_reset_index_cache();
     s_header_loaded = true;
 }
+#pragma code(code)
 
-static bool FAR13_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index);
-
-#pragma clang optimize off
-__attribute__((noinline))
-static bool puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 13;
-    bool result = FAR13_puzzle_catalog_map_filtered_index(rule, filtered_index, out_actual_index);
-    *(volatile unsigned char *)0x000d = ___mmu;
-    return result;
+static void puzzle_catalog_ensure_header(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_puzzle_catalog_ensure_header();
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block13")))
-
-static bool FAR13_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
-    FAR13_puzzle_catalog_ensure_header();
+#pragma code(ovl13_code)
+static bool FAR_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
+    puzzle_catalog_ensure_header();
 
     if (rule >= NUMBER_OF_SWAP_RULES || filtered_index >= s_rule_counts[rule]) {
         return false;
@@ -322,6 +220,15 @@ static bool FAR13_puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t f
     }
 
     return false;
+}
+#pragma code(code)
+
+static bool puzzle_catalog_map_filtered_index(swap_rule_t rule, uint16_t filtered_index, uint16_t *out_actual_index) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    bool result = FAR_puzzle_catalog_map_filtered_index(rule, filtered_index, out_actual_index);
+    POKE(OVERLAY_MMU_REG, saved);
+    return result;
 }
 
 void set_current_puzzle_swap_rule(swap_rule_t rule) {
@@ -414,12 +321,6 @@ void mark_puzzle_solved(uint16_t filtered_index) {
     puzzle_catalog_solved_bit_set(actual_index, true);
 
 
-#if defined(AI_AGENT_HOST_TEST)
-    puzzle_catalog_host_load();
-    if (s_host_catalog_data != NULL && is_solved_offset < s_host_catalog_size) {
-        s_host_catalog_data[is_solved_offset] = 1u;
-    }
-#endif
 }
 
 const puzzle_collection_t *get_puzzle_collection(void) {
@@ -560,7 +461,7 @@ uint8_t puzzle_catalog_deserialize_solved(const uint8_t *buffer, size_t length) 
     return 1u;
 }
 
-uint64_t puzzle_catalog_signature(void) {
+sig64_t puzzle_catalog_signature(void) {
     puzzle_catalog_ensure_header();
     return s_puzzle_catalog_signature_value;
 }
@@ -584,7 +485,7 @@ void puzzle_catalog_invalidate_cache(void) {
     s_header_loaded = false;
     s_puzzle_cache_valid = false;
     s_puzzle_cache_index = 0u;
-    s_puzzle_catalog_signature_value = 0u;
+    memset(&s_puzzle_catalog_signature_value, 0, sizeof(s_puzzle_catalog_signature_value));
     s_solved_bitset_ready = false;
     s_solved_bit_count = 0u;
     s_solved_bitset_bytes = 0u;

@@ -1,9 +1,9 @@
-#include "../src/sound.h"
+#include "sound.h"
 
-#include "../src/sram_assets.h"
-#include "../src/text_display.h"
-#include "../src/timer.h"
-#include "../src/playsid.h"
+#include "sram_assets.h"
+#include "text_display.h"
+#include "timer.h"
+#include "playsid.h"
 #include "f256lib.h"
 
 #define VS_SCI_CTRL 0xD700

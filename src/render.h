@@ -9,7 +9,7 @@
 #define RENDER_H
 
 #include "platform_f256.h"
-#include "../src/game_state.h"
+#include "game_state.h"
 
 // Highlight types for visual feedback
 typedef enum {

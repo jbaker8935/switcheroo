@@ -1,42 +1,38 @@
-#define F256LIB_IMPLEMENTATION
+#include "overlay_config.h"
+
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 
-#include "../src/ai_agent.h"
-#include "../src/game_state.h"
-#include "../src/input.h"
-#include "../src/input_handler.h"
-#include "../src/platform_f256.h"
-#include "../src/puzzle_data.h"
-#include "../src/render.h"
-#include "../src/screen.h"
-#include "../src/text_display.h"
-#include "../src/timer.h"
-#include "../src/video.h"
-#include "../src/mouse_pointer.h"
-#include "../src/achievements.h"
-#include "../src/file_io.h"
-#include "../src/sound.h"
-#include "../src/achievements_screen.h"
-#include "../src/playsid.h"
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
+#include "ai_agent.h"
+#include "game_state.h"
+#include "input.h"
+#include "input_handler.h"
+#include "platform_f256.h"
+#include "puzzle_data.h"
+#include "render.h"
+#include "screen.h"
+#include "text_display.h"
+#include "timer.h"
+#include "video.h"
+#include "mouse_pointer.h"
+#include "achievements.h"
+#include "file_io.h"
+#include "sound.h"
+#include "achievements_screen.h"
+#include "playsid.h"
+#include "system.h"
 #include "f256lib.h"
-#endif
-#include "stddef.h"
 
 screen_state_t g_screen_state = SCREEN_SPLASH;
 
-// Forward declarations
 extern void platform_bootstrap(void);
 extern void platform_idle(void);
 extern void video_reset(void);
 extern void display_test(void);
 extern void video_set_game_mode_icon_bitmap(bool is_puzzle_mode);
 
-// Global game state
 game_state_t g_game_state;
 
 static void ui_refresh_move_history(void)
@@ -60,16 +56,13 @@ static void ui_refresh_move_history(void)
 }
 
 void init_main_screen(void) {
-    // Initialize subsystems
-    video_init();  // Use default config
-    // Initialize rendering
+    video_init();
     render_init();
     text_display_init();
 }
 
-
 void restore_main_screen(void) {
-    init_main_screen(); 
+    init_main_screen();
 
     render_update_score(&g_game_state.stats);
     print_ai_difficulty(g_game_state.ai_config.difficulty);
@@ -87,8 +80,8 @@ void restore_main_screen(void) {
                 puzzle->difficulty, puzzle->is_solved);
         }
     }
-    }
-    
+}
+
 void display_main_screen(void) {
     video_hide_splash();
     init_main_screen();
@@ -108,36 +101,15 @@ void display_main_screen(void) {
     }
 }
 
-void FAR15_main_loop(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-
-void main_loop(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 15;
-    FAR15_main_loop();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block15"))) 
-void FAR15_main_loop(void) {
+#pragma code(ovl15_code)
+void FAR_main_loop(void) {
 
     uint16_t old_move_count = 0;
-    
+
     while (game_state_get_phase(&g_game_state) != GAME_PHASE_EXIT) {
-        // print_game_mode(g_game_state.is_puzzle_mode);
-        // print_swap_rule(g_game_state.ai_config.swap_rule);
-        // print_current_player(g_game_state.context.current_player);
-        // print_move_history(g_game_state.context.history, g_game_state.context.history_count);
-        // Update game state
-        game_state_update(&g_game_state, 1.0f / 60.0f);
+        game_state_update(&g_game_state, 1.0 / 60.0);
 
         if (g_screen_state == SCREEN_MAIN && g_game_state.phase == GAME_PHASE_GAME_OVER) {
-            // If this is a puzzle and the player won after exceeding the
-            // puzzle move limit, show a generic "Game Over" message instead
-            // of "Player Wins!" so the player isn't credited in the UI.
             if (g_game_state.is_puzzle_mode &&
                 g_game_state.win_path.winner == PLAYER_WHITE &&
                 game_state_has_exceeded_puzzle_moves(&g_game_state)) {
@@ -147,9 +119,6 @@ void FAR15_main_loop(void) {
             }
             ui_refresh_move_history();
             if (g_game_state.is_puzzle_mode) {
-                // In puzzle mode, mark puzzle as solved if player won
-                // in N Player A moves or less
-                // retrieve current puzzle and its difficulty
                 if (g_game_state.win_path.winner == PLAYER_WHITE) {
                     const puzzle_t *puzzle = get_puzzle_by_index(g_game_state.prefs.current_puzzle_index);
                     if (puzzle) {
@@ -177,27 +146,23 @@ void FAR15_main_loop(void) {
             }
         }
 
-            if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
+        if (g_screen_state == SCREEN_MAIN && g_game_state.board.move_count != old_move_count && g_game_state.phase != GAME_PHASE_GAME_OVER) {
             ui_refresh_move_history();
-                game_state_print_current_player(&g_game_state);
+            game_state_print_current_player(&g_game_state);
             old_move_count = g_game_state.board.move_count;
         }
 
-        // Process input events - drain all pending events like sprites example
         do {
             if(isTimerDone() && is_sid_playing()) {
-                // Call SID streaming service if active
                 streaming_sid_service();
             }
 
             bool splash_alarm_elapsed = checkAlarm(TIMER_ALARM_SPLASH);
             if (splash_alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
-                // Time to exit splash screen
                 g_screen_state = SCREEN_MAIN;
                 clearAlarm(TIMER_ALARM_SPLASH);
                 play_sound(SOUND_ID_RESET_BOARD);
                 display_main_screen();
-
             }
 
             bool puzzle_alarm_elapsed = checkAlarm(TIMER_ALARM_PUZZLE);
@@ -207,13 +172,10 @@ void FAR15_main_loop(void) {
                 achievements_update_timer(&g_game_state.achievements, puzzle_alarm_elapsed);
             }
 
-            // Get next kernel event (always call, like the example)
             kernelNextEvent();
 
-            // Translate kernel event to input event
             input_event_t event;
             if (input_translate_event(&event)) {
-                // Screen transition logic (extensible pattern)
                 switch (g_screen_state) {
                     case SCREEN_SPLASH:
                         disable_mouse();
@@ -233,16 +195,13 @@ void FAR15_main_loop(void) {
                             display_achievements_screen(&g_game_state.achievements, 0);
                             g_screen_state = SCREEN_ACHIEVEMENTS1;
                         } else {
-                            // Process other main screen events through input handler
                             input_handler_process_event(&g_game_state, &event);
                         }
-                        // Add other main screen transitions here
                         break;
                     case SCREEN_HELP:
                         if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
                             (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             g_screen_state = SCREEN_MAIN;
-                            // Hide help screen and restore main display
                             display_hide_help_screen();
                             restore_main_screen();
                         }
@@ -271,8 +230,8 @@ void FAR15_main_loop(void) {
                         }
                         break;
                 }
-                if (g_game_state.board.move_count != old_move_count && 
-                    g_game_state.phase != GAME_PHASE_GAME_OVER && g_screen_state == SCREEN_MAIN  ) {
+                if (g_game_state.board.move_count != old_move_count &&
+                    g_game_state.phase != GAME_PHASE_GAME_OVER && g_screen_state == SCREEN_MAIN) {
                     ui_refresh_move_history();
                     game_state_print_current_player(&g_game_state);
                     old_move_count = g_game_state.board.move_count;
@@ -280,68 +239,65 @@ void FAR15_main_loop(void) {
             }
         } while (kernelGetPending() > 0);
 
-        // Diagnostic text output disabled in release builds to conserve ROM/RAM.
-
-        // Update rendering
         if(g_screen_state == SCREEN_MAIN) {
-
             render_update(&g_game_state);
         }
 
-        // Idle/wait for next frame
         platform_idle();
     }
 
 }
+#pragma code(code)
+
+void main_loop(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_15);
+    FAR_main_loop();
+    POKE(OVERLAY_MMU_REG, saved);
+}
+
 char g_base_dir[256]={0};
+
 int main(int argc, char *argv[]) {
-        
+
     char *last_slash = strrchr(argv[0], '/');
     if (last_slash != NULL) {
         uint8_t dir_len = last_slash - argv[0] + 1;
         strncpy(g_base_dir, argv[0], dir_len);
         g_base_dir[dir_len] = '\0';
-    } 
-    
+    }
+
     (void)argc;
 
-
-        
-        // Initialize f256lib (includes kernelReset and all subsystems)
     f256Init();
 
     input_init();
     input_handler_init();
 
-    setTimer0();  // Initialize timer for UI updates and other periodic tasks
+    gameSetTimer0();
 
-    // Initialize screen state - start in splash
     g_screen_state = SCREEN_SPLASH;
     video_show_splash();
     playback(SRAM_SOUND_INTRO_SID, SOUND_INTRO_SID_FRAMES);
-    setAlarm(TIMER_ALARM_SPLASH, 2u * T0_TICK_FREQ); 
-    // Initialize game state
+    setAlarm(TIMER_ALARM_SPLASH, 2u * T0_TICK_FREQ);
+
     game_state_init(&g_game_state);
     file_io_init();
-    
+
     video_splash_continue();
 
     init_sounds();
-    // Play start sound
-    play_sound(SOUND_ID_START);    
-    
+    play_sound(SOUND_ID_START);
 
-    
     main_loop();
-    
+
     print_game_exit();
     video_show_exit();
 
-   setMonoSID();
-   clearSIDRegisters();
-   playback(SRAM_SOUND_OUTRO_SID, SOUND_OUTRO_SID_FRAMES);
+    setMonoSID();
+    clearSIDRegisters();
+    playback(SRAM_SOUND_OUTRO_SID, SOUND_OUTRO_SID_FRAMES);
 
-    // auto exit 2 seconds or on key press
     setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(2u * T0_TICK_FREQ));
     bool exit_wait = false;
     while (!exit_wait && !checkAlarm(TIMER_ALARM_GENERAL0)) {
@@ -360,15 +316,11 @@ int main(int argc, char *argv[]) {
     clearAlarm(TIMER_ALARM_GENERAL0);
 
     file_io_save();
-    // textClear();
-    // getchar();
 
-
-    // soft reset
     POKE(0xD6A2, 0xDE);
     POKE(0xD6A3, 0xAD);
-    POKE(0xD6A0, 0x80);  // arm reset
-    POKE(0xD6A0, 0x00);  // trigger reset
+    POKE(0xD6A0, 0x80);
+    POKE(0xD6A0, 0x00);
 
     return 0;
 }

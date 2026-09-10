@@ -1,16 +1,13 @@
-#include "../src/achievements.h"
-#include "../src/puzzle_data.h"
-#include "../src/timer.h"
-#include "../src/sram_assets.h"
-#include "../src/video.h"
-#include "../src/mouse_pointer.h"
-#include "../src/text_display.h"
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
+#include "achievements.h"
+#include "puzzle_data.h"
+#include "timer.h"
+#include "sram_assets.h"
+#include "video.h"
+#include "mouse_pointer.h"
+#include "text_display.h"
 #include "f256lib.h"
-#endif
 #include <string.h>
+#include "overlay_config.h"
 
 enum {
 	ACHIEVEMENTS_STORAGE_VERSION = 1u
@@ -165,21 +162,8 @@ static void achievements_reset_puzzle_attempt(achievements_state_t *state) {
 }
 
 
-void FAR8_achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_achievements_reset_puzzle_progress(state, active_rule, active_index);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block8")))
-
-void FAR8_achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+#pragma code(ovl8_code)
+void FAR_achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
 	if (!state) {
 		return;
 	}
@@ -202,6 +186,14 @@ void FAR8_achievements_reset_puzzle_progress(achievements_state_t *state, swap_r
 
 	achievements_refresh_catalog(state, active_rule, active_index);
 }
+#pragma code(code)
+
+void achievements_reset_puzzle_progress(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	FAR_achievements_reset_puzzle_progress(state, active_rule, active_index);
+	POKE(OVERLAY_MMU_REG, saved);
+}
 
 void achievements_init(achievements_state_t *state) {
 	if (!state) {
@@ -211,21 +203,8 @@ void achievements_init(achievements_state_t *state) {
 	memset(state, 0, sizeof(achievements_state_t));
 }
 
-void FAR8_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_achievements_refresh_catalog(state, active_rule, active_index);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block8")))
-
-void FAR8_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+#pragma code(ovl8_code)
+void FAR_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
 	if (!state) {
 		return;
 	}
@@ -277,6 +256,14 @@ void FAR8_achievements_refresh_catalog(achievements_state_t *state, swap_rule_t 
 
 	achievements_update_catalog_progress(state);
 }
+#pragma code(code)
+
+void achievements_refresh_catalog(achievements_state_t *state, swap_rule_t active_rule, uint16_t active_index) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	FAR_achievements_refresh_catalog(state, active_rule, active_index);
+	POKE(OVERLAY_MMU_REG, saved);
+}
 
 void achievements_on_game_mode_changed(achievements_state_t *state, bool was_puzzle_mode, bool is_puzzle_mode) {
 	if (!state) {
@@ -308,29 +295,8 @@ void achievements_on_freeplay_history_reset(achievements_state_t *state) {
 }
 
 
-void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
-								  uint8_t layout_id,
-								  swap_rule_t rule,
-								  ai_difficulty_t difficulty,
-								  uint8_t move_count);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void achievements_on_freeplay_win(achievements_state_t *state,
-								  uint8_t layout_id,
-								  swap_rule_t rule,
-								  ai_difficulty_t difficulty,
-								  uint8_t move_count) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_achievements_on_freeplay_win(state, layout_id, rule, difficulty, move_count);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block8")))
-
-void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
+#pragma code(ovl8_code)
+void FAR_achievements_on_freeplay_win(achievements_state_t *state,
 								  uint8_t layout_id,
 								  swap_rule_t rule,
 								  ai_difficulty_t difficulty,
@@ -403,6 +369,18 @@ void FAR8_achievements_on_freeplay_win(achievements_state_t *state,
 		achievements_unlock(state, ACH_FREEPLAY_UNDER_TEN_MOVES);
 	}
 }
+#pragma code(code)
+
+void achievements_on_freeplay_win(achievements_state_t *state,
+								  uint8_t layout_id,
+								  swap_rule_t rule,
+								  ai_difficulty_t difficulty,
+								  uint8_t move_count) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	FAR_achievements_on_freeplay_win(state, layout_id, rule, difficulty, move_count);
+	POKE(OVERLAY_MMU_REG, saved);
+}
 
 void achievements_on_puzzle_loaded(achievements_state_t *state, const struct puzzle_t *puzzle) {
 	if (!state) {
@@ -434,25 +412,8 @@ void achievements_on_puzzle_hint(achievements_state_t *state) {
 }
 
 
-void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
-											  const struct puzzle_t *puzzle,
-											  bool qualifies_for_mark);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
-											  const struct puzzle_t *puzzle,
-											  bool qualifies_for_mark) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 8;
-    FAR8_achievements_on_puzzle_attempt_completed(state, puzzle, qualifies_for_mark);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block8")))
-
-void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
+#pragma code(ovl8_code)
+void FAR_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 											  const struct puzzle_t *puzzle,
 											  bool qualifies_for_mark) {
 	if (!state) {
@@ -547,6 +508,16 @@ void FAR8_achievements_on_puzzle_attempt_completed(achievements_state_t *state,
 
 	achievements_reset_puzzle_attempt(state);
 }
+#pragma code(code)
+
+void achievements_on_puzzle_attempt_completed(achievements_state_t *state,
+											  const struct puzzle_t *puzzle,
+											  bool qualifies_for_mark) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	FAR_achievements_on_puzzle_attempt_completed(state, puzzle, qualifies_for_mark);
+	POKE(OVERLAY_MMU_REG, saved);
+}
 
 void achievements_on_puzzle_failed(achievements_state_t *state) {
 	achievements_reset_puzzle_attempt(state);
@@ -564,15 +535,17 @@ void achievements_update_timer(achievements_state_t *state, bool alarm_elapsed) 
 }
 
 static void write_u16(uint8_t **cursor, uint16_t value) {
-	(*cursor)[0] = (uint8_t)(value & 0xFFu);
-	(*cursor)[1] = (uint8_t)((value >> 8) & 0xFFu);
-	*cursor += 2;
+	uint8_t *p = *cursor;
+	p[0] = (uint8_t)(value & 0xFFu);
+	p[1] = (uint8_t)((value >> 8) & 0xFFu);
+	*cursor = p + 2;
 }
 
 static uint16_t read_u16(const uint8_t **cursor) {
-	uint16_t value = (uint16_t)(*cursor)[0];
-	value |= (uint16_t)((*cursor)[1]) << 8;
-	*cursor += 2;
+	const uint8_t *p = *cursor;
+	uint16_t value = (uint16_t)p[0];
+	value |= (uint16_t)(p[1]) << 8;
+	*cursor = p + 2;
 	return value;
 }
 
@@ -589,7 +562,8 @@ uint16_t achievements_storage_size(void) {
 
 
 
-uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
+#pragma code(ovl8_code)
+uint16_t FAR_achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
 	if (!state || !buffer) {
 		return 0u;
 	}
@@ -642,9 +616,7 @@ uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buff
 	return required;
 }
 
-// only used by file io so move to block 12
-__attribute__((noinline, section(".block12")))
-bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
+bool FAR_achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
 	if (!state || !data) {
 		return false;
 	}
@@ -708,6 +680,23 @@ bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, 
 	}
 
 	return true;
+}
+#pragma code(code)
+
+uint16_t achievements_serialize(const achievements_state_t *state, uint8_t *buffer, uint16_t max_bytes) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	uint16_t result = FAR_achievements_serialize(state, buffer, max_bytes);
+	POKE(OVERLAY_MMU_REG, saved);
+	return result;
+}
+
+bool achievements_deserialize(achievements_state_t *state, const uint8_t *data, uint16_t length) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_8);
+	bool result = FAR_achievements_deserialize(state, data, length);
+	POKE(OVERLAY_MMU_REG, saved);
+	return result;
 }
 
 

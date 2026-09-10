@@ -22,13 +22,11 @@
 #define ACHIEVEMENTS_H
 
 #include <stdint.h>
-#if defined(AI_AGENT_HOST_TEST)
 #include <stdbool.h>
-#endif
 
-#include "../src/ai_agent.h"
-#include "../src/timer.h"
-#include "../src/board.h"
+#include "ai_agent.h"
+#include "timer.h"
+#include "board.h"
 
 struct puzzle_t;
 

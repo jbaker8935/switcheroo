@@ -4,28 +4,12 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "../src/playsid.h"
-#include "../src/timer.h"
+#include "playsid.h"
+#include "timer.h"
 
 static uint32_t s_siddata_address = 0;
 static uint16_t s_siddata_frames = 0;
 static bool s_playback_active = false;
-
-void clearSIDRegisters(void) {
-    uint8_t i;
-    for (i = 0; i <= 0x18; i++) {
-        POKE(SID1 + i, 0);
-        POKE(SID2 + i, 0);
-    }
-}
-
-void setMonoSID() {
-    uint8_t sys1;
-
-    sys1 = PEEK(SID_SYS1);
-    sys1 = sys1 & 0b11110111;
-    POKE(SID_SYS1, sys1);
-}
 
 void schedule_playback(uint32_t siddata, uint16_t sidframes) {
     s_siddata_address = siddata;

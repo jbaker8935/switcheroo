@@ -1,12 +1,12 @@
-#include "../src/text_display.h"
-#include "../src/board.h"
-#include "../src/ai_agent.h"
-#include "../src/puzzle_data.h"
-#include "../src/mouse_pointer.h"
-#include "../src/help_text.h"
-#include "../src/game_state.h"
-#include "../src/timer.h"
-#include "../src/video.h"
+#include "text_display.h"
+#include "board.h"
+#include "ai_agent.h"
+#include "puzzle_data.h"
+#include "mouse_pointer.h"
+#include "help_text.h"
+#include "game_state.h"
+#include "timer.h"
+#include "video.h"
 
 #include <stddef.h>
 #include <string.h>
@@ -349,7 +349,7 @@ void clear_puzzle_debug(void) {
 
 void print_puzzle_info(uint16_t puzzle_index, uint16_t total_puzzles, 
                        uint8_t puzzle_difficulty, bool is_solved) {
-    char *buf = "";
+    const char *buf = "";
     char checked[] = {'^','2', 222, '^','1', '\0'};
     const uint8_t start_row = 22;
     // Puzzle Number
@@ -400,8 +400,8 @@ void clear_made_blunder(void) {
 }
 
 void print_AI_hint(const char *hint) {
-    char *buf = "^6Hint:^1                ";
-    char * hint_str = hint ? (char *)hint : (char *)"N/A";
+    const char *buf = "^6Hint:^1                ";
+    const char *hint_str = hint ? hint : "N/A";
     print_formatted_text(3,10, buf);
     textGotoXY(9,10);
     textPrint(hint_str);

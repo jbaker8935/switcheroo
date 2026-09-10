@@ -3,14 +3,15 @@
  * @brief Rendering pipeline implementation
  */
 
-#include "../src/render.h"
-#include "../src/input.h"
-#include "../src/board.h"
-#include "../src/text_display.h"
-#include "../src/mouse_pointer.h"
+#include "render.h"
+#include "input.h"
+#include "board.h"
+#include "text_display.h"
+#include "mouse_pointer.h"
 #include <string.h>
-#include "../src/sram_assets.h"
-#include "../src/video.h"
+#include "sram_assets.h"
+#include "video.h"
+#include "overlay_config.h"
 
 // External functions from video.c
 extern void video_reset_board_cell_color(uint8_t row, uint8_t col);
@@ -45,22 +46,9 @@ static void cache_board_snapshot(const board_t *board) {
     }
 }
 
-void FAR13_render_init(void);
+#pragma code(ovl13_code)
+void FAR_render_init(void) {
 
-#pragma clang optimize off
-__attribute__((noinline))
-void render_init(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 13;
-    FAR13_render_init();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block13")))
-
-void FAR13_render_init(void) {
-    
     const int16_t board_width = VIDEO_BOARD_COLUMNS * VIDEO_BOARD_CELL_SIZE + 11;
     const int16_t board_height = VIDEO_BOARD_ROWS * VIDEO_BOARD_CELL_SIZE + 15;
     
@@ -111,6 +99,14 @@ void FAR13_render_init(void) {
     s_cache_initialized = false;
 
 }
+#pragma code(code)
+
+void render_init(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_render_init();
+    POKE(OVERLAY_MMU_REG, saved);
+}
 
 // Force the render cache to be invalidated so next update will re-snapshot
 void render_invalidate_cache(void) {
@@ -156,7 +152,8 @@ bool render_screen_to_cell(uint16_t x, uint16_t y, uint8_t *row, uint8_t *col) {
 }
 
 
-void render_update_pieces(const board_t *board, const win_path_t *path) {
+#pragma code(ovl13_code)
+void FAR_render_update_pieces(const board_t *board, const win_path_t *path) {
     // Track which sprites we've used for each player
     uint8_t white_sprite_count = 0;
     uint8_t black_sprite_count = 0;
@@ -170,7 +167,7 @@ void render_update_pieces(const board_t *board, const win_path_t *path) {
         s_cache_initialized = true;
         force_full_update = true;
     }
-    
+
     // Scan board and assign sprites to pieces
     for (uint8_t row = 0; row < BOARD_ROWS; ++row) {
         for (uint8_t col = 0; col < BOARD_COLS; ++col) {
@@ -178,15 +175,15 @@ void render_update_pieces(const board_t *board, const win_path_t *path) {
 
             bool is_light = (row + col) % 2 == 0;
             bool in_path = false;
-            
+
             if (piece == PIECE_NONE) {
                 continue;  // Empty cell
             }
-            
+
             uint8_t sprite_id = 0;
             uint32_t bitmap_addr = 0;
 
-            // in winning path?            
+            // in winning path?
             if (path->has_path) {
                 for (uint8_t p = 0; p < path->path_length; ++p) {
                     uint8_t cell_index = path->path_cells[p];
@@ -218,7 +215,7 @@ void render_update_pieces(const board_t *board, const win_path_t *path) {
                     bitmap_addr = is_light || in_path ? SRAM_PIECE_B_SWAPPED_LIGHT : SRAM_PIECE_B_SWAPPED_DARK;
                     black_sprite_count++;
             }
-            
+
 
             // Check if piece has changed since last frame
             if (!force_full_update && s_cache_board_snapshot[row][col] == (uint8_t)piece) {
@@ -234,22 +231,22 @@ void render_update_pieces(const board_t *board, const win_path_t *path) {
             spriteSetPosition(sprite_id, VIDEO_SPRITE_OFFSET + x, VIDEO_SPRITE_OFFSET + y);
 
             spriteSetVisible(sprite_id, 1);
-            
+
         }
     }
-    
+
     // Update cache of board pieces after positioning
     cache_board_snapshot(board);
 }
 
-void render_update_highlights(const selection_state_t *selection) {
+void FAR_render_update_highlights(const selection_state_t *selection) {
     // Mouse-based selection design:
     // - Select piece by clicking (only when no piece selected)
     // - Deselect by clicking the same piece again
     // - Move by clicking a highlighted legal move cell
     // - Highlights remain visible while selected piece doesn't change
     // - Mouse movement without clicking does not affect selection
-    
+
     // Only update highlights when selection state changes
     bool selection_changed = false;
 
@@ -352,6 +349,21 @@ void render_update_highlights(const selection_state_t *selection) {
 
     // Also, ensure piece focus sprite is hidden when selection is active (mouse selection takes precedence)
     spriteSetVisible((uint8_t)VIDEO_SPRITE_FOCUS_PIECE, 0);
+}
+#pragma code(code)
+
+void render_update_pieces(const board_t *board, const win_path_t *path) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_render_update_pieces(board, path);
+    POKE(OVERLAY_MMU_REG, saved);
+}
+
+void render_update_highlights(const selection_state_t *selection) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_13);
+    FAR_render_update_highlights(selection);
+    POKE(OVERLAY_MMU_REG, saved);
 }
 
 // Called from render_update to show focus indicator when keyboard mode is active

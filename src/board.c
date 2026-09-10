@@ -6,9 +6,11 @@
  * using a BFS connectivity check per design.md guidance.
  */
 
-#include "../src/board.h"
-#include "../src/ai_agent.h"
+#include "board.h"
+#include "ai_agent.h"
 #include <string.h>
+
+extern void render_invalidate_cache(void);
 
 #define PROGRESS_CALLBACK_FREQUENCY 3
 static uint8_t s_progress_callback_counter = 0;
@@ -25,12 +27,6 @@ enum {
 #define WIN_ROW_MASK_VALUE(row) \
     (WIN_CELL_BIT((row), 0) | WIN_CELL_BIT((row), 1) | WIN_CELL_BIT((row), 2) | WIN_CELL_BIT((row), 3))
 
-// Extern declarations for inline functions used across multiple translation units
-extern piece_type_t board_get_piece(const board_t *board, uint8_t row, uint8_t col);
-extern void board_set_piece(board_t *board, uint8_t row, uint8_t col, piece_type_t piece);
-extern bool board_is_adjacent(uint8_t r1, uint8_t c1, uint8_t r2, uint8_t c2);
-extern bool board_can_move(const board_t *board, player_t current_player, uint8_t from_row, uint8_t from_col,
-                           uint8_t to_row, uint8_t to_col, move_type_t *out_type);
 
 
 // Internal versions that skip bounds checking for performance
@@ -444,7 +440,6 @@ static bool board_execute_move_internal(board_t *board, board_context_t *context
 
     if (record_history) {
         // Ensure renderer updates immediately to reflect new piece states
-        extern void render_invalidate_cache(void);
         render_invalidate_cache();
     }
 
@@ -488,7 +483,6 @@ void board_clear_all_swapped(board_t *board) {
 
     if (any_cleared) {
         // Invalidate render cache so sprite bitmaps are redefined on next frame
-        extern void render_invalidate_cache(void);
         render_invalidate_cache();
     }
 

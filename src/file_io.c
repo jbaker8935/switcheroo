@@ -1,15 +1,15 @@
-#include "../src/file_io.h"
-#include "../src/puzzle_data.h"
-#include "../src/achievements.h"
-#include "../src/game_state.h"
-#include "../src/sram_assets.h"
+#include "file_io.h"
+#include "puzzle_data.h"
+#include "achievements.h"
+#include "game_state.h"
+#include "sram_assets.h"
 #include <stdint.h>
 #include <stdbool.h>
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
 #include "f256lib.h"
-#endif
+#include "overlay_config.h"
+
+// Undefine EOF to allow struct member access for kernelEvent(file.EOF)
+#undef EOF
 
 #define PUZZLE_DATA_SIZE PUZZLE_SOLVED_BYTES // 600 puzzles, 1 bit each + padding
 #define ACHIEVEMENT_DATA_SIZE 89  // Calculated from achievements_state_t structure size
@@ -19,21 +19,11 @@
 #define PUZZLE_FILE_CHUNK_SIZE 255u
 #define PUZZLE_CATALOG_MAX_BYTES 64000u
 
-#if defined(AI_AGENT_HOST_TEST)
-// Host test stubs - no file I/O
-void file_io_init(void) {
-    // Stub for host testing
-}
-
-void file_io_save(void) {
-    // Stub for host testing
-}
-#else
-// F256 target system - 
+// F256 target system
 #include <stdlib.h>
 #include <string.h>
-#include "../src/platform_f256.h"
-#include "../src/text_display.h"
+#include "platform_f256.h"
+#include "text_display.h"
 
 extern game_state_t g_game_state;
 extern char g_base_dir[256];
@@ -42,88 +32,64 @@ static char *const SAVE_FILE_NAME = "switcheroo.dat";
 static char *const PUZZLE_FILE_NAME = "switcheroo.puz";
 static char file_name_buffer[256];
 
-#if defined(__llvm_mos__)
-__attribute__((noinline, section(".block12")))
 static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
-    kernelArgs->file.write.stream = fd;
-    kernelArgs->common.buf = buf;
-    kernelArgs->common.buflen = nbytes;
+    kernelArgs->u.file.write.stream = fd;
+    kernelArgs->u.common.buf = buf;
+    kernelArgs->u.common.buflen = nbytes;
     kernelCall(File.Write);
     if (kernelError) return -1;
 
     for (;;) {
         kernelNextEvent();
-        if (kernelEventData.type == kernelEvent(file.WROTE)) return kernelEventData.file.data.delivered;
+        if (kernelEventData.type == kernelEvent(file.WROTE)) return kernelEventData.u.file.u.data.delivered;
         if (kernelEventData.type == kernelEvent(file.ERROR)) return -1;
     }
 }
 
-#pragma push_macro("EOF")
-#undef EOF
-__attribute__((noinline, section(".block12")))
 static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
 
-	kernelArgs->file.read.stream = fd;
-	kernelArgs->file.read.buflen = nbytes;
+	kernelArgs->u.file.read.stream = fd;
+	kernelArgs->u.file.read.buflen = nbytes;
 	kernelCall(File.Read);
 	if (kernelError) return -1;
 
 	for(;;) {
 		kernelNextEvent();
-		switch (kernelEventData.type) {
-			case kernelEvent(file.DATA):
-				kernelArgs->common.buf = buf;
-				kernelArgs->common.buflen = kernelEventData.file.data.delivered;
-				kernelCall(ReadData);
-				return kernelEventData.file.data.delivered;
-			case kernelEvent(file.EOF):
-				return 0;
-			case kernelEvent(file.ERROR):
-				return -1;
-			default:
-				continue;
+		if (kernelEventData.type == kernelEvent(file.DATA)) {
+			kernelArgs->u.common.buf = buf;
+			kernelArgs->u.common.buflen = kernelEventData.u.file.u.data.delivered;
+			kernelCall(ReadData);
+			return kernelEventData.u.file.u.data.delivered;
+		} else if (kernelEventData.type == kernelEvent(file.EOF)) {
+			return 0;
+		} else if (kernelEventData.type == kernelEvent(file.ERROR)) {
+			return -1;
 		}
 	}
 }
-#pragma pop_macro("EOF")
-
-
-#else
-static int16_t kernelWriteC(uint8_t fd, void *buf, uint16_t nbytes) {
-    (void)fd;
-    (void)buf;
-    (void)nbytes;
-    return -1;
-}
-static int16_t kernelReadC(uint8_t fd, void *buf, uint16_t nbytes) {
-    (void)fd;
-    (void)buf;
-    (void)nbytes;
-    return -1;
-}
-#endif
 
 static uint8_t s_buffer[DATA_FILE_SIZE];
 static uint8_t s_puzzle_chunk[PUZZLE_FILE_CHUNK_SIZE];
 
-__attribute__((noinline, section(".block12")))
-static uint64_t read_le64(const uint8_t *data) {
-    uint64_t value = 0u;
+static sig64_t read_sig64(const uint8_t *data) {
+    sig64_t s;
     for (uint8_t i = 0u; i < 8u; ++i) {
-        value |= ((uint64_t)data[i] << (uint64_t)(i * 8u));
+        s.bytes[i] = data[i];
     }
-    return value;
+    return s;
 }
 
-__attribute__((noinline, section(".block12")))
-static void write_le64(uint8_t *data, uint64_t value) {
+static void write_sig64(uint8_t *data, sig64_t s) {
     for (uint8_t i = 0u; i < 8u; ++i) {
-        data[i] = (uint8_t)((value >> (uint64_t)(i * 8u)) & 0xFFu);
+        data[i] = s.bytes[i];
     }
 }
 
+static bool sig64_eq(sig64_t a, sig64_t b) {
+    return memcmp(a.bytes, b.bytes, 8) == 0;
+}
 
-__attribute__((noinline, section(".block12")))
+
 static void load_puzzle_catalog_from_file(void) {
     strcpy(file_name_buffer, g_base_dir);
     strcat(file_name_buffer, PUZZLE_FILE_NAME);
@@ -163,26 +129,15 @@ static void load_puzzle_catalog_from_file(void) {
 }
 
 
-void FAR12_file_io_init(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void file_io_init(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    FAR12_file_io_init();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-__attribute__((noinline, section(".block12")))
-void FAR12_file_io_init(void) {
+#pragma code(ovl12_code)
+void FAR_file_io_init(void) {
 
     load_puzzle_catalog_from_file();
 
-    const uint64_t current_signature = puzzle_catalog_signature();
+    const sig64_t current_signature = puzzle_catalog_signature();
     bool achievements_loaded = false;
     bool has_saved_signature = false;
-    uint64_t saved_signature = 0u;
+    sig64_t saved_signature = {{0}};
     strcpy(file_name_buffer, g_base_dir);
     strcat(file_name_buffer, SAVE_FILE_NAME);
    
@@ -193,12 +148,12 @@ void FAR12_file_io_init(void) {
         // Ignore legacy or malformed saves unless they match the expected size
         if (file_size == DATA_FILE_SIZE) {
             has_saved_signature = true;
-            saved_signature = read_le64(s_buffer);
+            saved_signature = read_sig64(s_buffer);
 
             const uint8_t *puzzle_bytes = s_buffer + PUZZLE_SIGNATURE_SIZE;
             const uint8_t *achievement_bytes = puzzle_bytes + PUZZLE_DATA_SIZE;
 
-            if (saved_signature == current_signature) {
+            if (sig64_eq(saved_signature, current_signature)) {
                 (void)puzzle_catalog_deserialize_solved(puzzle_bytes, PUZZLE_DATA_SIZE);
             } else {
                 puzzle_catalog_clear_solved_state();
@@ -208,7 +163,7 @@ void FAR12_file_io_init(void) {
                                           achievement_bytes,
                                           ACHIEVEMENT_DATA_SIZE)) {
                 achievements_loaded = true;
-                if (saved_signature != current_signature) {
+                if (!sig64_eq(saved_signature, current_signature)) {
                     achievements_reset_puzzle_progress(&g_game_state.achievements,
                                                        g_game_state.prefs.swap_rule,
                                                        g_game_state.prefs.current_puzzle_index);
@@ -226,29 +181,17 @@ void FAR12_file_io_init(void) {
         g_game_state.prefs.current_puzzle_index = 0u;
     }
 
-    if (!achievements_loaded || !has_saved_signature || saved_signature == current_signature) {
+    if (!achievements_loaded || !has_saved_signature || sig64_eq(saved_signature, current_signature)) {
         achievements_refresh_catalog(&g_game_state.achievements,
                                      g_game_state.prefs.swap_rule,
                                      g_game_state.prefs.current_puzzle_index);
     }
 }
 
-void FAR12_file_io_save(void);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void file_io_save(void) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 12;
-    FAR12_file_io_save();
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-__attribute__((noinline, section(".block12")))
-void FAR12_file_io_save(void) {
+void FAR_file_io_save(void) {
 
 
-    write_le64(s_buffer, puzzle_catalog_signature());
+    write_sig64(s_buffer, puzzle_catalog_signature());
 
     size_t actual_puzzle_size = puzzle_catalog_serialize_solved(
         s_buffer + PUZZLE_SIGNATURE_SIZE,
@@ -278,4 +221,18 @@ void FAR12_file_io_save(void) {
         }
     }
 }
-#endif
+#pragma code(code)
+
+void file_io_init(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_12);
+    FAR_file_io_init();
+    POKE(OVERLAY_MMU_REG, saved);
+}
+
+void file_io_save(void) {
+    volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+    POKE(OVERLAY_MMU_REG, BLOCK_12);
+    FAR_file_io_save();
+    POKE(OVERLAY_MMU_REG, saved);
+}

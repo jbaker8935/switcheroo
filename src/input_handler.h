@@ -7,8 +7,8 @@
 #define INPUT_HANDLER_H
 
 #include "platform_f256.h"
-#include "../src/input.h"
-#include "../src/game_state.h"
+#include "input.h"
+#include "game_state.h"
 
 // Hit test results
 typedef enum {

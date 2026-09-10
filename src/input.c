@@ -3,10 +3,10 @@
  * @brief Input subsystem implementation for F256 Switcharoo
  */
 
-#include "../src/input.h"
-#include "../src/platform_f256.h"
-#include "../src/text_display.h"
-#include "../src/mouse_pointer.h"
+#include "input.h"
+#include "platform_f256.h"
+#include "text_display.h"
+#include "mouse_pointer.h"
 #include <string.h>
 
 // PS/2 Mouse hardware registers
@@ -75,12 +75,12 @@ bool input_translate_event(input_event_t *event) {
     
     // Handle keyboard events
     if (kernelEventData.type == kernelEvent(key.PRESSED)) {
-        key_code_t key = scan_to_key(kernelEventData.key.raw);
+        key_code_t key = scan_to_key(kernelEventData.u.key.raw);
    
         if (key != KEY_NONE && event) {
             event->type = INPUT_EVENT_KEY_DOWN;
             event->data.key.code = key;
-            event->data.key.ascii = kernelEventData.key.ascii;
+            event->data.key.ascii = kernelEventData.u.key.ascii;
             event->data.key.is_repeat = false;
 
 
@@ -89,12 +89,12 @@ bool input_translate_event(input_event_t *event) {
     }
     
     // if (kernelEventData.type == kernelEvent(key.RELEASED)) {
-    //     key_code_t key = scan_to_key(kernelEventData.key.raw);
+    //     key_code_t key = scan_to_key(kernelEventData.u.key.raw);
         
     //     if (key != KEY_NONE && event) {
     //         event->type = INPUT_EVENT_KEY_UP;
     //         event->data.key.code = key;
-    //         event->data.key.ascii = kernelEventData.key.ascii;
+    //         event->data.key.ascii = kernelEventData.u.key.ascii;
     //         event->data.key.is_repeat = false;
 
     //         return true;
@@ -106,8 +106,8 @@ bool input_translate_event(input_event_t *event) {
         // Apply boost for fast movement like in the example
         int8_t boost_x = 1;
         int8_t boost_y = 1;
-        int8_t delta_x = (int8_t)kernelEventData.mouse.delta.x;
-        int8_t delta_y = (int8_t)kernelEventData.mouse.delta.y;
+        int8_t delta_x = (int8_t)kernelEventData.u.mouse.delta.x;
+        int8_t delta_y = (int8_t)kernelEventData.u.mouse.delta.y;
         
         if (delta_x > 4 || delta_x < -4) boost_x = 2;
         if (delta_y > 4 || delta_y < -4) boost_y = 2;
@@ -137,7 +137,7 @@ bool input_translate_event(input_event_t *event) {
         s_input_state.mouse_y = new_y / 2;
         // print_mouse_position(s_input_state.mouse_x, s_input_state.mouse_y);
         // Update button state
-        uint8_t new_buttons = kernelEventData.mouse.delta.buttons;
+        uint8_t new_buttons = kernelEventData.u.mouse.delta.buttons;
         bool button_changed = (new_buttons != s_input_state.mouse_buttons);
         s_input_state.mouse_buttons = new_buttons;
         

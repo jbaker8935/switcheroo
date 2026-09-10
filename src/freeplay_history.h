@@ -7,11 +7,9 @@
 #define FREEPLAY_HISTORY_H
 
 #include <stdint.h>
-#if defined(AI_AGENT_HOST_TEST)
 #include <stdbool.h>
-#endif
 
-#include "../src/board.h"
+#include "board.h"
 
 #define FREEPLAY_HISTORY_CAPACITY 4u
 

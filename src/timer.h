@@ -43,7 +43,7 @@ enum {
 	TIMER_ALARM_COUNT = 4u
 };
 
-void setTimer0(void);
+void gameSetTimer0(void);
 void resetTimer0(void);
 uint32_t readTimer0(void);
 bool isTimerDone(void);

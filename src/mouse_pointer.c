@@ -1,10 +1,6 @@
 #include <stdint.h>
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
 #include "f256lib.h"
-#endif
-#include "../src/mouse_pointer.h"
+#include "mouse_pointer.h"
 
 
 uint8_t busy_mouse[16][16] = {
@@ -88,8 +84,8 @@ void poll_and_refresh_mouse_postion() {
 
         int8_t boost_x = 1;
         int8_t boost_y = 1;
-        int8_t delta_x = (int8_t)kernelEventData.mouse.delta.x;
-        int8_t delta_y = (int8_t)kernelEventData.mouse.delta.y;
+        int8_t delta_x = (int8_t)kernelEventData.u.mouse.delta.x;
+        int8_t delta_y = (int8_t)kernelEventData.u.mouse.delta.y;
         
         if (delta_x > 4 || delta_x < -4) boost_x = 2;
         if (delta_y > 4 || delta_y < -4) boost_y = 2;

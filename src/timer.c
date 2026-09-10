@@ -1,9 +1,5 @@
-#ifdef AI_AGENT_HOST_TEST
-#include "../tests/include/f256lib_host.h"
-#else
 #include "f256lib.h"
-#endif
-#include "../src/timer.h"
+#include "timer.h"
 
 static uint16_t alarm_ticks[TIMER_ALARM_COUNT] = {0};
 static uint8_t alarm_active_mask = 0u;
@@ -28,7 +24,7 @@ static void serviceTimer0(void) {
 		}
 	}
 
-	setTimer0();
+	gameSetTimer0();
 }
 
 
@@ -38,7 +34,7 @@ void timer_service(void) {
 }
 
 
-void setTimer0()
+void gameSetTimer0()
 {
 	resetTimer0();
 	POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR); //when the target is reached, bring it back to value 0x000000
@@ -86,7 +82,7 @@ void setAlarm(timer_alarm_id_t alarm, uint16_t ticks) {
 		alarm_active_mask &= (uint8_t)~alarm_bit(alarm);
 	}
 
-	setTimer0();
+	gameSetTimer0();
 }
 
 void clearAlarm(timer_alarm_id_t alarm) {

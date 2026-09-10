@@ -1,9 +1,23 @@
 #include "f256lib.h"
-#include "../src/achievements.h"
-#include "../src/sram_assets.h"
-#include "../src/video.h"
-#include "../src/text_display.h"
+#include "achievements.h"
+#include "sram_assets.h"
+#include "video.h"
+#include "text_display.h"
 #include <string.h>
+#include "overlay_config.h"
+
+static char *s_strtok_next = NULL;
+static char *local_strtok(char *str, const char *delim) {
+	char *start = str ? str : s_strtok_next;
+	if (!start) return NULL;
+	while (*start && strchr(delim, *start)) ++start;
+	if (!*start) { s_strtok_next = NULL; return NULL; }
+	char *end = start;
+	while (*end && !strchr(delim, *end)) ++end;
+	if (*end) { *end = '\0'; s_strtok_next = end + 1; }
+	else { s_strtok_next = NULL; }
+	return start;
+}
 
 const uint32_t s_video_achievement_vram_addrs[ACHIEVEMENT_COUNT] = {
 	SRAM_ACHIEVE_MEDAL,
@@ -81,7 +95,6 @@ const uint8_t progress_offset_y = 19;
 const uint8_t icon_offset_x_px = 20;
 const uint8_t icon_offset_y_px = 8;
 
-__attribute__((noinline, section(".block14")))
 static char* uint16_to_str(uint16_t value, char* buffer) {
     char temp[6]; // enough for 16-bit unsigned int (max 5 digits + '\0')
     uint8_t i = 0;
@@ -101,7 +114,6 @@ static char* uint16_to_str(uint16_t value, char* buffer) {
 
     return buffer;
 }
-__attribute__((noinline, section(".block14")))
 static char * progress_str(uint16_t progress, uint16_t total) {
 	static char progress_buffer[10]; // enough for "XXX / XXX"
 	
@@ -116,20 +128,8 @@ static char * progress_str(uint16_t progress, uint16_t total) {
 
 
 
-void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page);
-
-#pragma clang optimize off
-__attribute__((noinline))
-void display_achievements_screen(achievements_state_t *state, uint8_t page) {
-    volatile unsigned char ___mmu = (unsigned char)*(volatile unsigned char *)0x000d;
-    *(volatile unsigned char *)0x000d = 14;
-    FAR14_display_achievements_screen(state, page);
-    *(volatile unsigned char *)0x000d = ___mmu;
-}
-#pragma clang optimize on
-
-__attribute__((noinline, section(".block14")))
-void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page){
+#pragma code(ovl14_code)
+void FAR_display_achievements_screen(achievements_state_t *state, uint8_t page){
 
 	uint8_t first = page == 0u ? 0u : 8u;
 	uint8_t last = page == 0u ? 8u : ACHIEVEMENT_COUNT;
@@ -185,7 +185,7 @@ void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page
 		print_formatted_text(title_x-strlen(title)/2, title_y, title);
 		// parse description for '|' line breaks
 		strcpy(desc_buffer, description);
-		char* line = strtok(desc_buffer, "|");
+		char* line = local_strtok(desc_buffer, "|");
 		if(is_unlocked) {
 			textSetColor(5,1); // purple text for unlocked
 		} else {
@@ -196,7 +196,7 @@ void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page
 			const uint8_t even = len % 2 == 0 ? 1 : 0;
 			print_formatted_text(desc_x - len / 2 + even, desc_y, line);
 			desc_y += 1; // move down for next line
-			line = strtok(NULL, "|");
+			line = local_strtok(NULL, "|");
 		}
 
 		// Progress display for certain achievements
@@ -311,4 +311,11 @@ void FAR14_display_achievements_screen(achievements_state_t *state, uint8_t page
 	print_formatted_text(3, 58, page_instruction);
 
 }
+#pragma code(code)
 
+void display_achievements_screen(achievements_state_t *state, uint8_t page) {
+	volatile uint8_t saved = PEEK(OVERLAY_MMU_REG);
+	POKE(OVERLAY_MMU_REG, BLOCK_14);
+	FAR_display_achievements_screen(state, page);
+	POKE(OVERLAY_MMU_REG, saved);
+}

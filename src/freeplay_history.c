@@ -1,4 +1,4 @@
-#include "../src/freeplay_history.h"
+#include "freeplay_history.h"
 #include <string.h>
 
 static void freeplay_history_store_entry(freeplay_history_entry_t *entry,
