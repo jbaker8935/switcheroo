@@ -12,7 +12,7 @@
 
 extern void render_invalidate_cache(void);
 
-#define PROGRESS_CALLBACK_FREQUENCY 3
+#define PROGRESS_CALLBACK_FREQUENCY 1
 static uint8_t s_progress_callback_counter = 0;
 
 enum {

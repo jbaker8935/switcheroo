@@ -25,6 +25,7 @@ void ui_progress_register(ai_config_t *config, ui_progress_state_t *state) {
 }
 
 void ui_progress_on_search_progress(void *user_data) {
+    timer_service();
 
     poll_and_refresh_mouse_postion();
 

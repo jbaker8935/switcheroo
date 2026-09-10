@@ -1073,6 +1073,7 @@ int16_t FAR_ai_agent_evaluate_internal(const board_t *board,
                                                                                       ai_eval_breakdown_t *breakdown) {
     player_t opponent = (perspective == PLAYER_WHITE) ? PLAYER_BLACK : PLAYER_WHITE;
 
+    ai_agent_call_progress_callback();
 
     if (board_check_win_fast(board, perspective)) {
         return AI_SCORE_WIN - (int16_t)(board->move_count & 0x7FFF);
@@ -1358,6 +1359,8 @@ static uint8_t FAR_ai_evaluate_moves(
     bool ai_has_forced_win = false;
 
     for (uint8_t i = 0u; i < generated && count < AI_MAX_ORDERED_MOVES; ++i) {
+        ai_agent_call_progress_callback();
+
         uint8_t move_slot = ordered->indices[i];
         if (move_slot >= AI_MAX_ORDERED_MOVES) {
             continue;

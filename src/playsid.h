@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-void playback(uint32_t siddata, uint16_t sidframes);
+bool playback(uint32_t siddata, uint16_t sidframes);
 void schedule_playback(uint32_t siddata, uint16_t sidframes);
 void streaming_sid_service(void);
 bool is_sid_playing(void);

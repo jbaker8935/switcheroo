@@ -171,10 +171,6 @@ void FAR_main_loop(void) {
         }
 
         do {
-            if(isTimerDone() && is_sid_playing()) {
-                streaming_sid_service();
-            }
-
             bool splash_alarm_elapsed = checkAlarm(TIMER_ALARM_SPLASH);
             if (splash_alarm_elapsed && g_screen_state == SCREEN_SPLASH) {
                 enter_main_from_splash();
@@ -194,8 +190,9 @@ void FAR_main_loop(void) {
                 switch (g_screen_state) {
                     case SCREEN_SPLASH:
                         disable_mouse();
-                        if ((event.type == INPUT_EVENT_KEY_DOWN && event.data.key.code == KEY_SPACE) ||
-                            (event.type == INPUT_EVENT_MOUSE_DOWN && event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
+                        if (event.type == INPUT_EVENT_KEY_DOWN ||
+                            (event.type == INPUT_EVENT_MOUSE_DOWN &&
+                             event.data.mouse.button == MOUSE_BUTTON_LEFT)) {
                             enter_main_from_splash();
                         }
                         break;
@@ -291,44 +288,49 @@ int main(int argc, char *argv[]) {
     input_handler_init();
 
     gameSetTimer0();
+    setMonoSID();
 
     g_screen_state = SCREEN_SPLASH;
     video_show_splash();
-    playback(SRAM_SOUND_INTRO_SID, SOUND_INTRO_SID_FRAMES);
-    setAlarm(TIMER_ALARM_SPLASH, 2u * T0_TICK_FREQ);
+    gameSetTimer0();
+    bool intro_bypassed = playback(SRAM_SOUND_INTRO_SID, SOUND_INTRO_SID_FRAMES);
 
     game_state_init(&g_game_state);
     file_io_init();
-
-    video_splash_continue();
-
     init_sounds();
-    play_sound(SOUND_ID_START);
+
+    if (intro_bypassed) {
+        enter_main_from_splash();
+    } else {
+        setAlarm(TIMER_ALARM_SPLASH, 2u * T0_TICK_FREQ);
+        video_splash_continue();
+        play_sound(SOUND_ID_START);
+    }
 
     main_loop();
 
     video_show_exit();
 
-    setMonoSID();
     clearSIDRegisters();
-    playback(SRAM_SOUND_OUTRO_SID, SOUND_OUTRO_SID_FRAMES);
+    gameSetTimer0();
+    bool outro_bypassed = playback(SRAM_SOUND_OUTRO_SID, SOUND_OUTRO_SID_FRAMES);
 
-    setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(2u * T0_TICK_FREQ));
-    bool exit_wait = false;
-    while (!exit_wait && !checkAlarm(TIMER_ALARM_GENERAL0)) {
-        timer_service();
-        do {
+    if (!outro_bypassed) {
+        setAlarm(TIMER_ALARM_GENERAL0, (uint16_t)(2u * T0_TICK_FREQ));
+        bool exit_wait = false;
+        while (!exit_wait && !checkAlarm(TIMER_ALARM_GENERAL0)) {
+            timer_service();
             kernelNextEvent();
             input_event_t exit_event;
             if (input_translate_event(&exit_event) && exit_event.type == INPUT_EVENT_KEY_DOWN) {
                 exit_wait = true;
             }
-        } while (!exit_wait && kernelGetPending() > 0);
-        if (!exit_wait) {
-            platform_idle();
+            if (!exit_wait) {
+                platform_idle();
+            }
         }
+        clearAlarm(TIMER_ALARM_GENERAL0);
     }
-    clearAlarm(TIMER_ALARM_GENERAL0);
 
     file_io_save();
 

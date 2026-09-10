@@ -730,6 +730,7 @@ void FAR_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
             game_state_history_refresh_ui(state);
             print_swap_rule(state->prefs.swap_rule);
             state->phase = GAME_PHASE_PLAYING;
+            game_state_play_sound(state, SOUND_ID_RESET_BOARD);
         break;
         
         case MENU_ICON_NEXT:
@@ -761,6 +762,7 @@ void FAR_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                     game_state_update_menu_enables(state);
                     print_swap_rule(state->prefs.swap_rule);
                     state->phase = GAME_PHASE_PLAYING;
+                    game_state_play_sound(state, SOUND_ID_RESET_BOARD);
                 }
             } else {
                 // In freeplay mode, 
@@ -778,6 +780,7 @@ void FAR_game_state_activate_menu_icon(game_state_t *state, menu_icon_t icon)
                 clear_puzzle_info();
                 clear_puzzle_hint();
                 set_mouse_cursor(MOUSE_CURSOR_NORMAL);
+                game_state_play_sound(state, SOUND_ID_RESET_BOARD);
             }
             game_state_history_refresh_ui(state);
             break;
