@@ -41,9 +41,44 @@ uint8_t normal_mouse[16][16] = {
     {0x0,0x0,0x0,0x0,0x0,0x0,0x1,0x1,0x0,0x0,0x0,0x0,0x0,0x0,0x0,0x0}
 };
 
+/* Hardware mouse coords are 640x480 even in 320x240. Keep a local copy: oscar64
+ * can reorder MMU I/O page switches around PEEKW/POKEW, and VICKY mouse regs are
+ * safer as two 8-bit stores than a 16-bit pointer write. */
+static int16_t s_mouse_hw_x = 320;
+static int16_t s_mouse_hw_y = 240;
+
+#define MOUSE_HW_MAX_X  ((int16_t)(640 - 16))
+#define MOUSE_HW_MAX_Y  ((int16_t)(480 - 16))
+
+static void mouse_select_io_page0(void) {
+    POKE_MEMMAP(MMU_IO_CTRL, MMU_IO_PAGE_0);
+}
+
+static void mouse_write_position(void) {
+    mouse_select_io_page0();
+    POKE(PS2_M_X_LO, (uint8_t)(s_mouse_hw_x & 0xff));
+    POKE(PS2_M_X_HI, (uint8_t)((uint16_t)s_mouse_hw_x >> 8));
+    POKE(PS2_M_Y_LO, (uint8_t)(s_mouse_hw_y & 0xff));
+    POKE(PS2_M_Y_HI, (uint8_t)((uint16_t)s_mouse_hw_y >> 8));
+}
+
+static void clamp_mouse_hw(void) {
+    if (s_mouse_hw_x < 0) {
+        s_mouse_hw_x = 0;
+    } else if (s_mouse_hw_x > MOUSE_HW_MAX_X) {
+        s_mouse_hw_x = MOUSE_HW_MAX_X;
+    }
+    if (s_mouse_hw_y < 0) {
+        s_mouse_hw_y = 0;
+    } else if (s_mouse_hw_y > MOUSE_HW_MAX_Y) {
+        s_mouse_hw_y = MOUSE_HW_MAX_Y;
+    }
+}
+
 void load_mouse_cursor(uint8_t cursor[16][16]) {
     // The mouse cursor is stored in the memory-mapped I/O area starting at 0xCC00
-    
+    mouse_select_io_page0();
+
     for (uint8_t y = 0; y < 16; y++) {
         for (uint8_t x = 0; x < 16; x++) {
             POKE(0xCC00 + y * 16 + x, cursor[y][x]);
@@ -52,7 +87,6 @@ void load_mouse_cursor(uint8_t cursor[16][16]) {
 }
 
 void set_mouse_cursor(mouse_cursor_t cursor_type) {
-
     if (cursor_type == MOUSE_CURSOR_BUSY) {
         load_mouse_cursor(busy_mouse);
     } else {
@@ -61,52 +95,52 @@ void set_mouse_cursor(mouse_cursor_t cursor_type) {
 }
 
 void enable_mouse() {
+    mouse_select_io_page0();
     POKE(PS2_M_MODE_EN, 0x01);      // Enable mouse (bit0=enable, bit1=mode)
-
+    mouse_write_position();
 }
 
 void disable_mouse() {
+    mouse_select_io_page0();
     POKE(PS2_M_MODE_EN, 0x00);      // Disable mouse
-    POKEW(PS2_M_X_LO, 639);         // move it out of the way
-    POKEW(PS2_M_Y_LO, 479);
 }
 
 void center_mouse() {
-    POKEW(PS2_M_X_LO, 320);         // Center mouse at 320x240 (center of 640x480)
-    POKEW(PS2_M_Y_LO, 240);
+    s_mouse_hw_x = 320;
+    s_mouse_hw_y = 240;
+    mouse_write_position();
+}
+
+void mouse_apply_delta(int8_t dx, int8_t dy) {
+    int16_t scaled_x = (int16_t)dx;
+    int16_t scaled_y = (int16_t)dy;
+
+    if (dx > 4 || dx < -4) {
+        scaled_x = (int16_t)dx * 2;
+    }
+    if (dy > 4 || dy < -4) {
+        scaled_y = (int16_t)dy * 2;
+    }
+
+    s_mouse_hw_x += scaled_x;
+    s_mouse_hw_y += scaled_y;
+    clamp_mouse_hw();
+    mouse_write_position();
+}
+
+void mouse_get_hw_position(int16_t *x, int16_t *y) {
+    if (x) {
+        *x = s_mouse_hw_x;
+    }
+    if (y) {
+        *y = s_mouse_hw_y;
+    }
 }
 
 void poll_and_refresh_mouse_postion() {
-
-
     kernelNextEvent();
     if (kernelEventData.type == kernelEvent(mouse.DELTA)) {
-
-        int8_t boost_x = 1;
-        int8_t boost_y = 1;
-        int8_t delta_x = (int8_t)kernelEventData.u.mouse.delta.x;
-        int8_t delta_y = (int8_t)kernelEventData.u.mouse.delta.y;
-        
-        if (delta_x > 4 || delta_x < -4) boost_x = 2;
-        if (delta_y > 4 || delta_y < -4) boost_y = 2;
-        
-        // Read current position from hardware
-        int16_t hw_x = PEEKW(PS2_M_X_LO);
-        int16_t hw_y = PEEKW(PS2_M_Y_LO);
-        
-        // Apply delta with boost
-        int16_t new_x = hw_x + boost_x * delta_x;
-        int16_t new_y = hw_y + boost_y * delta_y;
-        
-        // Clamp to mouse hardware bounds (640x480 regardless of video mode)
-        // The mouse coordinate system is always 640x480 even in 320x240 mode
-        if (new_x < 0) new_x = 0;
-        if (new_x >= 640) new_x = 639;
-        if (new_y < 0) new_y = 0;
-        if (new_y >= 480) new_y = 479;
-        
-        // Write back to hardware registers
-        POKEW(PS2_M_X_LO, new_x);
-        POKEW(PS2_M_Y_LO, new_y);
+        mouse_apply_delta((int8_t)kernelEventData.u.mouse.delta.x,
+                          (int8_t)kernelEventData.u.mouse.delta.y);
     }
 }

@@ -9,12 +9,16 @@
 #include "mouse_pointer.h"
 #include <string.h>
 
-// PS/2 Mouse hardware registers
-#define PS2_M_MODE_EN 0xD6E0
-#define PS2_M_X_LO    0xD6E2
-#define PS2_M_Y_LO    0xD6E4
-
 static input_state_t s_input_state;
+
+static void input_store_screen_mouse_from_hw(void) {
+    int16_t hw_x;
+    int16_t hw_y;
+
+    mouse_get_hw_position(&hw_x, &hw_y);
+    s_input_state.mouse_x = (uint16_t)(hw_x / 2);
+    s_input_state.mouse_y = (uint16_t)(hw_y / 2);
+}
 
 // Keyboard scan code to key code mapping
 // F256 keyboard scan codes from PS/2 keyboard
@@ -82,24 +86,7 @@ static key_code_t key_from_kernel_event(void) {
 }
 
 void input_sync_mouse_from_hardware(void) {
-    int16_t hw_x = PEEKW(PS2_M_X_LO);
-    int16_t hw_y = PEEKW(PS2_M_Y_LO);
-
-    if (hw_x < 0) {
-        hw_x = 0;
-    }
-    if (hw_x >= 640) {
-        hw_x = 639;
-    }
-    if (hw_y < 0) {
-        hw_y = 0;
-    }
-    if (hw_y >= 480) {
-        hw_y = 479;
-    }
-
-    s_input_state.mouse_x = (uint16_t)(hw_x / 2);
-    s_input_state.mouse_y = (uint16_t)(hw_y / 2);
+    input_store_screen_mouse_from_hw();
 }
 
 void input_reset_mouse_button_edges(void) {
@@ -164,38 +151,9 @@ bool input_translate_event(input_event_t *event) {
     
     // Handle mouse events
     if (kernelEventData.type == kernelEvent(mouse.DELTA)) {
-        // Apply boost for fast movement like in the example
-        int8_t boost_x = 1;
-        int8_t boost_y = 1;
-        int8_t delta_x = (int8_t)kernelEventData.u.mouse.delta.x;
-        int8_t delta_y = (int8_t)kernelEventData.u.mouse.delta.y;
-        
-        if (delta_x > 4 || delta_x < -4) boost_x = 2;
-        if (delta_y > 4 || delta_y < -4) boost_y = 2;
-        
-        // Read current position from hardware
-        int16_t hw_x = PEEKW(PS2_M_X_LO);
-        int16_t hw_y = PEEKW(PS2_M_Y_LO);
-        
-        // Apply delta with boost
-        int16_t new_x = hw_x + boost_x * delta_x;
-        int16_t new_y = hw_y + boost_y * delta_y;
-        
-        // Clamp to mouse hardware bounds (640x480 regardless of video mode)
-        // The mouse coordinate system is always 640x480 even in 320x240 mode
-        if (new_x < 0) new_x = 0;
-        if (new_x >= 640) new_x = 639;
-        if (new_y < 0) new_y = 0;
-        if (new_y >= 480) new_y = 479;
-        
-        // Write back to hardware registers
-        POKEW(PS2_M_X_LO, new_x);
-        POKEW(PS2_M_Y_LO, new_y);
-        
-        // Update our internal state (scale to screen coordinates if needed)
-        // In 320x240 mode, mouse coords are 2x screen coords
-        s_input_state.mouse_x = new_x / 2;
-        s_input_state.mouse_y = new_y / 2;
+        mouse_apply_delta((int8_t)kernelEventData.u.mouse.delta.x,
+                          (int8_t)kernelEventData.u.mouse.delta.y);
+        input_store_screen_mouse_from_hw();
         // print_mouse_position(s_input_state.mouse_x, s_input_state.mouse_y);
         // Update button state
         uint8_t new_buttons = kernelEventData.u.mouse.delta.buttons;
