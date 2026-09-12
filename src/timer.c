@@ -1,5 +1,6 @@
 #include "f256lib.h"
 #include "timer.h"
+#include "playsid.h"
 
 static uint16_t alarm_ticks[TIMER_ALARM_COUNT] = {0};
 static uint8_t alarm_active_mask = 0u;
@@ -12,6 +13,9 @@ static void serviceTimer0(void) {
 	if (!isTimerDone()) {
 		return;
 	}
+
+	POKE(T0_PEND, 0x10);
+	streaming_sid_service();
 
 	if (alarm_active_mask != 0u) {
 		for (uint8_t index = 0u; index < TIMER_ALARM_COUNT; ++index) {
@@ -36,16 +40,19 @@ void timer_service(void) {
 
 void gameSetTimer0()
 {
-	resetTimer0();
-	POKE(T0_CMP_CTR, T0_CMP_CTR_RECLEAR); //when the target is reached, bring it back to value 0x000000
-	POKE(T0_CMP_L,T0_TICK_CMP_L);POKE(T0_CMP_M,T0_TICK_CMP_M);POKE(T0_CMP_H,T0_TICK_CMP_H); //inject the compare value as max value
+	POKE(T0_CTR, CTR_CLEAR);
+	POKE(T0_CMP_L, T0_TICK_CMP_L);
+	POKE(T0_CMP_M, T0_TICK_CMP_M);
+	POKE(T0_CMP_H, T0_TICK_CMP_H);
+	POKE(T0_CMP_CTR, 0);
+	POKE(T0_CTR, CTR_CLEAR);
+	POKE(T0_CTR, CTR_INTEN | CTR_UPDOWN | CTR_ENABLE);
+	POKE(T0_PEND, 0x10);
 }
 
 void resetTimer0()
 {
-	POKE(T0_CTR, CTR_CLEAR);
-	POKE(T0_CTR, CTR_UPDOWN | CTR_ENABLE);
-	POKE(T0_PEND,0x10); //clear pending timer0 
+	gameSetTimer0();
 }
 uint32_t readTimer0()
 {
@@ -81,8 +88,6 @@ void setAlarm(timer_alarm_id_t alarm, uint16_t ticks) {
 	} else {
 		alarm_active_mask &= (uint8_t)~alarm_bit(alarm);
 	}
-
-	gameSetTimer0();
 }
 
 void clearAlarm(timer_alarm_id_t alarm) {

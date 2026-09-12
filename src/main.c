@@ -309,6 +309,7 @@ int main(int argc, char *argv[]) {
 
     main_loop();
 
+    print_game_exit();
     video_show_exit();
 
     clearSIDRegisters();

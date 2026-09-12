@@ -565,7 +565,7 @@ OVERLAY_TRAMPOLINE void game_state_set_game_mode(game_state_t *state, bool puzzl
 void game_state_start_new_game(game_state_t *state)
 {
     clear_made_blunder();
-    game_state_set_game_mode(state, true); // Always start in PUZZLE mode
+    game_state_set_game_mode(state, false); // Start in Free Play mode
     state->phase = GAME_PHASE_PLAYING;
 }
 
