@@ -46,6 +46,9 @@ uint8_t normal_mouse[16][16] = {
  * safer as two 8-bit stores than a 16-bit pointer write. */
 static int16_t s_mouse_hw_x = 320;
 static int16_t s_mouse_hw_y = 240;
+static uint8_t s_speed_normal = MOUSE_SPEED_DEFAULT;
+static uint8_t s_speed_fast = MOUSE_SPEED_FAST;
+static uint8_t s_speed_fast_threshold = MOUSE_FAST_THRESHOLD;
 
 #define MOUSE_HW_MAX_X  ((int16_t)(640 - 16))
 #define MOUSE_HW_MAX_Y  ((int16_t)(480 - 16))
@@ -60,6 +63,29 @@ static void mouse_write_position(void) {
     POKE(PS2_M_X_HI, (uint8_t)((uint16_t)s_mouse_hw_x >> 8));
     POKE(PS2_M_Y_LO, (uint8_t)(s_mouse_hw_y & 0xff));
     POKE(PS2_M_Y_HI, (uint8_t)((uint16_t)s_mouse_hw_y >> 8));
+}
+
+static uint8_t mouse_clamp_mult(uint8_t mult) {
+    if (mult < MOUSE_SPEED_MULT_MIN) {
+        return MOUSE_SPEED_MULT_MIN;
+    }
+    if (mult > MOUSE_SPEED_MULT_MAX) {
+        return MOUSE_SPEED_MULT_MAX;
+    }
+    return mult;
+}
+
+static int16_t mouse_scale_delta(int8_t delta) {
+    uint8_t mult = s_speed_normal;
+    int8_t ax = delta;
+
+    if (ax < 0) {
+        ax = (int8_t)-ax;
+    }
+    if (ax > s_speed_fast_threshold) {
+        mult = s_speed_fast;
+    }
+    return (int16_t)delta * (int16_t)mult;
 }
 
 static void clamp_mouse_hw(void) {
@@ -112,20 +138,24 @@ void center_mouse() {
 }
 
 void mouse_apply_delta(int8_t dx, int8_t dy) {
-    int16_t scaled_x = (int16_t)dx;
-    int16_t scaled_y = (int16_t)dy;
-
-    if (dx > 4 || dx < -4) {
-        scaled_x = (int16_t)dx * 2;
-    }
-    if (dy > 4 || dy < -4) {
-        scaled_y = (int16_t)dy * 2;
-    }
-
-    s_mouse_hw_x += scaled_x;
-    s_mouse_hw_y += scaled_y;
+    s_mouse_hw_x += mouse_scale_delta(dx);
+    s_mouse_hw_y += mouse_scale_delta(dy);
     clamp_mouse_hw();
     mouse_write_position();
+}
+
+void mouse_set_speed(uint8_t normal_mult, uint8_t fast_mult) {
+    s_speed_normal = mouse_clamp_mult(normal_mult);
+    s_speed_fast = mouse_clamp_mult(fast_mult);
+}
+
+void mouse_get_speed(uint8_t *normal_mult, uint8_t *fast_mult) {
+    if (normal_mult) {
+        *normal_mult = s_speed_normal;
+    }
+    if (fast_mult) {
+        *fast_mult = s_speed_fast;
+    }
 }
 
 void mouse_get_hw_position(int16_t *x, int16_t *y) {
